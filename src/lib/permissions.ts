@@ -1342,7 +1342,9 @@ export function satisfiesPermission(
       list.includes("view_all_tickets") ||
       list.includes("atendimento_tickets.view") ||
       list.includes("view_atendimento_tickets") ||
-      list.includes("manage_tickets")
+      list.includes("manage_tickets") ||
+      list.includes("claim_tickets") ||
+      list.includes("claim_ticket")
     ) {
       return true;
     }
@@ -1374,24 +1376,29 @@ export function satisfiesPermission(
       return true;
     }
   }
-  // Equivalências diretas entre plural e singular
-  if (permission === "reply_tickets" && list.includes("reply_ticket")) return true;
-  if (permission === "reply_ticket" && list.includes("reply_tickets")) return true;
-  if (permission === "claim_tickets" && list.includes("claim_ticket")) return true;
-  if (permission === "claim_ticket" && list.includes("claim_tickets")) return true;
-  if (permission === "transfer_tickets" && list.includes("transfer_ticket")) return true;
-  if (permission === "transfer_ticket" && list.includes("transfer_tickets")) return true;
-  if (permission === "close_tickets" && list.includes("close_ticket")) return true;
-  if (permission === "close_ticket" && list.includes("close_tickets")) return true;
-  if (permission === "reopen_tickets" && list.includes("reopen_ticket")) return true;
-  if (permission === "reopen_ticket" && list.includes("reopen_tickets")) return true;
-  if (permission === "delete_tickets" && list.includes("delete_ticket")) return true;
-  if (permission === "delete_ticket" && list.includes("delete_tickets")) return true;
+  // Equivalências diretas entre plural e singular e atendimento
+  if (permission === "reply_tickets" && (list.includes("reply_ticket") || list.includes("reply_tickets") || list.includes("view_all_tickets") || list.includes("claim_tickets") || list.includes("claim_ticket") || list.includes("manage_tickets"))) return true;
+  if (permission === "reply_ticket" && (list.includes("reply_tickets") || list.includes("reply_ticket") || list.includes("view_all_tickets") || list.includes("claim_tickets") || list.includes("claim_ticket") || list.includes("manage_tickets"))) return true;
+  if (permission === "claim_tickets" && (list.includes("claim_ticket") || list.includes("claim_tickets") || list.includes("manage_tickets"))) return true;
+  if (permission === "claim_ticket" && (list.includes("claim_tickets") || list.includes("claim_ticket") || list.includes("manage_tickets"))) return true;
+  if (permission === "transfer_tickets" && (list.includes("transfer_ticket") || list.includes("transfer_tickets") || list.includes("manage_tickets"))) return true;
+  if (permission === "transfer_ticket" && (list.includes("transfer_tickets") || list.includes("transfer_ticket") || list.includes("manage_tickets"))) return true;
+  if (permission === "close_tickets" && (list.includes("close_ticket") || list.includes("close_tickets") || list.includes("manage_tickets"))) return true;
+  if (permission === "close_ticket" && (list.includes("close_tickets") || list.includes("close_ticket") || list.includes("manage_tickets"))) return true;
+  if (permission === "reopen_tickets" && (list.includes("reopen_ticket") || list.includes("reopen_tickets") || list.includes("manage_tickets"))) return true;
+  if (permission === "reopen_ticket" && (list.includes("reopen_tickets") || list.includes("reopen_ticket") || list.includes("manage_tickets"))) return true;
+  if (permission === "delete_tickets" && (list.includes("delete_ticket") || list.includes("delete_tickets") || list.includes("manage_tickets"))) return true;
+  if (permission === "delete_ticket" && (list.includes("delete_tickets") || list.includes("delete_ticket") || list.includes("manage_tickets"))) return true;
+  if (permission === "change_ticket_status" && (list.includes("change_ticket_status") || list.includes("claim_tickets") || list.includes("claim_ticket") || list.includes("manage_tickets"))) return true;
+  if (permission === "internal_notes_tickets" && (list.includes("internal_notes_tickets") || list.includes("manage_tickets"))) return true;
 
   // Qualquer permissão operacional de tickets implica acesso e visualização à página /tickets
   if (
     permission === "view_tickets" &&
-    (list.includes("view_all_tickets") ||
+    (list.includes("view_tickets") ||
+      list.includes("view_all_tickets") ||
+      list.includes("atendimento_tickets.view") ||
+      list.includes("view_atendimento_tickets") ||
       list.includes("manage_tickets") ||
       list.includes("create_ticket") ||
       list.includes("reply_tickets") ||
@@ -2046,7 +2053,9 @@ export function can(
         list.includes("view_all_tickets") ||
         list.includes("atendimento_tickets.view") ||
         list.includes("view_atendimento_tickets") ||
-        list.includes("manage_tickets")
+        list.includes("manage_tickets") ||
+        list.includes("claim_tickets") ||
+        list.includes("claim_ticket")
       ) {
         return true;
       }
@@ -2483,7 +2492,9 @@ export function can(
       rolePerms.includes("view_all_tickets") ||
       rolePerms.includes("atendimento_tickets.view") ||
       rolePerms.includes("view_atendimento_tickets") ||
-      rolePerms.includes("manage_tickets")
+      rolePerms.includes("manage_tickets") ||
+      rolePerms.includes("claim_tickets") ||
+      rolePerms.includes("claim_ticket")
     ) {
       return true;
     }

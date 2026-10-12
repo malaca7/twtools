@@ -707,6 +707,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         permsSet.add("view_tickets" as Permission);
         permsSet.add("view_all_tickets" as Permission);
         permsSet.add("atendimento_tickets.view" as Permission);
+        permsSet.add("claim_tickets" as Permission);
+        permsSet.add("claim_ticket" as Permission);
+        permsSet.add("transfer_tickets" as Permission);
+        permsSet.add("transfer_ticket" as Permission);
+        permsSet.add("reply_tickets" as Permission);
+        permsSet.add("reply_ticket" as Permission);
+        permsSet.add("change_ticket_status" as Permission);
+        permsSet.add("internal_notes_tickets" as Permission);
       }
       if (!isBlocked && rules.can_create_announcements) {
         permsSet.add("create_announcements" as Permission);
@@ -771,6 +779,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     for (const tag of memberTags) {
       if (tag.is_active === false) continue;
       if (!isCeoTagItem(tag)) continue;
+      const rules = tag.rules || {};
+      const isBlocked = Boolean(rules.is_blocked || rules.block_operations);
+      if (!isBlocked && rules.can_view_all_tickets) {
+        permsSet.add("view_tickets" as Permission);
+        permsSet.add("view_all_tickets" as Permission);
+        permsSet.add("atendimento_tickets.view" as Permission);
+        permsSet.add("claim_tickets" as Permission);
+        permsSet.add("claim_ticket" as Permission);
+        permsSet.add("transfer_tickets" as Permission);
+        permsSet.add("transfer_ticket" as Permission);
+        permsSet.add("reply_tickets" as Permission);
+        permsSet.add("reply_ticket" as Permission);
+        permsSet.add("change_ticket_status" as Permission);
+        permsSet.add("internal_notes_tickets" as Permission);
+      }
       if (Array.isArray(tag.permissions)) {
         for (const p of tag.permissions) {
           if (p && typeof p === "string") permsSet.add(p as Permission);
@@ -1137,14 +1160,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Avaliação base de membro: SOMENTE permissões marcadas no cargo + tags do sistema
-      const evaluateAsMember = () =>
-        can(level, permission, customRolePermissions) ||
-        satisfiesPermission(systemTagPermissions, permission);
+      // Avaliação base de membro: permissões marcadas no cargo + tags do sistema + Tag CEO se o membro for CEO/possuir a Tag CEO
+      const evaluateAsMember = () => {
+        if (can(level, permission, customRolePermissions)) return true;
+        if (satisfiesPermission(systemTagPermissions, permission)) return true;
+        if (isCeoUser && satisfiesPermission(ceoTagPermissions, permission)) return true;
+        return false;
+      };
 
       // REGRA 1: NO PAINEL MEMBRO
-      // Apenas o cargo do membro e suas tags de sistema definem o acesso.
-      // Tag Dev / Tag CEO não concedem permissões extras aqui (exceto bypass Dev ativado explicitamente).
+      // Cargo do membro, suas tags de sistema e tags executivas (CEO se possuir a tag) definem o acesso.
+      // Tag Dev não concede bypass aqui sem o bypass explicitamente ativado.
       if (activePanel === "member") {
         if (isDevUser && bypassActive) return true;
         return evaluateAsMember();
@@ -1221,13 +1247,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return false;
       }
 
-      // Avaliação estritamente baseada no cargo de membro + tags de sistema (sem Dev bypass)
+      // Avaliação baseada no cargo de membro + tags de sistema + Tag CEO se for CEO
       return (
         can(level, permission, customRolePermissions) ||
+        (isCeoUser && satisfiesPermission(ceoTagPermissions, permission)) ||
         satisfiesPermission(systemTagPermissions, permission)
       );
     },
-    [level, memberTags, activeSuspension, customRolePermissions, systemTagPermissions]
+    [level, memberTags, activeSuspension, customRolePermissions, systemTagPermissions, isCeoUser, ceoTagPermissions]
   );
 
   const value = useMemo<AuthContextValue>(

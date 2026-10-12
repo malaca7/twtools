@@ -289,7 +289,11 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       hasPermission("view_all_tickets", mode) ||
       hasPermission("manage_tickets", mode) ||
       hasPermission("create_ticket", mode) ||
-      hasPermission("reply_tickets", mode);
+      hasPermission("reply_tickets", mode) ||
+      hasPermission("claim_tickets", mode) ||
+      hasPermission("view_tickets") ||
+      hasPermission("view_all_tickets") ||
+      hasPermission("manage_tickets");
     if (!canAccessTickets && mode !== "dev") {
       return <NoAccess message="Você não tem permissão para acessar a área de Tickets / Ouvidoria." />;
     }
@@ -300,9 +304,15 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
   ) {
     const canAccessAtendimento =
       hasPermission("atendimento_tickets.view" as Permission, mode) ||
+      hasPermission("view_atendimento_tickets" as Permission, mode) ||
       hasPermission("view_all_tickets", mode) ||
       hasPermission("manage_tickets", mode) ||
-      hasPermission("claim_tickets", mode);
+      hasPermission("claim_tickets", mode) ||
+      hasPermission("atendimento_tickets.view" as Permission) ||
+      hasPermission("view_atendimento_tickets" as Permission) ||
+      hasPermission("view_all_tickets") ||
+      hasPermission("manage_tickets") ||
+      hasPermission("claim_tickets");
     if (!canAccessAtendimento && mode !== "dev") {
       return (
         <NoAccess message="Você não tem permissão para acessar a central de Atendimento de Tickets." />

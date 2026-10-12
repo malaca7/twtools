@@ -941,6 +941,12 @@ function DynamicSidebarNavigation() {
       }
       if (item.id === "atendimento-tickets" || item.url === "/atendimento-tickets") {
         const canAccessAtendimento =
+          hasPermission("atendimento_tickets.view" as Permission) ||
+          hasPermission("view_atendimento_tickets" as Permission) ||
+          hasPermission("view_all_tickets") ||
+          hasPermission("manage_tickets") ||
+          hasPermission("claim_tickets") ||
+          hasPermission("claim_ticket" as Permission) ||
           hasPermission("atendimento_tickets.view" as Permission, "member") ||
           hasPermission("view_all_tickets", "member") ||
           hasPermission("manage_tickets", "member") ||
@@ -949,7 +955,7 @@ function DynamicSidebarNavigation() {
         return true;
       }
       const requiredPerm = item.perm || resolveRequiredPermission(item.id, item.url);
-      if (requiredPerm && !hasPermission(requiredPerm, "member")) {
+      if (requiredPerm && !hasPermission(requiredPerm, "member") && !hasPermission(requiredPerm)) {
         return false;
       }
       return true;

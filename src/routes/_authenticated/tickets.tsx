@@ -68,8 +68,22 @@ function TicketsWrapper() {
 }
 
 export function TicketsPage() {
-  const { hasPermission } = useAuth();
-  const canView = hasPermission("view_tickets");
+  const { hasPermission, loading } = useAuth();
+  const canView =
+    hasPermission("view_tickets") ||
+    hasPermission("view_all_tickets") ||
+    hasPermission("manage_tickets") ||
+    hasPermission("create_ticket") ||
+    hasPermission("reply_tickets") ||
+    hasPermission("claim_tickets");
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[350px]">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
+      </div>
+    );
+  }
 
   if (!canView) {
     return <NoAccess message="Você não tem permissão para acessar a área de Tickets / Ouvidoria." />;
@@ -88,6 +102,7 @@ function TicketsContent() {
 
   const { data: tickets = [], isLoading, isFetching } = useTickets();
 
+  const [hasManuallySelectedTab, setHasManuallySelectedTab] = useState(false);
   // State sincronizado com a URL (?tab=my | all e ?ticket=id)
   const [activeTab, setActiveTab] = useUrlTab<"my" | "all">(canSeeAll ? "all" : "my", {
     paramName: "tab",
@@ -99,11 +114,20 @@ function TicketsContent() {
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
 
   // Se o usuário não tem permissão para ver todos os chamados, força a aba "my"
+  // Caso tenha permissão e ainda não tenha selecionado manualmente, abre "all" se não houver ?tab=my na URL
   useEffect(() => {
     if (!canSeeAll && activeTab !== "my") {
       setActiveTab("my");
+    } else if (
+      canSeeAll &&
+      !hasManuallySelectedTab &&
+      typeof window !== "undefined" &&
+      !window.location.search.includes("tab=my") &&
+      activeTab !== "all"
+    ) {
+      setActiveTab("all");
     }
-  }, [canSeeAll, activeTab, setActiveTab]);
+  }, [canSeeAll, activeTab, setActiveTab, hasManuallySelectedTab]);
 
   // Limpar seleção caso o ticket selecionado seja excluído em tempo real
   useEffect(() => {
@@ -124,10 +148,18 @@ function TicketsContent() {
     const list = canSeeAll
       ? tickets
       : tickets.filter(
-          (t) => t.user_id === user?.id || (t.members || []).some((m) => m.user_id === user?.id)
+          (t) =>
+            t.user_id === user?.id ||
+            (t.members || []).some((m) => m.user_id === user?.id) ||
+            t.assigned_to_id === user?.id
         );
     const total = list.length;
-    const myCount = tickets.filter((t) => t.user_id === user?.id).length;
+    const myCount = tickets.filter(
+      (t) =>
+        t.user_id === user?.id ||
+        (t.members || []).some((m) => m.user_id === user?.id) ||
+        t.assigned_to_id === user?.id
+    ).length;
     const openCount = list.filter((t) => t.status === "aberto").length;
     const inProgressCount = list.filter(
       (t) => t.status === "em_atendimento" || t.status === "aguardando"
@@ -142,13 +174,23 @@ function TicketsContent() {
   const filteredTickets = useMemo(() => {
     return tickets.filter((t) => {
       // Se não tem permissão para ver todos, restringe estritamente aos próprios ou onde participa
-      if (!canSeeAll && t.user_id !== user?.id && !(t.members || []).some((m) => m.user_id === user?.id)) {
+      if (
+        !canSeeAll &&
+        t.user_id !== user?.id &&
+        !(t.members || []).some((m) => m.user_id === user?.id) &&
+        t.assigned_to_id !== user?.id
+      ) {
         return false;
       }
 
       // Filtro por Aba
-      if (activeTab === "my" && t.user_id !== user?.id) {
-        return false;
+      if (activeTab === "my") {
+        const isAuthor = t.user_id === user?.id;
+        const isParticipant = (t.members || []).some((m) => m.user_id === user?.id);
+        const isAssigned = t.assigned_to_id === user?.id;
+        if (!isAuthor && !isParticipant && !isAssigned) {
+          return false;
+        }
       }
 
       // Filtro por termo de busca

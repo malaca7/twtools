@@ -42,6 +42,7 @@ import { PageHeader, NoAccess, EmptyState } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
 import { useUrlTab, useSyncedUrlParam } from "@/hooks/useUrlTab";
 import { useTickets, useClaimTicket } from "@/hooks/useTickets";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { NewTicketDialog } from "@/components/tickets/NewTicketDialog";
 import { TicketDetailView } from "@/components/tickets/TicketDetailView";
 import {
@@ -75,12 +76,22 @@ function AtendimentoTicketsWrapper() {
 }
 
 export function AtendimentoTicketsPage() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, loading } = useAuth();
   const canAccess =
     hasPermission("atendimento_tickets.view" as Permission) ||
+    hasPermission("view_atendimento_tickets" as Permission) ||
     hasPermission("view_all_tickets") ||
     hasPermission("manage_tickets") ||
-    hasPermission("claim_tickets");
+    hasPermission("claim_tickets") ||
+    hasPermission("claim_ticket" as Permission);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[350px]">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-500 border-t-transparent" />
+      </div>
+    );
+  }
 
   if (!canAccess) {
     return (
@@ -597,11 +608,15 @@ export function AtendimentoTicketsContent() {
 
       {/* MODAL DETALHADO DO TICKET (TICKET DETAIL VIEW) */}
       {selectedTicket && (
-        <TicketDetailView
-          ticket={selectedTicket}
-          onClose={() => setSelectedTicketId(null)}
-          canManage={canManage}
-        />
+        <Dialog open={Boolean(selectedTicket)} onOpenChange={(open) => !open && setSelectedTicketId(null)}>
+          <DialogContent className="max-w-4xl h-[90vh] sm:h-[86vh] p-0 overflow-hidden border-border bg-card shadow-2xl flex flex-col">
+            <TicketDetailView
+              ticket={selectedTicket}
+              onClose={() => setSelectedTicketId(null)}
+              canManage={canManage}
+            />
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* DIÁLOGO PARA CRIAR NOVO TICKET */}

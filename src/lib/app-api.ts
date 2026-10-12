@@ -34,7 +34,8 @@ import type {
   ActionScaleMember,
   ActionScaleHistory,
 } from "./app-types";
-import { LEVEL_LABEL, can, type AppLevel, type Permission } from "./permissions";
+import { LEVEL_LABEL, can, satisfiesPermission, type AppLevel, type Permission } from "./permissions";
+import { DEFAULT_CEO_PERMISSIONS } from "@/services/devService";
 import type {
   Ticket,
   TicketCategory,
@@ -3542,40 +3543,285 @@ interface EffectiveTicketAuth {
 }
 
 async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
+  // 1. Simulação / Dev Impersonate em ambiente de navegador
+  if (typeof window !== "undefined") {
+    const simRaw = sessionStorage.getItem("tw_simulated_user");
+    if (simRaw) {
+      try {
+        const sim = JSON.parse(simRaw);
+        if (sim && sim.id) {
+          const simLevel = (sim.nivel as AppLevel) || "membro";
+          const isDev = Boolean(sim.is_developer);
+          const isCeo = Boolean(sim.is_ceo);
+          const isSuper = isDev || simLevel === "desenvolvedor" || simLevel === "01";
+          const customMap = await getRolePermissions();
+          const ceoPerms = customMap?.["ceo"] || (DEFAULT_CEO_PERMISSIONS as Permission[]);
+
+          const checkSimPerm = (perm: Permission) => {
+            if (isSuper) return true;
+            if (can(simLevel, perm, customMap)) return true;
+            if (isCeo && satisfiesPermission(ceoPerms, perm)) return true;
+            return false;
+          };
+
+          const canManage = isSuper || checkSimPerm("manage_tickets");
+          const canViewAll = isSuper || canManage || checkSimPerm("view_all_tickets") || checkSimPerm("atendimento_tickets.view" as Permission);
+          const canCreate = isSuper || canManage || checkSimPerm("create_ticket");
+          const canReply = isSuper || canManage || canViewAll || checkSimPerm("reply_tickets") || checkSimPerm("reply_ticket" as Permission);
+          const canClaim = isSuper || canManage || checkSimPerm("claim_tickets") || checkSimPerm("claim_ticket" as Permission);
+          const canTransfer = isSuper || canManage || checkSimPerm("transfer_tickets") || checkSimPerm("transfer_ticket" as Permission);
+          const canChangeStatus = isSuper || canManage || checkSimPerm("change_ticket_status");
+          const canClose = isSuper || canManage || checkSimPerm("close_tickets") || checkSimPerm("close_ticket" as Permission);
+          const canReopen = isSuper || canManage || checkSimPerm("reopen_tickets") || checkSimPerm("reopen_ticket" as Permission);
+          const canDelete = isSuper || canManage || checkSimPerm("delete_tickets") || checkSimPerm("delete_ticket" as Permission);
+          const canManageMembers = isSuper || canManage || checkSimPerm("manage_ticket_members");
+          const canInternalNotes = isSuper || canManage || checkSimPerm("internal_notes_tickets") || isCeo;
+          const canView = isSuper || canManage || canViewAll || canCreate || canReply || checkSimPerm("view_tickets");
+
+          return {
+            user: { id: sim.user_id || sim.id, email: sim.discord_email || null },
+            role: simLevel,
+            nome: sim.nome || "Membro",
+            nickname: sim.nickname || null,
+            avatar: sim.avatar_url || sim.discord_avatar_url || null,
+            canView,
+            canCreate,
+            canViewAll,
+            canManage,
+            canReply,
+            canClaim,
+            canTransfer,
+            canChangeStatus,
+            canClose,
+            canReopen,
+            canDelete,
+            canManageMembers,
+            canInternalNotes,
+            isSuperUser: isSuper,
+          };
+        }
+      } catch {}
+    }
+
+    const devRaw = localStorage.getItem("tw_dev_impersonate");
+    if (devRaw) {
+      try {
+        const dev = JSON.parse(devRaw);
+        if (dev && dev.user_id) {
+          const devLevel = (dev.nivel as AppLevel) || "membro";
+          const isDev = Boolean(dev.is_developer);
+          const isCeo = Boolean(dev.is_ceo);
+          const isSuper = isDev || devLevel === "desenvolvedor" || devLevel === "01";
+          const customMap = await getRolePermissions();
+          const ceoPerms = customMap?.["ceo"] || (DEFAULT_CEO_PERMISSIONS as Permission[]);
+
+          const checkDevPerm = (perm: Permission) => {
+            if (isSuper) return true;
+            if (can(devLevel, perm, customMap)) return true;
+            if (isCeo && satisfiesPermission(ceoPerms, perm)) return true;
+            return false;
+          };
+
+          const canManage = isSuper || checkDevPerm("manage_tickets");
+          const canViewAll = isSuper || canManage || checkDevPerm("view_all_tickets") || checkDevPerm("atendimento_tickets.view" as Permission);
+          const canCreate = isSuper || canManage || checkDevPerm("create_ticket");
+          const canReply = isSuper || canManage || canViewAll || checkDevPerm("reply_tickets") || checkDevPerm("reply_ticket" as Permission);
+          const canClaim = isSuper || canManage || checkDevPerm("claim_tickets") || checkDevPerm("claim_ticket" as Permission);
+          const canTransfer = isSuper || canManage || checkDevPerm("transfer_tickets") || checkDevPerm("transfer_ticket" as Permission);
+          const canChangeStatus = isSuper || canManage || checkDevPerm("change_ticket_status");
+          const canClose = isSuper || canManage || checkDevPerm("close_tickets") || checkDevPerm("close_ticket" as Permission);
+          const canReopen = isSuper || canManage || checkDevPerm("reopen_tickets") || checkDevPerm("reopen_ticket" as Permission);
+          const canDelete = isSuper || canManage || checkDevPerm("delete_tickets") || checkDevPerm("delete_ticket" as Permission);
+          const canManageMembers = isSuper || canManage || checkDevPerm("manage_ticket_members");
+          const canInternalNotes = isSuper || canManage || checkDevPerm("internal_notes_tickets") || isCeo;
+          const canView = isSuper || canManage || canViewAll || canCreate || canReply || checkDevPerm("view_tickets");
+
+          return {
+            user: { id: dev.user_id, email: dev.discord_email || null },
+            role: devLevel,
+            nome: dev.nome || "Membro",
+            nickname: dev.nickname || null,
+            avatar: dev.avatar_url || dev.discord_avatar_url || null,
+            canView,
+            canCreate,
+            canViewAll,
+            canManage,
+            canReply,
+            canClaim,
+            canTransfer,
+            canChangeStatus,
+            canClose,
+            canReopen,
+            canDelete,
+            canManageMembers,
+            canInternalNotes,
+            isSuperUser: isSuper,
+          };
+        }
+      } catch {}
+    }
+  }
+
+  // 2. Sessão real do Supabase
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.user) return null;
 
-  const { data: profileRow } = await (supabase.from("profiles" as any))
-    .select("nome, nickname, avatar_url, discord_avatar_url, is_developer")
+  const meta = (session.user.user_metadata || {}) as Record<string, any>;
+  const discordId = (meta["provider_id"] as string) || (meta["sub"] as string) || "";
+  const discordEmail = session.user.email || (meta["email"] as string) || "";
+
+  // 3. Carregar perfil (busca por user_id, depois fallback por discord_id / email)
+  let profileRow: any = null;
+  const { data: pByUid } = await (supabase.from("profiles" as any))
+    .select("id, user_id, nome, nickname, avatar_url, discord_avatar_url, discord_id, is_developer, is_ceo, custom_theme")
     .eq("user_id", session.user.id)
     .maybeSingle();
 
+  if (pByUid) {
+    profileRow = pByUid;
+  } else if (discordId || discordEmail) {
+    const filters = [];
+    if (discordId) filters.push(`discord_id.eq.${discordId}`);
+    if (discordEmail) filters.push(`discord_email.eq.${discordEmail}`);
+    const { data: pFallback } = await (supabase.from("profiles" as any))
+      .select("id, user_id, nome, nickname, avatar_url, discord_avatar_url, discord_id, is_developer, is_ceo, custom_theme")
+      .or(filters.join(","))
+      .maybeSingle();
+    if (pFallback) profileRow = pFallback;
+  }
+
+  const p = profileRow as any;
+  const roleUserIds = [session.user.id];
+  if (p?.user_id && !roleUserIds.includes(p.user_id)) {
+    roleUserIds.push(p.user_id);
+  }
+
+  // 4. Carregar cargo na tabela user_roles
   const { data: roleRow } = await supabase
     .from("user_roles")
     .select("nivel")
-    .eq("user_id", session.user.id)
+    .in("user_id", roleUserIds)
+    .limit(1)
     .maybeSingle();
 
-  const p = profileRow as any;
-  const isDevUser = Boolean(p?.is_developer);
+  const isDevUser = Boolean(
+    p?.is_developer || discordId === "722320491767136346" || roleRow?.nivel === "desenvolvedor"
+  );
+  let isCeoUser = Boolean(
+    p?.is_ceo || p?.custom_theme?.is_ceo || discordId === "722320491767136346"
+  );
   const userLevel = (roleRow?.nivel as AppLevel) || (isDevUser ? "desenvolvedor" : "membro");
   const isSuperUser = isDevUser || userLevel === "desenvolvedor" || userLevel === "01";
 
-  const customRoleMap = await getRolePermissions();
+  // 5. Carregar tags ativas do membro (incluindo permissões e regras das tags)
+  let userTags: any[] = [];
+  try {
+    const candidateIds = [
+      session.user.id,
+      p?.id,
+      p?.user_id,
+      discordId,
+    ].filter(Boolean);
 
-  const canManage = isSuperUser || can(userLevel, "manage_tickets", customRoleMap);
-  const canViewAll = isSuperUser || can(userLevel, "view_all_tickets", customRoleMap) || can(userLevel, "atendimento_tickets.view" as Permission, customRoleMap) || canManage;
-  const canCreate = isSuperUser || can(userLevel, "create_ticket", customRoleMap) || canManage;
-  const canReply = isSuperUser || can(userLevel, "reply_tickets", customRoleMap) || can(userLevel, "reply_ticket", customRoleMap) || canManage || canViewAll;
-  const canClaim = isSuperUser || can(userLevel, "claim_tickets", customRoleMap) || can(userLevel, "claim_ticket", customRoleMap) || canManage;
-  const canTransfer = isSuperUser || can(userLevel, "transfer_tickets", customRoleMap) || can(userLevel, "transfer_ticket", customRoleMap) || canManage;
-  const canChangeStatus = isSuperUser || can(userLevel, "change_ticket_status", customRoleMap) || canManage;
-  const canClose = isSuperUser || can(userLevel, "close_tickets", customRoleMap) || can(userLevel, "close_ticket", customRoleMap) || canManage;
-  const canReopen = isSuperUser || can(userLevel, "reopen_tickets", customRoleMap) || can(userLevel, "reopen_ticket", customRoleMap) || canManage;
-  const canDelete = isSuperUser || can(userLevel, "delete_tickets", customRoleMap) || can(userLevel, "delete_ticket", customRoleMap) || canManage;
-  const canManageMembers = isSuperUser || can(userLevel, "manage_ticket_members", customRoleMap) || canManage;
-  const canInternalNotes = isSuperUser || can(userLevel, "internal_notes_tickets", customRoleMap) || canManage;
-  const canView = isSuperUser || can(userLevel, "view_tickets", customRoleMap) || canViewAll || canManage || canCreate || canReply;
+    const { data: assignData } = await (supabase.from("member_tag_assignments" as any))
+      .select("tag_id, member_tags (*)")
+      .in("member_id", candidateIds);
+
+    if (Array.isArray(assignData)) {
+      userTags = assignData.map((d: any) => d.member_tags).filter(Boolean);
+      if (userTags.length === 0 && assignData.length > 0) {
+        const tagIds = Array.from(new Set(assignData.map((d: any) => d.tag_id).filter(Boolean)));
+        if (tagIds.length > 0) {
+          const { data: directTags } = await (supabase.from("member_tags" as any))
+            .select("*")
+            .in("id", tagIds);
+          if (Array.isArray(directTags)) userTags = directTags;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Aviso ao carregar tags do membro em getEffectiveTicketAuth:", err);
+  }
+
+  // Verificar se possui Tag CEO
+  const hasCeoTag = userTags.some((t) => {
+    if (t.is_active === false) return false;
+    const cleanId = (t.id || "").toLowerCase().trim();
+    return cleanId === "ceo" || t.rules?.can_access_ceo === true || t.rules?.is_ceo === true;
+  });
+  if (hasCeoTag) {
+    isCeoUser = true;
+  }
+
+  // Verificar se possui qualquer tag ativa com a regra explícita de visualizar todos os chamados
+  const hasTagWithViewAll = userTags.some((t) => {
+    if (t.is_active === false) return false;
+    if (t.rules?.is_blocked || t.rules?.block_operations) return false;
+    return Boolean(t.rules?.can_view_all_tickets);
+  });
+
+  // Coletar todas as permissões granulares das tags ativas do membro
+  const tagPermsList: Permission[] = [];
+  userTags.forEach((t) => {
+    if (t.is_active === false) return;
+    if (Array.isArray(t.permissions)) {
+      t.permissions.forEach((perm: string) => {
+        if (perm) tagPermsList.push(perm as Permission);
+      });
+    }
+  });
+
+  // 6. Matriz de permissões dos cargos do banco de dados
+  const customRoleMap = await getRolePermissions();
+  const rawCeoPerms = customRoleMap?.["ceo"];
+  const ceoPerms = Array.isArray(rawCeoPerms) && rawCeoPerms.length > 0
+    ? rawCeoPerms
+    : (DEFAULT_CEO_PERMISSIONS as Permission[]);
+
+  // 7. Avaliador granular unificado de permissão
+  const checkPerm = (perm: Permission): boolean => {
+    if (isSuperUser) return true;
+    if (can(userLevel, perm, customRoleMap)) return true;
+    if (isCeoUser && satisfiesPermission(ceoPerms, perm)) return true;
+    if (satisfiesPermission(tagPermsList, perm)) return true;
+    return false;
+  };
+
+  const canManage = isSuperUser || checkPerm("manage_tickets");
+  const canViewAll =
+    isSuperUser ||
+    canManage ||
+    checkPerm("view_all_tickets") ||
+    checkPerm("atendimento_tickets.view" as Permission) ||
+    checkPerm("view_atendimento_tickets" as Permission) ||
+    hasTagWithViewAll;
+  const canCreate = isSuperUser || canManage || checkPerm("create_ticket");
+  const canReply =
+    isSuperUser ||
+    canManage ||
+    canViewAll ||
+    checkPerm("reply_tickets") ||
+    checkPerm("reply_ticket" as Permission) ||
+    hasTagWithViewAll;
+  const canClaim =
+    isSuperUser ||
+    canManage ||
+    checkPerm("claim_tickets") ||
+    checkPerm("claim_ticket" as Permission) ||
+    hasTagWithViewAll;
+  const canTransfer =
+    isSuperUser ||
+    canManage ||
+    checkPerm("transfer_tickets") ||
+    checkPerm("transfer_ticket" as Permission) ||
+    hasTagWithViewAll;
+  const canChangeStatus = isSuperUser || canManage || checkPerm("change_ticket_status") || hasTagWithViewAll;
+  const canClose = isSuperUser || canManage || checkPerm("close_tickets") || checkPerm("close_ticket" as Permission);
+  const canReopen = isSuperUser || canManage || checkPerm("reopen_tickets") || checkPerm("reopen_ticket" as Permission);
+  const canDelete = isSuperUser || canManage || checkPerm("delete_tickets") || checkPerm("delete_ticket" as Permission);
+  const canManageMembers = isSuperUser || canManage || checkPerm("manage_ticket_members");
+  const canInternalNotes = isSuperUser || canManage || checkPerm("internal_notes_tickets") || (isCeoUser && !p?.is_blocked);
+  const canView = isSuperUser || canManage || canViewAll || canCreate || canReply || checkPerm("view_tickets");
 
   const nome = p?.nome || "Membro";
   const nickname = p?.nickname || null;
