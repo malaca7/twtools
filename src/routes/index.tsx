@@ -172,14 +172,13 @@ function AuthPage() {
 
       const redirectTarget = `${cleanOrigin}/auth/callback`;
 
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "discord",
-        options: {
-          redirectTo: redirectTarget,
-        },
-      });
+      // Redirecionamento oficial direto do Discord OAuth2 (sem depender do Supabase offline)
+      const clientId = "1536184283197079622";
+      const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(
+        redirectTarget
+      )}&response_type=token&scope=identify%20email`;
 
-      if (error) throw error;
+      window.location.href = discordAuthUrl;
     } catch (error) {
       toast.error(errorMessage(error, "Erro ao iniciar o login com o Discord."));
       setLoading(false);

@@ -1,3 +1,4 @@
+import { rtdb } from "@/integrations/firebase/rtdb";
 import { useEffect, useCallback, useMemo, useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { broadcastPermissionsRealtimeUpdate } from "@/lib/permissionsRealtimeSync";
@@ -284,6 +285,16 @@ export function getMenuConfig(): MenuConfig {
  */
 export async function fetchRemoteMenuConfig(): Promise<MenuConfig> {
   try {
+    const rtdbData = await rtdb.get<any>("role_permissions/system_menu_config");
+    if (rtdbData && rtdbData.permissions && typeof rtdbData.permissions === "object") {
+      const cfg = syncMenuConfig(rtdbData.permissions as any);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+      emitChange();
+      return cfg;
+    }
+  } catch {}
+
+  try {
     const { data } = await supabase
       .from("role_permissions")
       .select("permissions")
@@ -310,6 +321,17 @@ export async function saveMenuConfig(config: MenuConfig) {
   const synced = syncMenuConfig(config);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(synced));
   emitChange();
+
+  try {
+    await rtdb.set("role_permissions/system_menu_config", {
+      level: "system_menu_config",
+      nivel: "system_menu_config",
+      permissions: synced as any,
+      updated_at: new Date().toISOString(),
+    });
+  } catch (fbErr) {
+    console.warn("Erro ao salvar system_menu_config no Firebase RTDB:", fbErr);
+  }
 
   try {
     const { error: rpcErr } = await supabase.rpc("save_role_permissions", {

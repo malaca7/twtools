@@ -1,3 +1,4 @@
+import { rtdb } from "@/integrations/firebase/rtdb";
 import { useEffect, useCallback, useMemo, useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -252,6 +253,16 @@ export function getPlatformSettings(): PlatformSettings {
  */
 export async function fetchRemotePlatformSettings(): Promise<PlatformSettings> {
   try {
+    const rtdbData = await rtdb.get<any>("role_permissions/system_platform_settings");
+    if (rtdbData && rtdbData.permissions && typeof rtdbData.permissions === "object") {
+      const merged = { ...DEFAULT_PLATFORM_SETTINGS, ...(rtdbData.permissions as any) };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      emitPlatformSettingsChange();
+      return merged;
+    }
+  } catch {}
+
+  try {
     const { data } = await supabase
       .from("role_permissions")
       .select("permissions")
@@ -296,6 +307,18 @@ export async function savePlatformSettings(settings: PlatformSettings) {
       payload: { settings },
     });
   } catch {}
+
+  // 2.5 Persistência imediata no Firebase RTDB
+  try {
+    await rtdb.set("role_permissions/system_platform_settings", {
+      level: "system_platform_settings",
+      nivel: "system_platform_settings",
+      permissions: settings as any,
+      updated_at: new Date().toISOString(),
+    });
+  } catch (fbErr) {
+    console.warn("Erro ao salvar system_platform_settings no Firebase RTDB:", fbErr);
+  }
 
   // 3. Persistência em banco de dados Supabase
   try {

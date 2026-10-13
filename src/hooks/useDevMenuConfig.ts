@@ -1,3 +1,4 @@
+import { rtdb } from "@/integrations/firebase/rtdb";
 import { useEffect, useCallback, useMemo, useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { broadcastPermissionsRealtimeUpdate } from "@/lib/permissionsRealtimeSync";
@@ -171,6 +172,19 @@ export function getDevMenuConfig(): DevMenuConfig | null {
  */
 export async function fetchRemoteDevMenuConfig(): Promise<DevMenuConfig | null> {
   try {
+    const rtdbData = await rtdb.get<any>(`role_permissions/${PERMISSION_LEVEL}`);
+    if (rtdbData && rtdbData.permissions && typeof rtdbData.permissions === "object") {
+      const cfg = rtdbData.permissions as any;
+      if (Array.isArray(cfg.items)) {
+        const normalized = normalizeDevMenuConfig(cfg as DevMenuConfig);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+        emitDevChange();
+        return normalized;
+      }
+    }
+  } catch {}
+
+  try {
     const { data } = await supabase
       .from("role_permissions")
       .select("permissions")
@@ -198,6 +212,17 @@ export async function fetchRemoteDevMenuConfig(): Promise<DevMenuConfig | null> 
 export async function saveDevMenuConfig(config: DevMenuConfig) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
   emitDevChange();
+
+  try {
+    await rtdb.set(`role_permissions/${PERMISSION_LEVEL}`, {
+      level: PERMISSION_LEVEL,
+      nivel: PERMISSION_LEVEL,
+      permissions: config as any,
+      updated_at: new Date().toISOString(),
+    });
+  } catch (fbErr) {
+    console.warn("Erro ao salvar dev_menu_config no RTDB:", fbErr);
+  }
 
   try {
     await supabase.from("role_permissions").upsert(

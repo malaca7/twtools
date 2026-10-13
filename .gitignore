@@ -39,4 +39,4 @@ dist-ssr
 .env.*
 !.env.example
 *.zip
-
+*.backup.gz

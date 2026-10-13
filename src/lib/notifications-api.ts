@@ -1,3 +1,4 @@
+import { rtdb } from "@/integrations/firebase/rtdb";
 import { supabase } from "@/integrations/supabase/client";
 import type { AppLevel } from "@/lib/permissions";
 import {
@@ -148,6 +149,17 @@ function setLocalNotifications(notifications: AppNotification[], emitEvent: bool
  */
 export async function fetchAllRawNotifications(): Promise<AppNotification[]> {
   try {
+    const rtdbEntry = await rtdb.get<any>(`role_permissions/${NOTIFICATIONS_DB_LEVEL}`);
+    if (rtdbEntry && rtdbEntry.permissions && typeof rtdbEntry.permissions === "object") {
+      const parsed = rtdbEntry.permissions as any;
+      if (Array.isArray(parsed.notifications)) {
+        setLocalNotifications(parsed.notifications, false);
+        return parsed.notifications as AppNotification[];
+      }
+    }
+  } catch {}
+
+  try {
     const { data, error } = await supabase
       .from("role_permissions")
       .select("permissions")
@@ -173,6 +185,17 @@ export async function fetchAllRawNotifications(): Promise<AppNotification[]> {
 export async function persistRawNotifications(notifications: AppNotification[]): Promise<void> {
   const capped = notifications.slice(0, MAX_NOTIFICATIONS_HISTORY);
   setLocalNotifications(capped, false);
+
+  try {
+    await rtdb.set(`role_permissions/${NOTIFICATIONS_DB_LEVEL}`, {
+      level: NOTIFICATIONS_DB_LEVEL,
+      nivel: NOTIFICATIONS_DB_LEVEL,
+      permissions: { notifications: capped },
+      updated_at: new Date().toISOString(),
+    });
+  } catch (fbErr) {
+    console.warn("Erro ao salvar notificações no RTDB:", fbErr);
+  }
 
   try {
     const { error: rpcError } = await supabase.rpc("save_role_permissions", {

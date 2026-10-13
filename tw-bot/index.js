@@ -63,6 +63,23 @@ const client = new Client({
   ],
 });
 
+const FIREBASE_RTDB_URL = "https://rfdrive-fd805-default-rtdb.firebaseio.com";
+
+async function fetchFromFirebaseRtdb(path) {
+  try {
+    const res = await fetch(`${FIREBASE_RTDB_URL}/${path}.json`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data) return null;
+    if (typeof data === "object" && !Array.isArray(data)) {
+      return Object.values(data);
+    }
+    return data;
+  } catch (err) {
+    return null;
+  }
+}
+
 // Cache global de membros, produtos e baús para enriquecer logs em tempo real
 let membersCache = new Map();
 let productsCache = new Map();
@@ -127,13 +144,26 @@ let discordConfig = {
  */
 async function loadDiscordConfig() {
   try {
-    const { data, error } = await supabase
-      .from("role_permissions")
-      .select("permissions")
-      .eq("level", "system_discord_config")
-      .maybeSingle();
+    let permissions = null;
+    try {
+      const fbConfig = await fetch(`${FIREBASE_RTDB_URL}/role_permissions/system_discord_config.json`).then(r => r.json());
+      if (fbConfig?.permissions) {
+        permissions = fbConfig.permissions;
+      }
+    } catch {}
 
-    if (!error && data?.permissions && typeof data.permissions === "object") {
+    if (!permissions) {
+      const { data, error } = await supabase
+        .from("role_permissions")
+        .select("permissions")
+        .eq("level", "system_discord_config")
+        .maybeSingle();
+      if (!error && data?.permissions) {
+        permissions = data.permissions;
+      }
+    }
+
+    if (permissions && typeof permissions === "object") {
       const dbToken = data.permissions.botToken ? String(data.permissions.botToken).trim() : "";
 
       discordConfig = {
@@ -424,6 +454,41 @@ async function syncDiscordBotProfile(avatarUrl, bannerUrl, force = false) {
  */
 async function refreshAuxiliaryCaches() {
   try {
+    try {
+      const [fbProfiles, fbProducts, fbBaus] = await Promise.all([
+        fetchFromFirebaseRtdb("profiles"),
+        fetchFromFirebaseRtdb("products"),
+        fetchFromFirebaseRtdb("baus"),
+      ]);
+
+      if (fbProfiles && fbProfiles.length > 0) {
+        membersCache.clear();
+        for (const m of fbProfiles) {
+          if (m.user_id) membersCache.set(m.user_id, m);
+          if (m.id) membersCache.set(m.id, m);
+        }
+      }
+
+      if (fbProducts && fbProducts.length > 0) {
+        productsCache.clear();
+        for (const p of fbProducts) {
+          productsCache.set(p.id, p);
+        }
+      }
+
+      if (fbBaus && fbBaus.length > 0) {
+        bausCache.clear();
+        for (const b of fbBaus) {
+          bausCache.set(b.id, b);
+        }
+      }
+
+      if (fbProfiles && fbProducts && fbBaus) {
+        return;
+      }
+    } catch (fbErr) {
+      console.warn("⚠️ Aviso ao atualizar caches via Firebase RTDB:", fbErr.message);
+    }
     if (neonPool) {
       const [profilesRes, productsRes, bausRes] = await Promise.all([
         neonPool.query("SELECT id, user_id, nome, nickname, discord_id, discord_avatar_url, avatar_url, discord_username FROM profiles"),
@@ -3467,6 +3532,48 @@ const server = http.createServer(async (req, res) => {
       }
     });
     return;
+  }
+
+  // Rota Proxy para Autenticação Discord (Contorna bloqueio de CORS do navegador)
+  if (pathname === "/api/auth/discord/user") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept");
+
+    if (req.method === "OPTIONS") {
+      res.writeHead(204);
+      return res.end();
+    }
+
+    const authHeader = req.headers["authorization"] || "";
+    const token =
+      authHeader.replace(/^Bearer\s+/i, "").trim() ||
+      urlObj.searchParams.get("token") ||
+      urlObj.searchParams.get("access_token") ||
+      "";
+
+    if (!token) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ success: false, error: "Access token não fornecido" }));
+    }
+
+    try {
+      const discordUserRes = await fetch("https://discord.com/api/users/@me", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const userData = await discordUserRes.json();
+      if (!discordUserRes.ok) {
+        res.writeHead(discordUserRes.status, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ success: false, error: userData.message || "Erro Discord", details: userData }));
+      }
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ success: true, user: userData }));
+    } catch (err) {
+      console.error("❌ [AUTH DISCORD PROXY ERROR]:", err);
+      res.writeHead(500, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ success: false, error: err.message }));
+    }
   }
 
   // Rota para Consulta Live de Mensagens (Bot Studio)

@@ -1,3 +1,4 @@
+import { rtdb } from "@/integrations/firebase/rtdb";
 import { useEffect, useCallback, useMemo, useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { broadcastPermissionsRealtimeUpdate } from "@/lib/permissionsRealtimeSync";
@@ -184,6 +185,18 @@ export function getCeoMenuConfig(): CeoMenuConfig | null {
  */
 export async function fetchRemoteCeoMenuConfig(): Promise<CeoMenuConfig | null> {
   try {
+    const rtdbData = await rtdb.get<any>(`role_permissions/${PERMISSION_LEVEL}`);
+    if (rtdbData && rtdbData.permissions && typeof rtdbData.permissions === "object") {
+      const cfg = rtdbData.permissions as any;
+      if (Array.isArray(cfg.items)) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+        emitCeoChange();
+        return cfg as CeoMenuConfig;
+      }
+    }
+  } catch {}
+
+  try {
     const { data } = await supabase
       .from("role_permissions")
       .select("permissions")
@@ -210,6 +223,17 @@ export async function fetchRemoteCeoMenuConfig(): Promise<CeoMenuConfig | null> 
 export async function saveCeoMenuConfig(config: CeoMenuConfig) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
   emitCeoChange();
+
+  try {
+    await rtdb.set(`role_permissions/${PERMISSION_LEVEL}`, {
+      level: PERMISSION_LEVEL,
+      nivel: PERMISSION_LEVEL,
+      permissions: config as any,
+      updated_at: new Date().toISOString(),
+    });
+  } catch (fbErr) {
+    console.warn("Erro ao salvar ceo_menu_config no RTDB:", fbErr);
+  }
 
   try {
     await supabase.from("role_permissions").upsert(

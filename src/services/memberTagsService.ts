@@ -114,8 +114,8 @@ export async function getMemberTags(): Promise<MemberTag[]> {
     .order("created_at", { ascending: true });
 
   if (tagsErr) {
-    console.error("Erro ao buscar member_tags:", tagsErr);
-    throw new Error(tagsErr.message || "Erro ao carregar tags de membros");
+    console.warn("Aviso ao buscar member_tags (retornando lista vazia de segurança):", tagsErr.message || tagsErr);
+    return [];
   }
 
   // Busca contagem de atribuições
