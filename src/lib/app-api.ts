@@ -887,7 +887,7 @@ export async function getGoals(): Promise<Goal[]> {
   let listData: any[] = [];
   try {
     listData = await rtdb.getList<any>("goals");
-    listData.sort((a, b) => new Date(b.period_end).getTime() - new Date(a.period_end).getTime());
+    listData.sort((a, b) => new Date(b.period_end || b.deadline || 0).getTime() - new Date(a.period_end || a.deadline || 0).getTime());
   } catch {}
 
   if (!listData || listData.length === 0) {
@@ -902,13 +902,13 @@ export async function getGoals(): Promise<Goal[]> {
 
   return (listData || []).map(d => ({
     id: d.id,
-    user_id: d.user_id,
-    type: d.type as "vendas" | "faturamento" | "quantidade",
-    target_value: Number(d.target_value),
-    period_start: String(d.period_start),
-    period_end: String(d.period_end),
-    descricao: d.descricao,
-    created_at: String(d.created_at)
+    user_id: d.user_id || d.created_by || "",
+    type: (d.type === "financeiro" ? "faturamento" : (d.type || "faturamento")) as "vendas" | "faturamento" | "quantidade",
+    target_value: Number(d.target_value) || 0,
+    period_start: String(d.period_start || d.created_at || "").slice(0, 10),
+    period_end: String(d.period_end || d.deadline || "").slice(0, 10),
+    descricao: d.descricao || d.description || d.title || null,
+    created_at: String(d.created_at || new Date().toISOString())
   }));
 }
 
