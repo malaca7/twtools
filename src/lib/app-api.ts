@@ -3335,6 +3335,21 @@ async function persistRolePermissionsData(level: string, permissions: any): Prom
       permissions,
       updated_at: new Date().toISOString(),
     });
+
+    if (level === WEEKLY_GOALS_DB_LEVEL && Array.isArray(permissions?.goals)) {
+      for (const g of permissions.goals) {
+        if (g?.id) {
+          await rtdb.set(`weekly_goals/${g.id}`, g).catch(() => {});
+          await rtdb.set(`goals/${g.id}`, g).catch(() => {});
+        }
+      }
+    } else if (level === GOAL_SUBMISSIONS_DB_LEVEL && Array.isArray(permissions?.submissions)) {
+      for (const s of permissions.submissions) {
+        if (s?.id) {
+          await rtdb.set(`goal_submissions/${s.id}`, s).catch(() => {});
+        }
+      }
+    }
   } catch (fbErr) {
     console.warn(`Erro ao salvar ${level} no Firebase RTDB:`, fbErr);
   }
@@ -3665,11 +3680,42 @@ function setLocalGoalSubmissions(submissions: GoalSubmission[], emitEvent: boole
 export async function getWeeklyGoals(): Promise<WeeklyGoal[]> {
   try {
     const rtdbEntry = await rtdb.get<any>(`role_permissions/${WEEKLY_GOALS_DB_LEVEL}`);
-    if (rtdbEntry && rtdbEntry.permissions && typeof rtdbEntry.permissions === "object") {
-      const parsed = rtdbEntry.permissions as any;
-      if (Array.isArray(parsed.goals)) {
-        setLocalWeeklyGoals(parsed.goals, false);
-        return parsed.goals;
+    if (rtdbEntry) {
+      const candidate = Array.isArray(rtdbEntry)
+        ? rtdbEntry
+        : Array.isArray(rtdbEntry.permissions)
+        ? rtdbEntry.permissions
+        : Array.isArray(rtdbEntry.permissions?.goals)
+        ? rtdbEntry.permissions.goals
+        : Array.isArray(rtdbEntry.goals)
+        ? rtdbEntry.goals
+        : null;
+
+      if (candidate && candidate.length > 0) {
+        setLocalWeeklyGoals(candidate, false);
+        return candidate;
+      }
+    }
+  } catch {}
+
+  try {
+    const directGoals = await rtdb.get<Record<string, WeeklyGoal>>("weekly_goals");
+    if (directGoals && typeof directGoals === "object") {
+      const list = Object.values(directGoals).filter((g: any) => g && g.id && !g._schema_info);
+      if (list.length > 0) {
+        setLocalWeeklyGoals(list, false);
+        return list;
+      }
+    }
+  } catch {}
+
+  try {
+    const directGoalsLegacy = await rtdb.get<Record<string, WeeklyGoal>>("goals");
+    if (directGoalsLegacy && typeof directGoalsLegacy === "object") {
+      const list = Object.values(directGoalsLegacy).filter((g: any) => g && g.id && !g._schema_info);
+      if (list.length > 0) {
+        setLocalWeeklyGoals(list, false);
+        return list;
       }
     }
   } catch {}
@@ -3681,11 +3727,15 @@ export async function getWeeklyGoals(): Promise<WeeklyGoal[]> {
       .eq("level", WEEKLY_GOALS_DB_LEVEL)
       .maybeSingle();
 
-    if (data && data.permissions && typeof data.permissions === "object") {
-      const parsed = data.permissions as any;
-      if (Array.isArray(parsed.goals)) {
-        setLocalWeeklyGoals(parsed.goals, false);
-        return parsed.goals;
+    if (data) {
+      const candidate = Array.isArray(data.permissions)
+        ? data.permissions
+        : Array.isArray(data.permissions?.goals)
+        ? data.permissions.goals
+        : null;
+      if (candidate && candidate.length > 0) {
+        setLocalWeeklyGoals(candidate, false);
+        return candidate;
       }
     }
   } catch (err) {
@@ -3876,11 +3926,31 @@ export async function deleteWeeklyGoal(id: string): Promise<void> {
 export async function getGoalSubmissions(): Promise<GoalSubmission[]> {
   try {
     const rtdbEntry = await rtdb.get<any>(`role_permissions/${GOAL_SUBMISSIONS_DB_LEVEL}`);
-    if (rtdbEntry && rtdbEntry.permissions && typeof rtdbEntry.permissions === "object") {
-      const parsed = rtdbEntry.permissions as any;
-      if (Array.isArray(parsed.submissions)) {
-        setLocalGoalSubmissions(parsed.submissions, false);
-        return parsed.submissions;
+    if (rtdbEntry) {
+      const candidate = Array.isArray(rtdbEntry)
+        ? rtdbEntry
+        : Array.isArray(rtdbEntry.permissions)
+        ? rtdbEntry.permissions
+        : Array.isArray(rtdbEntry.permissions?.submissions)
+        ? rtdbEntry.permissions.submissions
+        : Array.isArray(rtdbEntry.submissions)
+        ? rtdbEntry.submissions
+        : null;
+
+      if (candidate && candidate.length > 0) {
+        setLocalGoalSubmissions(candidate, false);
+        return candidate;
+      }
+    }
+  } catch {}
+
+  try {
+    const directSubs = await rtdb.get<Record<string, GoalSubmission>>("goal_submissions");
+    if (directSubs && typeof directSubs === "object") {
+      const list = Object.values(directSubs).filter((s: any) => s && s.id && !s._schema_info);
+      if (list.length > 0) {
+        setLocalGoalSubmissions(list, false);
+        return list;
       }
     }
   } catch {}
@@ -3892,11 +3962,15 @@ export async function getGoalSubmissions(): Promise<GoalSubmission[]> {
       .eq("level", GOAL_SUBMISSIONS_DB_LEVEL)
       .maybeSingle();
 
-    if (data && data.permissions && typeof data.permissions === "object") {
-      const parsed = data.permissions as any;
-      if (Array.isArray(parsed.submissions)) {
-        setLocalGoalSubmissions(parsed.submissions, false);
-        return parsed.submissions;
+    if (data) {
+      const candidate = Array.isArray(data.permissions)
+        ? data.permissions
+        : Array.isArray(data.permissions?.submissions)
+        ? data.permissions.submissions
+        : null;
+      if (candidate && candidate.length > 0) {
+        setLocalGoalSubmissions(candidate, false);
+        return candidate;
       }
     }
   } catch (err) {
@@ -3910,34 +3984,64 @@ export async function submitGoalDelivery(payload: SubmitGoalPayload): Promise<Go
   if (!session?.user) throw new Error("Usuário não autenticado.");
 
   // Membro que está entregando
-  const { data: profileRow } = await (supabase.from("profiles" as any))
-    .select("nome, nickname, avatar_url, discord_avatar_url")
-    .eq("user_id", session.user.id)
-    .maybeSingle();
+  let profileRow: any = null;
+  try {
+    const { data } = await (supabase.from("profiles" as any))
+      .select("nome, nickname, avatar_url, discord_avatar_url")
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+    profileRow = data;
+  } catch {}
 
-  const { data: roleRow } = await supabase
-    .from("user_roles")
-    .select("nivel")
-    .eq("user_id", session.user.id)
-    .maybeSingle();
+  if (!profileRow) {
+    try {
+      const fbProfiles = await rtdb.getList<any>("profiles");
+      profileRow = fbProfiles.find(x => x.user_id === session.user.id || x.id === session.user.id);
+    } catch {}
+  }
+
+  let roleRow: any = null;
+  try {
+    const { data } = await supabase
+      .from("user_roles")
+      .select("nivel")
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+    roleRow = data;
+  } catch {}
 
   const p = profileRow as any;
-  const memberName = p?.nome || "Membro";
+  const memberName = p?.nome || p?.nickname || "Membro";
   const memberNickname = p?.nickname || null;
   const memberAvatar = p?.avatar_url || p?.discord_avatar_url || null;
   const memberRole = (roleRow?.nivel as AppLevel) || "membro";
 
   // Membro recebedor
-  const { data: receiverProfileRow } = await (supabase.from("profiles" as any))
-    .select("nome, nickname, avatar_url, discord_avatar_url")
-    .eq("user_id", payload.receiver_id)
-    .maybeSingle();
+  let receiverProfileRow: any = null;
+  try {
+    const { data } = await (supabase.from("profiles" as any))
+      .select("nome, nickname, avatar_url, discord_avatar_url")
+      .eq("user_id", payload.receiver_id)
+      .maybeSingle();
+    receiverProfileRow = data;
+  } catch {}
 
-  const { data: receiverRoleRow } = await supabase
-    .from("user_roles")
-    .select("nivel")
-    .eq("user_id", payload.receiver_id)
-    .maybeSingle();
+  if (!receiverProfileRow) {
+    try {
+      const fbProfiles = await rtdb.getList<any>("profiles");
+      receiverProfileRow = fbProfiles.find(x => x.user_id === payload.receiver_id || x.id === payload.receiver_id);
+    } catch {}
+  }
+
+  let receiverRoleRow: any = null;
+  try {
+    const { data } = await supabase
+      .from("user_roles")
+      .select("nivel")
+      .eq("user_id", payload.receiver_id)
+      .maybeSingle();
+    receiverRoleRow = data;
+  } catch {}
 
   const rp = receiverProfileRow as any;
   const receiverName = rp?.nickname || rp?.nome || "Membro da Liderança";

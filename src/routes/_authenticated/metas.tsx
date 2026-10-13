@@ -204,8 +204,11 @@ export function MetasPage() {
     allowedTabs: ["minhas_metas", "painel_validacao", "membros", "metas_cadastradas"],
   });
   const [submissionFilter, setSubmissionFilter] = useState<string>("todos");
+  const [validationGoalFilter, setValidationGoalFilter] = useState<string>("todos");
   const [memberSearch, setMemberSearch] = useState<string>("");
   const [roleFilter, setRoleFilter] = useState<string>("todos");
+  const [viewedGoalId, setViewedGoalId] = useState<string>("active");
+  const [mySubsGoalFilter, setMySubsGoalFilter] = useState<"all" | "selected">("all");
 
   // Modals State
   const [deliverModalOpen, setDeliverModalOpen] = useState(false);
@@ -260,10 +263,31 @@ export function MetasPage() {
     return weeklyGoals.find((g) => g.is_active) || weeklyGoals[0] || null;
   }, [weeklyGoals]);
 
+  // Selected goal to view, defaulting to active goal or first available
+  const currentViewGoal = useMemo(() => {
+    if (viewedGoalId && viewedGoalId !== "active" && viewedGoalId !== "todos") {
+      const found = weeklyGoals.find((g) => g.id === viewedGoalId);
+      if (found) return found;
+    }
+    return activeWeeklyGoal || weeklyGoals[0] || null;
+  }, [weeklyGoals, viewedGoalId, activeWeeklyGoal]);
+
+  // Helper to match user's own submissions across different identifier fields
+  const isMySubmission = (s: GoalSubmission) => {
+    if (!currentUserId && !profile) return false;
+    return (
+      s.user_id === currentUserId ||
+      s.user_id === profile?.id ||
+      s.user_id === (profile as any)?.user_id ||
+      (profile?.nome && s.member_name?.toLowerCase().trim() === profile.nome.toLowerCase().trim()) ||
+      (profile?.nickname && s.member_nickname?.toLowerCase().trim() === profile.nickname.toLowerCase().trim())
+    );
+  };
+
   // Selected Goal for delivery modal
   const selectedGoalForDelivery = useMemo(() => {
-    return weeklyGoals.find((g) => g.id === selectedGoalId) || activeWeeklyGoal;
-  }, [weeklyGoals, selectedGoalId, activeWeeklyGoal]);
+    return weeklyGoals.find((g) => g.id === selectedGoalId) || currentViewGoal || activeWeeklyGoal;
+  }, [weeklyGoals, selectedGoalId, currentViewGoal, activeWeeklyGoal]);
 
   const isDeliverFinancial = useMemo(() => {
     if (!selectedGoalForDelivery) return true;
@@ -381,22 +405,23 @@ export function MetasPage() {
     if (file) handleImageFile(file);
   };
 
-  // Current User's Active Goal Progress
+  // Current User's Goal Progress
   const myGoalStats = useMemo(() => {
-    if (!activeWeeklyGoal || !currentUserId) return null;
+    if (!currentViewGoal) return null;
 
-    const mySubs = submissions.filter(
-      (s) => s.goal_id === activeWeeklyGoal.id && s.user_id === currentUserId
-    );
-    const approvedAmount = mySubs
+    const allUserSubs = submissions.filter(isMySubmission);
+    const myGoalSubs = allUserSubs.filter((s) => s.goal_id === currentViewGoal.id);
+    const displayedSubs = mySubsGoalFilter === "all" ? allUserSubs : myGoalSubs;
+
+    const approvedAmount = myGoalSubs
       .filter((s) => s.status === "aprovado")
       .reduce((acc, s) => acc + Number(s.amount), 0);
-    const pendingAmount = mySubs
+    const pendingAmount = myGoalSubs
       .filter((s) => s.status === "pendente")
       .reduce((acc, s) => acc + Number(s.amount), 0);
 
     const totalDelivered = approvedAmount + pendingAmount;
-    const targetVal = Number(activeWeeklyGoal.target_value) || 1;
+    const targetVal = Number(currentViewGoal.target_value) || 1;
     const approvedPct = Math.min(100, Math.max(0, (approvedAmount / targetVal) * 100));
     const totalProgressPct = Math.min(100, Math.max(0, (totalDelivered / targetVal) * 100));
     const pendingPct = Math.min(100 - approvedPct, Math.max(0, (pendingAmount / targetVal) * 100));
@@ -405,10 +430,14 @@ export function MetasPage() {
     const isFullyDelivered = totalDelivered >= targetVal;
 
     const today = new Date().toISOString().slice(0, 10);
-    const isExpired = today > activeWeeklyGoal.period_end && !isCompleted && !isFullyDelivered;
+    const isExpired = today > currentViewGoal.period_end && !isCompleted && !isFullyDelivered;
+
+    const totalAllGoalsDelivered = allUserSubs
+      .filter((s) => s.status === "aprovado")
+      .reduce((acc, s) => acc + Number(s.amount), 0);
 
     return {
-      goal: activeWeeklyGoal,
+      goal: currentViewGoal,
       approvedAmount,
       pendingAmount,
       totalDelivered,
@@ -419,17 +448,24 @@ export function MetasPage() {
       isCompleted,
       isFullyDelivered,
       isExpired,
-      submissions: mySubs,
+      submissions: displayedSubs,
+      totalUserSubmissionsCount: allUserSubs.length,
+      goalSubmissionsCount: myGoalSubs.length,
+      totalAllGoalsDelivered,
     };
-  }, [activeWeeklyGoal, currentUserId, submissions]);
+  }, [currentViewGoal, submissions, currentUserId, profile, mySubsGoalFilter]);
 
   // General Family / Members Progress Overview (Manager only)
   const membersProgress = useMemo(() => {
-    if (!activeWeeklyGoal) return [];
+    if (!currentViewGoal) return [];
 
     return members.map((m) => {
       const mSubs = submissions.filter(
-        (s) => s.goal_id === activeWeeklyGoal.id && s.user_id === m.user_id
+        (s) =>
+          s.goal_id === currentViewGoal.id &&
+          (s.user_id === m.user_id ||
+           s.member_name?.toLowerCase().trim() === m.nome?.toLowerCase().trim() ||
+           (m.nickname && s.member_nickname?.toLowerCase().trim() === m.nickname?.toLowerCase().trim()))
       );
       const approvedAmount = mSubs
         .filter((s) => s.status === "aprovado")
@@ -439,7 +475,7 @@ export function MetasPage() {
         .reduce((acc, s) => acc + Number(s.amount), 0);
 
       const totalDelivered = approvedAmount + pendingAmount;
-      const targetVal = Number(activeWeeklyGoal.target_value) || 1;
+      const targetVal = Number(currentViewGoal.target_value) || 1;
       const approvedPct = Math.min(100, Math.max(0, (approvedAmount / targetVal) * 100));
       const totalProgressPct = Math.min(100, Math.max(0, (totalDelivered / targetVal) * 100));
       const pendingPct = Math.min(100 - approvedPct, Math.max(0, (pendingAmount / targetVal) * 100));
@@ -449,7 +485,7 @@ export function MetasPage() {
       const hasPendingReview = pendingAmount > 0;
 
       const today = new Date().toISOString().slice(0, 10);
-      const isExpired = today > activeWeeklyGoal.period_end && !isPaid && !isFullyDelivered;
+      const isExpired = today > currentViewGoal.period_end && !isPaid && !isFullyDelivered;
 
       let statusBadge = "Pendente";
       let statusColor = "bg-secondary text-muted-foreground border-border";
@@ -489,7 +525,7 @@ export function MetasPage() {
         submissionsCount: mSubs.length,
       };
     });
-  }, [activeWeeklyGoal, members, submissions]);
+  }, [currentViewGoal, members, submissions]);
 
   // Filtered Members Progress
   const filteredMembersProgress = useMemo(() => {
@@ -515,7 +551,10 @@ export function MetasPage() {
     const totalMembers = members.length || 1;
     const paidMembersCount = membersProgress.filter((m) => m.isPaid).length;
     const totalCollectedApproved = submissions
-      .filter((s) => s.status === "aprovado" && (!activeWeeklyGoal || s.goal_id === activeWeeklyGoal.id))
+      .filter((s) => s.status === "aprovado" && (!currentViewGoal || s.goal_id === currentViewGoal.id))
+      .reduce((acc, s) => acc + Number(s.amount), 0);
+    const totalAllTimeApproved = submissions
+      .filter((s) => s.status === "aprovado")
       .reduce((acc, s) => acc + Number(s.amount), 0);
     const familyCompletionPct = Math.min(100, Math.round((paidMembersCount / totalMembers) * 100));
 
@@ -524,17 +563,19 @@ export function MetasPage() {
       paidMembersCount,
       pendingMembersCount: totalMembers - paidMembersCount,
       totalCollectedApproved,
+      totalAllTimeApproved,
       familyCompletionPct,
     };
-  }, [members, membersProgress, submissions, activeWeeklyGoal]);
+  }, [members, membersProgress, submissions, currentViewGoal]);
 
   // Filtered Submissions List for Management Tab
   const filteredSubmissions = useMemo(() => {
     return submissions.filter((s) => {
-      if (submissionFilter === "todos") return true;
-      return s.status === submissionFilter;
+      const matchStatus = submissionFilter === "todos" || s.status === submissionFilter;
+      const matchGoal = validationGoalFilter === "todos" || s.goal_id === validationGoalFilter;
+      return matchStatus && matchGoal;
     });
-  }, [submissions, submissionFilter]);
+  }, [submissions, submissionFilter, validationGoalFilter]);
 
   // Potential Receivers (Leaders, Managers, Officers, Members)
   const potentialReceivers = useMemo(() => {
@@ -802,18 +843,45 @@ export function MetasPage() {
         {/* Histórico Pessoal de Entregas */}
         <Card className="surface-card border-border/70 lg:col-span-2">
           <CardHeader className="pb-3 border-b border-border/40">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <CardTitle className="text-sm font-extrabold text-foreground flex items-center gap-2">
                   <Receipt className="h-4 w-4 text-primary" /> Meus Comprovantes & Entregas Registradas
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Lista de todas as entregas de meta que você enviou com comprovante.
+                  Lista de todas as entregas de meta que você enviou com comprovante e print do F8.
                 </CardDescription>
               </div>
-              <Badge variant="outline" className="text-xs font-mono font-bold">
-                {myGoalStats.submissions.length} entregas
-              </Badge>
+
+              {/* Filtro: Todas as Metas vs Desta Meta */}
+              <div className="flex items-center gap-1 bg-secondary/50 p-1 rounded-xl border border-border/60">
+                <button
+                  type="button"
+                  onClick={() => setMySubsGoalFilter("all")}
+                  className={cn(
+                    "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                    mySubsGoalFilter === "all"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  title="Ver todas as entregas e comprovantes enviados até hoje"
+                >
+                  Todas ({myGoalStats.totalUserSubmissionsCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMySubsGoalFilter("selected")}
+                  className={cn(
+                    "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                    mySubsGoalFilter === "selected"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  title="Ver apenas as entregas vinculadas à meta selecionada"
+                >
+                  Desta Meta ({myGoalStats.goalSubmissionsCount})
+                </button>
+              </div>
             </div>
           </CardHeader>
 
@@ -821,11 +889,15 @@ export function MetasPage() {
             {myGoalStats.submissions.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground space-y-2">
                 <ImageIcon className="h-8 w-8 mx-auto opacity-40" />
-                <p className="text-xs font-medium">Nenhum comprovante de entrega enviado ainda nesta semana.</p>
+                <p className="text-xs font-medium">
+                  {mySubsGoalFilter === "all"
+                    ? "Nenhum comprovante de entrega registrado em sua conta até o momento."
+                    : "Nenhum comprovante de entrega enviado ainda para esta meta selecionada."}
+                </p>
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => handleOpenDeliverModal()}
+                  onClick={() => handleOpenDeliverModal(myGoalStats.goal.id)}
                   className="text-xs font-bold border-emerald-500/40 text-emerald-400"
                 >
                   Enviar Primeiro Comprovante
@@ -865,6 +937,9 @@ export function MetasPage() {
                           <span className="font-mono font-extrabold text-sm text-foreground">
                             {sub.unit_name === "R$" ? currency(sub.amount) : `${num(sub.amount)} ${sub.unit_name || "itens"}`}
                           </span>
+                          <Badge variant="outline" className="text-[9px] font-bold border-primary/30 text-primary">
+                            {sub.goal_title || "Meta Semanal"}
+                          </Badge>
                           {sub.status === "aprovado" ? (
                             <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[9px] font-bold">
                               <Check className="h-2.5 w-2.5 mr-0.5" /> Aprovado
@@ -952,23 +1027,39 @@ export function MetasPage() {
             </CardDescription>
           </div>
 
-          {/* Filtros de Status */}
-          <div className="flex items-center gap-1.5 bg-secondary/40 p-1 rounded-xl border border-border/60">
-            {["todos", "pendente", "aprovado", "rejeitado"].map((st) => (
-              <button
-                key={st}
-                type="button"
-                onClick={() => setSubmissionFilter(st)}
-                className={cn(
-                  "px-2.5 py-1 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer",
-                  submissionFilter === st
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {st}
-              </button>
-            ))}
+          {/* Filtros de Meta e Status */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Select value={validationGoalFilter} onValueChange={setValidationGoalFilter}>
+              <SelectTrigger className="h-8 text-xs min-w-[180px] bg-secondary/40 font-semibold border-border">
+                <SelectValue placeholder="Todas as Metas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todas as Metas</SelectItem>
+                {weeklyGoals.map((g) => (
+                  <SelectItem key={g.id} value={g.id}>
+                    {g.title} ({g.period_start.slice(5)} a {g.period_end.slice(5)})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <div className="flex items-center gap-1.5 bg-secondary/40 p-1 rounded-xl border border-border/60">
+              {["todos", "pendente", "aprovado", "rejeitado"].map((st) => (
+                <button
+                  key={st}
+                  type="button"
+                  onClick={() => setSubmissionFilter(st)}
+                  className={cn(
+                    "px-2.5 py-1 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer",
+                    submissionFilter === st
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {st}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </CardHeader>
@@ -1295,13 +1386,13 @@ export function MetasPage() {
                       <strong className="text-emerald-400 font-mono">
                         {formatGoalValue(
                           item.totalDelivered,
-                          activeWeeklyGoal.type,
-                          activeWeeklyGoal.unit_name
+                          currentViewGoal?.type || "financeiro",
+                          currentViewGoal?.unit_name
                         )}
                       </strong>
                       {item.pendingAmount > 0 && (
                         <span className="text-[10px] text-amber-400 ml-1 font-bold">
-                          ({formatGoalValue(item.pendingAmount, activeWeeklyGoal.type, activeWeeklyGoal.unit_name)} em análise)
+                          ({formatGoalValue(item.pendingAmount, currentViewGoal?.type || "financeiro", currentViewGoal?.unit_name)} em análise)
                         </span>
                       )}
                     </span>
@@ -1313,8 +1404,8 @@ export function MetasPage() {
                           ? "Concluído"
                           : formatGoalValue(
                               item.remaining,
-                              activeWeeklyGoal.type,
-                              activeWeeklyGoal.unit_name
+                              currentViewGoal?.type || "financeiro",
+                              currentViewGoal?.unit_name
                             )}
                       </strong>
                     </span>
@@ -1439,32 +1530,46 @@ export function MetasPage() {
                 </div>
               </CardContent>
 
-              {canManage && (
-                <CardFooter className="pt-2 border-t border-border/40 flex items-center justify-between">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() =>
-                      updateGoalMutation.mutate({
-                        id: g.id,
-                        updates: { is_active: !g.is_active },
-                      })
-                    }
-                    className="text-xs h-7 text-muted-foreground hover:text-foreground"
-                  >
-                    {g.is_active ? "Desativar" : "Ativar"}
-                  </Button>
+              <CardFooter className="pt-2 border-t border-border/40 flex items-center justify-between gap-1 flex-wrap">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setViewedGoalId(g.id);
+                    setActiveTab("minhas_metas");
+                  }}
+                  className="text-xs h-7 border-border font-bold text-primary gap-1"
+                >
+                  <Eye className="h-3 w-3" /> Ver no Painel
+                </Button>
 
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => deleteGoalMutation.mutate(g.id)}
-                    className="text-xs h-7 text-destructive hover:bg-destructive/10"
-                  >
-                    <Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir
-                  </Button>
-                </CardFooter>
-              )}
+                {canManage && (
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        updateGoalMutation.mutate({
+                          id: g.id,
+                          updates: { is_active: !g.is_active },
+                        })
+                      }
+                      className="text-xs h-7 text-muted-foreground hover:text-foreground"
+                    >
+                      {g.is_active ? "Desativar" : "Ativar"}
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => deleteGoalMutation.mutate(g.id)}
+                      className="text-xs h-7 text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir
+                    </Button>
+                  </div>
+                )}
+              </CardFooter>
             </Card>
           );
         })}
@@ -1503,15 +1608,93 @@ export function MetasPage() {
         }
       />
 
+      {/* ─── BARRA SELETORA DE METAS & STATUS FIREBASE ─── */}
+      <div className="surface-card border border-border/80 rounded-2xl p-4 bg-gradient-to-r from-card via-card/90 to-card shadow-sm space-y-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-primary/10 text-primary border border-primary/20 shrink-0">
+              <CalendarDays className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Período & Meta Selecionada:
+                </span>
+                {currentViewGoal?.is_active && (
+                  <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px] font-bold py-0.5">
+                    ⭐ Vigente (Semana Atual)
+                  </Badge>
+                )}
+              </div>
+              <h3 className="text-base font-extrabold text-foreground mt-0.5">
+                {currentViewGoal ? currentViewGoal.title : "Nenhuma meta selecionada"}
+              </h3>
+            </div>
+          </div>
+
+          {/* Seletor Dropdown & Botão de Entrega */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Select
+              value={viewedGoalId}
+              onValueChange={(val) => setViewedGoalId(val)}
+            >
+              <SelectTrigger className="h-9 text-xs min-w-[260px] bg-secondary/50 border-border font-bold">
+                <SelectValue placeholder="Selecione a Meta..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">
+                  ⭐ Meta Vigente ({activeWeeklyGoal ? `${activeWeeklyGoal.period_start} a ${activeWeeklyGoal.period_end}` : "Atual"})
+                </SelectItem>
+                {weeklyGoals.map((g) => (
+                  <SelectItem key={g.id} value={g.id}>
+                    {g.title} ({g.period_start} a {g.period_end}) {g.is_active ? "• Ativa" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button
+              size="sm"
+              onClick={() => handleOpenDeliverModal(currentViewGoal?.id)}
+              className="h-9 bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1.5 cursor-pointer text-xs"
+            >
+              <Send className="h-3.5 w-3.5" /> Entregar p/ esta Meta
+            </Button>
+          </div>
+        </div>
+
+        {/* Linha de Metadados e Sincronização */}
+        <div className="flex flex-wrap items-center justify-between text-xs pt-2 border-t border-border/40 gap-2 text-muted-foreground">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span>
+              Vigência: <strong className="text-foreground">{currentViewGoal?.period_start}</strong> até <strong className="text-foreground">{currentViewGoal?.period_end}</strong>
+            </span>
+            <span>•</span>
+            <span>
+              Alvo: <strong className="text-emerald-400 font-mono">{currentViewGoal ? formatGoalValue(currentViewGoal.target_value, currentViewGoal.type, currentViewGoal.unit_name) : "R$ 0"}</strong> por membro
+            </span>
+            <span>•</span>
+            <span>
+              Total de entregas no sistema: <strong className="text-foreground font-mono">{submissions.length}</strong>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-[0.7rem] text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Banco de Dados Firebase RTDB Ativo</span>
+          </div>
+        </div>
+      </div>
+
       {/* ─── KPIS & CARDS SUMMARY ─── */}
       {canManage ? (
         /* VISÃO DE GESTÃO / LIDERANÇA */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1: Meta Semanal Vigente */}
+          {/* Card 1: Meta Semanal Vigente / Selecionada */}
           <Card className="surface-card border-border/70 p-4 flex flex-col justify-between">
             <div className="flex items-center justify-between pb-2">
               <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
-                Meta Semanal Vigente
+                Meta Selecionada
               </span>
               <div className="p-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20">
                 <Target className="h-4 w-4" />
@@ -1519,11 +1702,11 @@ export function MetasPage() {
             </div>
             <div>
               <h4 className="text-base font-extrabold text-foreground truncate">
-                {activeWeeklyGoal ? activeWeeklyGoal.title : "Nenhuma Meta Ativa"}
+                {currentViewGoal ? currentViewGoal.title : "Nenhuma Meta Ativa"}
               </h4>
               <p className="text-xs font-mono font-bold text-emerald-400 mt-0.5">
-                {activeWeeklyGoal
-                  ? formatGoalValue(activeWeeklyGoal.target_value, activeWeeklyGoal.type, activeWeeklyGoal.unit_name)
+                {currentViewGoal
+                  ? formatGoalValue(currentViewGoal.target_value, currentViewGoal.type, currentViewGoal.unit_name)
                   : "R$ 0,00"}
                 <span className="text-[0.7rem] font-normal text-muted-foreground ml-1">/ membro</span>
               </p>
@@ -1531,8 +1714,8 @@ export function MetasPage() {
             <div className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground pt-2 mt-2 border-t border-border/40">
               <CalendarDays className="h-3 w-3 text-primary" />
               <span>
-                {activeWeeklyGoal
-                  ? `${activeWeeklyGoal.period_start} até ${activeWeeklyGoal.period_end}`
+                {currentViewGoal
+                  ? `${currentViewGoal.period_start} até ${currentViewGoal.period_end}`
                   : "Sem prazo ativo"}
               </span>
             </div>
@@ -1542,7 +1725,7 @@ export function MetasPage() {
           <Card className="surface-card border-border/70 p-4 flex flex-col justify-between">
             <div className="flex items-center justify-between pb-2">
               <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
-                Total Arrecadado (Semana)
+                Total Arrecadado (Meta)
               </span>
               <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                 <DollarSign className="h-4 w-4" />
@@ -1553,7 +1736,9 @@ export function MetasPage() {
                 {currency(weeklyKpis.totalCollectedApproved)}
               </h4>
               <p className="text-[0.7rem] text-muted-foreground mt-0.5">
-                Soma de pagamentos confirmados e aprovados
+                {weeklyKpis.totalAllTimeApproved > weeklyKpis.totalCollectedApproved
+                  ? `Total acumulado histórico: ${currency(weeklyKpis.totalAllTimeApproved)}`
+                  : "Soma de pagamentos confirmados e aprovados"}
               </p>
             </div>
             <div className="flex items-center gap-1.5 text-[0.68rem] text-emerald-400 pt-2 mt-2 border-t border-border/40">
@@ -1633,11 +1818,11 @@ export function MetasPage() {
       ) : (
         /* VISÃO PESSOAL RESUMIDA PARA O MEMBRO */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1: Meta Vigente */}
+          {/* Card 1: Meta Vigente / Selecionada */}
           <Card className="surface-card border-border/70 p-4 flex flex-col justify-between">
             <div className="flex items-center justify-between pb-2">
               <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
-                Minha Meta da Semana
+                Meta Selecionada
               </span>
               <div className="p-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20">
                 <Target className="h-4 w-4" />
@@ -1645,19 +1830,19 @@ export function MetasPage() {
             </div>
             <div>
               <h4 className="text-base font-extrabold text-foreground truncate">
-                {activeWeeklyGoal ? activeWeeklyGoal.title : "Nenhuma Meta Ativa"}
+                {currentViewGoal ? currentViewGoal.title : "Nenhuma Meta Ativa"}
               </h4>
               <p className="text-xs font-mono font-bold text-emerald-400 mt-0.5">
-                {activeWeeklyGoal
-                  ? formatGoalValue(activeWeeklyGoal.target_value, activeWeeklyGoal.type, activeWeeklyGoal.unit_name)
+                {currentViewGoal
+                  ? formatGoalValue(currentViewGoal.target_value, currentViewGoal.type, currentViewGoal.unit_name)
                   : "R$ 0,00"}
               </p>
             </div>
             <div className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground pt-2 mt-2 border-t border-border/40">
               <CalendarDays className="h-3 w-3 text-primary" />
               <span>
-                {activeWeeklyGoal
-                  ? `${activeWeeklyGoal.period_start} até ${activeWeeklyGoal.period_end}`
+                {currentViewGoal
+                  ? `${currentViewGoal.period_start} até ${currentViewGoal.period_end}`
                   : "Sem prazo"}
               </span>
             </div>
@@ -1680,7 +1865,9 @@ export function MetasPage() {
                   : "R$ 0,00"}
               </h4>
               <p className="text-[0.7rem] text-muted-foreground mt-0.5">
-                {myGoalStats && myGoalStats.pendingAmount > 0
+                {myGoalStats && myGoalStats.totalAllGoalsDelivered > myGoalStats.approvedAmount
+                  ? `Total histórico acumulado: ${currency(myGoalStats.totalAllGoalsDelivered)}`
+                  : myGoalStats && myGoalStats.pendingAmount > 0
                   ? myGoalStats.approvedAmount > 0
                     ? `${formatGoalValue(myGoalStats.approvedAmount, myGoalStats.goal.type, myGoalStats.goal.unit_name)} aprovado + ${formatGoalValue(myGoalStats.pendingAmount, myGoalStats.goal.type, myGoalStats.goal.unit_name)} em análise`
                     : "Aguardando validação da liderança"
