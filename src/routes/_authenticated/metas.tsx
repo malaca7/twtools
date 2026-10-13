@@ -280,7 +280,9 @@ export function MetasPage() {
       s.user_id === profile?.id ||
       s.user_id === (profile as any)?.user_id ||
       (profile?.nome && s.member_name?.toLowerCase().trim() === profile.nome.toLowerCase().trim()) ||
-      (profile?.nickname && s.member_nickname?.toLowerCase().trim() === profile.nickname.toLowerCase().trim())
+      (profile?.nickname && s.member_nickname?.toLowerCase().trim() === profile.nickname.toLowerCase().trim()) ||
+      (profile?.nickname && s.member_name?.toLowerCase().trim() === profile.nickname.toLowerCase().trim()) ||
+      (profile?.nome && s.member_nickname?.toLowerCase().trim() === profile.nome.toLowerCase().trim())
     );
   };
 
@@ -464,8 +466,11 @@ export function MetasPage() {
         (s) =>
           s.goal_id === currentViewGoal.id &&
           (s.user_id === m.user_id ||
-           s.member_name?.toLowerCase().trim() === m.nome?.toLowerCase().trim() ||
-           (m.nickname && s.member_nickname?.toLowerCase().trim() === m.nickname?.toLowerCase().trim()))
+           s.user_id === m.id ||
+           (m.nome && s.member_name?.toLowerCase().trim() === m.nome.toLowerCase().trim()) ||
+           (m.nickname && s.member_nickname?.toLowerCase().trim() === m.nickname.toLowerCase().trim()) ||
+           (m.nickname && s.member_name?.toLowerCase().trim() === m.nickname.toLowerCase().trim()) ||
+           (m.nome && s.member_nickname?.toLowerCase().trim() === m.nome.toLowerCase().trim()))
       );
       const approvedAmount = mSubs
         .filter((s) => s.status === "aprovado")
@@ -1512,6 +1517,12 @@ export function MetasPage() {
 
                 <div className="space-y-1 text-xs text-muted-foreground">
                   <div className="flex items-center justify-between">
+                    <span>Criada por:</span>
+                    <strong className="text-primary font-bold">
+                      {g.created_by_name || "Liderança Twin Wheels"}
+                    </strong>
+                  </div>
+                  <div className="flex items-center justify-between">
                     <span>Escopo:</span>
                     <strong className="text-foreground capitalize">
                       {g.target_scope === "todos"
@@ -1629,6 +1640,12 @@ export function MetasPage() {
               <h3 className="text-base font-extrabold text-foreground mt-0.5">
                 {currentViewGoal ? currentViewGoal.title : "Nenhuma meta selecionada"}
               </h3>
+              {currentViewGoal?.created_by_name && (
+                <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
+                  <User className="h-3.5 w-3.5 text-primary" />
+                  <span>Criada por: <strong className="text-foreground">{currentViewGoal.created_by_name}</strong></span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1638,7 +1655,7 @@ export function MetasPage() {
               value={viewedGoalId}
               onValueChange={(val) => setViewedGoalId(val)}
             >
-              <SelectTrigger className="h-9 text-xs min-w-[260px] bg-secondary/50 border-border font-bold">
+              <SelectTrigger className="h-9 text-xs min-w-[280px] bg-secondary/50 border-border font-bold">
                 <SelectValue placeholder="Selecione a Meta..." />
               </SelectTrigger>
               <SelectContent>
@@ -1647,7 +1664,7 @@ export function MetasPage() {
                 </SelectItem>
                 {weeklyGoals.map((g) => (
                   <SelectItem key={g.id} value={g.id}>
-                    {g.title} ({g.period_start} a {g.period_end}) {g.is_active ? "• Ativa" : ""}
+                    {g.title} {g.created_by_name ? `• Criada por ${g.created_by_name}` : ""} ({g.period_start} a {g.period_end}) {g.is_active ? "• Ativa" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1666,6 +1683,10 @@ export function MetasPage() {
         {/* Linha de Metadados e Sincronização */}
         <div className="flex flex-wrap items-center justify-between text-xs pt-2 border-t border-border/40 gap-2 text-muted-foreground">
           <div className="flex items-center gap-2 flex-wrap">
+            <span>
+              Criada por: <strong className="text-primary font-bold">{currentViewGoal?.created_by_name || "Liderança Twin Wheels"}</strong>
+            </span>
+            <span>•</span>
             <span>
               Vigência: <strong className="text-foreground">{currentViewGoal?.period_start}</strong> até <strong className="text-foreground">{currentViewGoal?.period_end}</strong>
             </span>
