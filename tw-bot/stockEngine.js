@@ -3,6 +3,23 @@ const { Pool } = require('pg');
 
 let dbPool = null;
 
+const FIREBASE_RTDB_URL = "https://rfdrive-fd805-default-rtdb.firebaseio.com";
+
+async function fetchFromFirebaseRtdb(path) {
+  try {
+    const res = await fetch(`${FIREBASE_RTDB_URL}/${path}.json`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data) return null;
+    if (typeof data === "object" && !Array.isArray(data)) {
+      return Object.values(data);
+    }
+    return data;
+  } catch (err) {
+    return null;
+  }
+}
+
 function normalizeText(text) {
   if (!text) return "";
   return String(text)
@@ -423,16 +440,36 @@ function markMessageProcessed(id) {
 }
 
 async function refreshCache() {
-  if (!dbPool) return null;
   try {
-    const configRes = await dbPool.query(`SELECT * FROM public.discord_stock_config LIMIT 1`);
-    if (configRes.rows.length === 0) return null;
-    const config = configRes.rows[0];
+    let config = null;
+    let prods = [];
+    let allBaus = [];
+
+    if (dbPool) {
+      try {
+        const configRes = await dbPool.query(`SELECT * FROM public.discord_stock_config LIMIT 1`);
+        if (configRes && configRes.rows && configRes.rows.length > 0) config = configRes.rows[0];
+        const prodsRes = await dbPool.query(`SELECT nome, cda_name FROM public.products WHERE ativo = true`);
+        prods = prodsRes?.rows || [];
+        const bausRes = await dbPool.query(`SELECT id, nome, tipo_gestao, discord_channel_id, discord_guild_id, ativo FROM public.baus WHERE ativo = true`);
+        allBaus = bausRes?.rows || [];
+      } catch {}
+    }
+
+    if (!config) {
+      const fbConfigList = await fetchFromFirebaseRtdb("discord_stock_config");
+      if (fbConfigList && fbConfigList.length > 0) config = fbConfigList[0];
+      const fbProds = await fetchFromFirebaseRtdb("products");
+      if (fbProds) prods = fbProds.filter(p => p.ativo !== false);
+      const fbBaus = await fetchFromFirebaseRtdb("baus");
+      if (fbBaus) allBaus = fbBaus.filter(b => b.ativo !== false);
+    }
+
+    if (!config) return null;
 
     // Mesclar cda_name (múltiplos aliases) e nomes dos produtos cadastrados para aliases automáticos
-    const prodsRes = await dbPool.query(`SELECT nome, cda_name FROM public.products WHERE ativo = true`);
     const mergedMappings = { ...(config.item_mappings || {}) };
-    for (const p of prodsRes.rows) {
+    for (const p of prods) {
       if (p.nome && p.nome.trim()) {
         mergedMappings[p.nome.trim().toLowerCase()] = p.nome;
       }
@@ -444,9 +481,6 @@ async function refreshCache() {
       }
     }
     config.item_mappings = mergedMappings;
-
-    const bausRes = await dbPool.query(`SELECT id, nome, tipo_gestao, discord_channel_id, discord_guild_id, ativo FROM public.baus WHERE ativo = true`);
-    const allBaus = bausRes.rows || [];
 
     // Mapear conjunto de IDs de canais monitorados
     const targetChannelIds = new Set();
