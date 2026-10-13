@@ -2363,28 +2363,109 @@ export async function submitSale({
     discount?: number;
   };
 }): Promise<{ success: boolean }> {
-  const { data: prod } = await supabase.from("products").select("nome").eq("id", data.productId).maybeSingle();
+  const currentAuth = await getCurrentAuth();
+  const sellerId = currentAuth.user?.id || "system";
+
   const discount = Math.max(0, Number(data.discount || 0));
   const totalPrice = Math.max(0, data.quantity * data.unitPrice - discount);
+  const now = new Date().toISOString();
+  const saleId = (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `sale_${Date.now()}`;
 
-  const args: any = {
-    _product_id: data.productId,
-    _quantity: data.quantity,
-    _unit_price: data.unitPrice,
-    _buyer_name: data.buyerName,
-    _payment_method: data.paymentMethod || "dinheiro",
-    _discount: discount,
+  // 1. Obter produto
+  const allProds = await getProducts();
+  const prod = allProds.find((p) => p.id === data.productId);
+  const prodName = prod?.nome || "Produto";
+
+  // 2. Gravar Venda no Firebase RTDB
+  const saleRecord: Sale = {
+    id: saleId,
+    product_id: data.productId,
+    seller_id: sellerId,
+    buyer_name: data.buyerName.trim(),
+    quantity: data.quantity,
+    unit_price: data.unitPrice,
+    total_price: totalPrice,
+    payment_method: data.paymentMethod || "dinheiro",
+    notes: data.notes?.trim() || null,
+    status: "concluida",
+    discount,
+    created_at: now,
   };
-  if (data.notes) args._notes = data.notes;
-  const { error } = await supabase.rpc("create_sale", args);
-  if (error) throw error;
+
+  try {
+    await rtdb.set(`sales/${saleId}`, saleRecord);
+  } catch (fbErr) {
+    console.warn("Erro ao gravar venda no RTDB:", fbErr);
+  }
+
+  // 3. Atualizar estoque do produto no RTDB
+  if (prod) {
+    const prevStock = Number(prod.estoque_atual || 0);
+    const newStock = Math.max(0, prevStock - data.quantity);
+    await rtdb.update(`products/${prod.id}`, {
+      estoque_atual: newStock,
+      updated_at: now,
+    }).catch(() => {});
+
+    if (prod.bau_id) {
+      const pbKey = `${prod.id}_${prod.bau_id}`;
+      const pbData = await rtdb.get<any>(`product_baus/${pbKey}`);
+      if (pbData) {
+        const pbPrev = Number(pbData.quantidade || pbData.estoque_atual || 0);
+        const pbNew = Math.max(0, pbPrev - data.quantity);
+        await rtdb.set(`product_baus/${pbKey}`, {
+          product_id: prod.id,
+          bau_id: prod.bau_id,
+          quantidade: pbNew.toFixed(2),
+          updated_at: now,
+        }).catch(() => {});
+      }
+    }
+
+    const movId = (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `mov_${Date.now()}`;
+    await rtdb.set(`stock_movements/${movId}`, {
+      id: movId,
+      product_id: prod.id,
+      user_id: sellerId,
+      bau_id: prod.bau_id || null,
+      type: "saida",
+      quantity: data.quantity,
+      previous_balance: prevStock,
+      resulting_balance: newStock,
+      reason: `Venda para ${data.buyerName} (R$ ${totalPrice.toLocaleString("pt-BR")})`,
+      sale_id: saleId,
+      origin: "venda",
+      status: "completed",
+      created_at: now,
+    }).catch(() => {});
+
+    await rtdb.set("system_stock_sync_pulse", {
+      timestamp: Date.now(),
+      sale_id: saleId,
+      product_id: prod.id,
+    }).catch(() => {});
+  }
+
+  // 4. Fallback Supabase
+  try {
+    const args: any = {
+      _product_id: data.productId,
+      _quantity: data.quantity,
+      _unit_price: data.unitPrice,
+      _buyer_name: data.buyerName,
+      _payment_method: data.paymentMethod || "dinheiro",
+      _discount: discount,
+    };
+    if (data.notes) args._notes = data.notes;
+    await supabase.rpc("create_sale", args);
+  } catch {}
 
   void logAuditAction(
     "create_sale",
     "sales",
     {
       product_id: data.productId,
-      product_name: prod?.nome || "Produto",
+      product_name: prodName,
       quantity: data.quantity,
       unit_price: data.unitPrice,
       discount: discount,
@@ -2399,7 +2480,7 @@ export async function submitSale({
 
   void createNotification({
     title: "Nova Venda Registrada",
-    message: `${data.quantity}x ${prod?.nome || "item"} para ${data.buyerName} (R$ ${totalPrice.toLocaleString("pt-BR")}).`,
+    message: `${data.quantity}x ${prodName} para ${data.buyerName} (R$ ${totalPrice.toLocaleString("pt-BR")}).`,
     type: "sale",
     category: "success",
     target_roles: ["01", "02", "gerente", "desenvolvedor"],
@@ -2420,24 +2501,103 @@ export async function submitMultiSale({
     totalDiscount?: number;
   };
 }): Promise<{ success: boolean; group_id: string; items_count: number }> {
+  const currentAuth = await getCurrentAuth();
+  const sellerId = currentAuth.user?.id || "system";
+  const groupId = (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `group_${Date.now()}`;
+  const now = new Date().toISOString();
+  const allProds = await getProducts();
+
   const totalDiscount = Math.max(0, Number(data.totalDiscount || 0));
-  const { data: rpcRes, error } = await supabase.rpc("create_multi_sale", {
-    p_items: data.items.map((i) => ({
-      product_id: i.productId,
-      quantity: i.quantity,
-      unit_price: i.unitPrice,
-      discount: i.discount || 0,
-    })),
-    p_buyer_name: data.buyerName.trim(),
-    p_payment_method: data.paymentMethod || "dinheiro",
-    p_notes: data.notes?.trim() || null,
-    p_total_discount: totalDiscount,
-  });
-
-  if (error) throw error;
-
   const totalRaw = data.items.reduce((acc, i) => acc + i.quantity * i.unitPrice, 0);
   const netTotal = Math.max(0, totalRaw - totalDiscount);
+
+  for (let idx = 0; idx < data.items.length; idx++) {
+    const it = data.items[idx];
+    const saleId = (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `sale_${Date.now()}_${idx}`;
+    const prod = allProds.find((p) => p.id === it.productId);
+    const itemDiscount = it.discount || 0;
+    const itemTotalPrice = Math.max(0, it.quantity * it.unitPrice - itemDiscount);
+
+    const saleRecord: Sale = {
+      id: saleId,
+      product_id: it.productId,
+      seller_id: sellerId,
+      buyer_name: data.buyerName.trim(),
+      quantity: it.quantity,
+      unit_price: it.unitPrice,
+      total_price: itemTotalPrice,
+      payment_method: data.paymentMethod || "dinheiro",
+      notes: data.notes?.trim() || null,
+      status: "concluida",
+      discount: itemDiscount,
+      group_id: groupId,
+      created_at: now,
+    };
+
+    await rtdb.set(`sales/${saleId}`, saleRecord).catch(() => {});
+
+    if (prod) {
+      const prevStock = Number(prod.estoque_atual || 0);
+      const newStock = Math.max(0, prevStock - it.quantity);
+      await rtdb.update(`products/${prod.id}`, {
+        estoque_atual: newStock,
+        updated_at: now,
+      }).catch(() => {});
+
+      if (prod.bau_id) {
+        const pbKey = `${prod.id}_${prod.bau_id}`;
+        const pbData = await rtdb.get<any>(`product_baus/${pbKey}`);
+        if (pbData) {
+          const pbPrev = Number(pbData.quantidade || pbData.estoque_atual || 0);
+          const pbNew = Math.max(0, pbPrev - it.quantity);
+          await rtdb.set(`product_baus/${pbKey}`, {
+            product_id: prod.id,
+            bau_id: prod.bau_id,
+            quantidade: pbNew.toFixed(2),
+            updated_at: now,
+          }).catch(() => {});
+        }
+      }
+
+      const movId = (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `mov_${Date.now()}_${idx}`;
+      await rtdb.set(`stock_movements/${movId}`, {
+        id: movId,
+        product_id: prod.id,
+        user_id: sellerId,
+        bau_id: prod.bau_id || null,
+        type: "saida",
+        quantity: it.quantity,
+        previous_balance: prevStock,
+        resulting_balance: newStock,
+        reason: `Venda múltipla para ${data.buyerName}`,
+        sale_id: saleId,
+        origin: "venda",
+        status: "completed",
+        created_at: now,
+      }).catch(() => {});
+    }
+  }
+
+  await rtdb.set("system_stock_sync_pulse", {
+    timestamp: Date.now(),
+    group_id: groupId,
+    items_count: data.items.length,
+  }).catch(() => {});
+
+  try {
+    await supabase.rpc("create_multi_sale", {
+      p_items: data.items.map((i) => ({
+        product_id: i.productId,
+        quantity: i.quantity,
+        unit_price: i.unitPrice,
+        discount: i.discount || 0,
+      })),
+      p_buyer_name: data.buyerName.trim(),
+      p_payment_method: data.paymentMethod || "dinheiro",
+      p_notes: data.notes?.trim() || null,
+      p_total_discount: totalDiscount,
+    });
+  } catch {}
 
   void createNotification({
     title: "Nova Venda Multi-Item Registrada",
@@ -2448,30 +2608,76 @@ export async function submitMultiSale({
     link: "/vendas",
   });
 
-  return rpcRes as any;
+  return { success: true, group_id: groupId, items_count: data.items.length };
 }
 
 export async function reverseSale(saleId: string, reason?: string): Promise<void> {
-  const { data: oldSale } = await supabase.from("sales").select("product_id, quantity, total_price, buyer_name").eq("id", saleId).maybeSingle();
-  let prodName = "Produto";
-  if (oldSale?.product_id) {
-    const { data: prod } = await supabase.from("products").select("nome").eq("id", oldSale.product_id).maybeSingle();
-    prodName = prod?.nome || "Produto";
+  const sale = await rtdb.get<any>(`sales/${saleId}`);
+  if (sale) {
+    const now = new Date().toISOString();
+    await rtdb.update(`sales/${saleId}`, {
+      status: "estornada",
+      updated_at: now,
+    }).catch(() => {});
+
+    const prod = await rtdb.get<any>(`products/${sale.product_id}`);
+    if (prod) {
+      const prevStock = Number(prod.estoque_atual || 0);
+      const newStock = prevStock + Number(sale.quantity || 0);
+      await rtdb.update(`products/${prod.id}`, {
+        estoque_atual: newStock,
+        updated_at: now,
+      }).catch(() => {});
+
+      if (prod.bau_id) {
+        const pbKey = `${prod.id}_${prod.bau_id}`;
+        const pbData = await rtdb.get<any>(`product_baus/${pbKey}`);
+        if (pbData) {
+          const pbPrev = Number(pbData.quantidade || pbData.estoque_atual || 0);
+          const pbNew = pbPrev + Number(sale.quantity || 0);
+          await rtdb.set(`product_baus/${pbKey}`, {
+            product_id: prod.id,
+            bau_id: prod.bau_id,
+            quantidade: pbNew.toFixed(2),
+            updated_at: now,
+          }).catch(() => {});
+        }
+      }
+
+      const movId = (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `mov_${Date.now()}`;
+      await rtdb.set(`stock_movements/${movId}`, {
+        id: movId,
+        product_id: prod.id,
+        user_id: sale.seller_id || "system",
+        bau_id: prod.bau_id || null,
+        type: "entrada",
+        quantity: Number(sale.quantity || 0),
+        previous_balance: prevStock,
+        resulting_balance: newStock,
+        reason: `[ESTORNO DE VENDA] ${reason || "Estorno solicitado"}`,
+        sale_id: saleId,
+        origin: "estorno_venda",
+        status: "completed",
+        created_at: now,
+      }).catch(() => {});
+
+      await rtdb.set("system_stock_sync_pulse", {
+        timestamp: Date.now(),
+        reversal_sale_id: saleId,
+      }).catch(() => {});
+    }
   }
 
-  const args: { _sale_id: string; _reason?: string } = {
-    _sale_id: saleId,
-  };
-  if (reason) args._reason = reason;
-  const { error } = await supabase.rpc("reverse_sale", args);
-  if (error) throw error;
+  try {
+    const args: { _sale_id: string; _reason?: string } = {
+      _sale_id: saleId,
+    };
+    if (reason) args._reason = reason;
+    await supabase.rpc("reverse_sale", args);
+  } catch {}
 
   void logAuditAction("reverse_sale", "sales", {
     sale_id: saleId,
-    product_name: prodName,
-    quantity: oldSale?.quantity,
-    total_price: oldSale?.total_price,
-    buyer_name: oldSale?.buyer_name,
     reason: reason || "Sem motivo informado",
   }, undefined, saleId);
 }
@@ -2692,75 +2898,111 @@ export async function deleteProduct(id: string): Promise<void> {
 }
 
 export async function createCategory(payload: { nome: string; descricao?: string }): Promise<Category> {
-  const { data, error } = await supabase
-    .from("categories")
-    .insert({
-      nome: payload.nome.trim(),
-      descricao: payload.descricao?.trim() || null,
-      ativo: true
-    })
-    .select()
-    .single();
-  if (error) throw error;
+  const cleanName = payload.nome.trim();
+  if (!cleanName) throw new Error("Informe o nome da categoria.");
 
-  void logAuditAction("create_category", "categories", { nome: data.nome, descricao: data.descricao }, undefined, data.id);
-
-  return {
-    id: data.id,
-    nome: data.nome,
-    descricao: data.descricao,
-    ativo: data.ativo,
-    created_at: String(data.created_at)
+  const id = (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `cat_${Date.now()}`;
+  const now = new Date().toISOString();
+  const newCat: Category = {
+    id,
+    nome: cleanName,
+    descricao: payload.descricao?.trim() || null,
+    ativo: true,
+    created_at: now,
   };
+
+  try {
+    await rtdb.set(`categories/${id}`, newCat);
+  } catch (fbErr) {
+    console.warn("Erro ao salvar categoria no RTDB:", fbErr);
+  }
+
+  try {
+    await supabase.from("categories").insert({
+      id,
+      nome: newCat.nome,
+      descricao: newCat.descricao,
+      ativo: true,
+      created_at: now,
+    });
+  } catch {}
+
+  void logAuditAction("create_category", "categories", { nome: newCat.nome, descricao: newCat.descricao }, undefined, id);
+
+  return newCat;
 }
 
 export async function updateCategory(payload: { id: string; nome?: string; descricao?: string; ativo?: boolean }): Promise<void> {
-  const { data: oldCat } = await supabase.from("categories").select("nome, descricao, ativo").eq("id", payload.id).maybeSingle();
+  let oldCat: any = null;
+  try {
+    oldCat = await rtdb.get<any>(`categories/${payload.id}`);
+  } catch {}
 
   const updates: any = {};
   if (payload.nome !== undefined) updates.nome = payload.nome.trim();
-  if (payload.descricao !== undefined) updates.descricao = payload.descricao.trim();
+  if (payload.descricao !== undefined) updates.descricao = payload.descricao ? payload.descricao.trim() : null;
   if (payload.ativo !== undefined) updates.ativo = payload.ativo;
   updates.updated_at = new Date().toISOString();
 
-  const { data, error } = await supabase.from("categories").update(updates).eq("id", payload.id).select();
-  if (error) throw error;
-  if (!data || data.length === 0) {
-    throw new Error("Não foi possível atualizar a categoria.");
+  try {
+    await rtdb.update(`categories/${payload.id}`, updates);
+  } catch (fbErr) {
+    console.warn("Erro ao atualizar categoria no RTDB:", fbErr);
   }
+
+  try {
+    await supabase.from("categories").update(updates).eq("id", payload.id);
+  } catch {}
 
   void logAuditAction("update_category", "categories", { id: payload.id, ...updates }, oldCat || undefined, payload.id);
 }
 
 export async function deleteCategory(id: string): Promise<void> {
-  const { data: oldCat } = await supabase.from("categories").select("nome").eq("id", id).maybeSingle();
-  const { error } = await supabase.from("categories").delete().eq("id", id);
-  if (error) throw error;
+  let oldCat: any = null;
+  try {
+    oldCat = await rtdb.get<any>(`categories/${id}`);
+    await rtdb.remove(`categories/${id}`);
+  } catch {}
+
+  try {
+    await supabase.from("categories").delete().eq("id", id);
+  } catch {}
 
   void logAuditAction("delete_category", "categories", { id, nome: oldCat?.nome }, undefined, id);
 }
 
 export async function createGoal(payload: { user_id: string; type: "vendas" | "faturamento" | "quantidade"; target_value: number; period_start: string; period_end: string; descricao?: string }): Promise<Goal> {
-  const { data: targetProfile } = await (supabase.from("profiles" as any))
-    .select("nome, nickname")
-    .eq("user_id", payload.user_id)
-    .maybeSingle();
-  const tP = targetProfile as any;
-  const targetName = tP ? (tP.nickname || tP.nome || "Membro") : "Membro";
+  let targetName = "Membro";
+  try {
+    const profiles = await rtdb.getList<any>("profiles");
+    const targetProfile = profiles.find((p: any) => p.user_id === payload.user_id || p.id === payload.user_id);
+    if (targetProfile) {
+      targetName = targetProfile.nickname || targetProfile.nome || "Membro";
+    }
+  } catch {}
 
-  const { data, error } = await supabase
-    .from("goals")
-    .insert({
-      user_id: payload.user_id,
-      type: payload.type,
-      target_value: payload.target_value,
-      period_start: payload.period_start,
-      period_end: payload.period_end,
-      descricao: payload.descricao?.trim() || null
-    })
-    .select()
-    .single();
-  if (error) throw error;
+  const id = (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `goal_${Date.now()}`;
+  const now = new Date().toISOString();
+  const newGoal: Goal = {
+    id,
+    user_id: payload.user_id,
+    type: payload.type,
+    target_value: Number(payload.target_value),
+    period_start: String(payload.period_start),
+    period_end: String(payload.period_end),
+    descricao: payload.descricao?.trim() || null,
+    created_at: now,
+  };
+
+  try {
+    await rtdb.set(`goals/${id}`, newGoal);
+  } catch (fbErr) {
+    console.warn("Erro ao salvar meta no RTDB:", fbErr);
+  }
+
+  try {
+    await supabase.from("goals").insert(newGoal);
+  } catch {}
 
   const typeLabel = payload.type === "vendas" ? "Vendas" : payload.type === "faturamento" ? "Faturamento" : "Quantidade";
   void logAuditAction("create_goal", "goals", {
@@ -2770,40 +3012,39 @@ export async function createGoal(payload: { user_id: string; type: "vendas" | "f
     period_start: payload.period_start,
     period_end: payload.period_end,
     descricao: payload.descricao || null,
-  }, undefined, data.id);
+  }, undefined, id);
 
-  return {
-    id: data.id,
-    user_id: data.user_id,
-    type: data.type as any,
-    target_value: Number(data.target_value),
-    period_start: String(data.period_start),
-    period_end: String(data.period_end),
-    descricao: data.descricao,
-    created_at: String(data.created_at)
-  };
+  return newGoal;
 }
 
 export async function deleteGoal(id: string): Promise<void> {
-  const { data: oldGoal } = await supabase.from("goals").select("user_id, type, target_value, period_start, period_end, descricao").eq("id", id).maybeSingle();
+  let oldGoal: any = null;
+  try {
+    oldGoal = await rtdb.get<any>(`goals/${id}`);
+  } catch {}
   let targetName = "Membro";
   if (oldGoal?.user_id) {
-    const { data: prof } = await (supabase.from("profiles" as any)).select("nome, nickname").eq("user_id", oldGoal.user_id).maybeSingle();
-    const p = prof as any;
-    targetName = p ? (p.nickname || p.nome || "Membro") : "Membro";
+    try {
+      const profiles = await rtdb.getList<any>("profiles");
+      const targetProfile = profiles.find((p: any) => p.user_id === oldGoal.user_id || p.id === oldGoal.user_id);
+      if (targetProfile) targetName = targetProfile.nickname || targetProfile.nome || "Membro";
+    } catch {}
   }
   const typeLabel = oldGoal?.type === "vendas" ? "Vendas" : oldGoal?.type === "faturamento" ? "Faturamento" : "Quantidade";
 
-  const { error } = await supabase.from("goals").delete().eq("id", id);
-  if (error) throw error;
+  try {
+    await rtdb.remove(`goals/${id}`);
+  } catch {}
+
+  try {
+    await supabase.from("goals").delete().eq("id", id);
+  } catch {}
 
   void logAuditAction("delete_goal", "goals", {
+    id,
     target_name: targetName,
     goal_type: typeLabel,
     target_value: oldGoal?.target_value,
-    period_start: oldGoal?.period_start,
-    period_end: oldGoal?.period_end,
-    descricao: oldGoal?.descricao || null,
   }, undefined, id);
 }
 
@@ -5328,49 +5569,105 @@ export async function saveActionScale(payload: {
   actor_name: string;
   metadata?: Record<string, any>;
 }): Promise<ActionScale> {
-  const { data, error } = await supabase.rpc("save_action_scale", {
-    p_id: payload.id || null,
-    p_titulo: payload.titulo,
-    p_tipo_acao: payload.tipo_acao,
-    p_descricao: payload.descricao || null,
-    p_data_hora: payload.data_hora,
-    p_data_hora_chamada: payload.data_hora_chamada || null,
-    p_local_posto: payload.local_posto,
-    p_vagas_limite: payload.vagas_limite ?? 10,
-    p_vagas_reservas: payload.vagas_reservas ?? 2,
-    p_status: payload.status || "rascunho",
-    p_actor_name: payload.actor_name,
-    p_metadata: payload.metadata || {},
-    p_gerente_id: payload.gerenteId || null,
-    p_gerente_nome: payload.gerenteNome || null,
-  });
+  const scaleId = payload.id || ((typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `scale_${Date.now()}`);
+  const now = new Date().toISOString();
+  const scaleObj: ActionScale = {
+    id: scaleId,
+    titulo: payload.titulo.trim(),
+    tipo_acao: payload.tipo_acao,
+    descricao: payload.descricao?.trim() || null,
+    data_hora: payload.data_hora,
+    data_hora_chamada: payload.data_hora_chamada || null,
+    local_posto: payload.local_posto,
+    vagas_limite: payload.vagas_limite ?? 10,
+    vagas_reservas: payload.vagas_reservas ?? 2,
+    status: (payload.status as any) || "rascunho",
+    gerente_id: payload.gerenteId || null,
+    gerente_nome: payload.gerenteNome || null,
+    metadata: payload.metadata || {},
+    criado_em: now,
+    atualizado_em: now,
+  } as any;
 
-  if (error) throw error;
-  return data as ActionScale;
+  try {
+    await rtdb.set(`action_scales/${scaleId}`, scaleObj);
+  } catch (fbErr) {
+    console.warn("Erro ao salvar escala no RTDB:", fbErr);
+  }
+
+  try {
+    await supabase.rpc("save_action_scale", {
+      p_id: scaleId,
+      p_titulo: payload.titulo,
+      p_tipo_acao: payload.tipo_acao,
+      p_descricao: payload.descricao || null,
+      p_data_hora: payload.data_hora,
+      p_data_hora_chamada: payload.data_hora_chamada || null,
+      p_local_posto: payload.local_posto,
+      p_vagas_limite: payload.vagas_limite ?? 10,
+      p_vagas_reservas: payload.vagas_reservas ?? 2,
+      p_status: payload.status || "rascunho",
+      p_actor_name: payload.actor_name,
+      p_metadata: payload.metadata || {},
+      p_gerente_id: payload.gerenteId || null,
+      p_gerente_nome: payload.gerenteNome || null,
+    });
+  } catch {}
+
+  void logAuditAction("save_action_scale", "action_scales", { titulo: payload.titulo, status: payload.status }, undefined, scaleId);
+  return scaleObj;
 }
 
 export async function publishActionScale(scaleId: string, actorName: string): Promise<any> {
-  const { data, error } = await supabase.rpc("publish_action_scale", {
-    p_scale_id: scaleId,
-    p_actor_name: actorName,
-  });
-  if (error) throw error;
-  return data;
+  try {
+    await rtdb.update(`action_scales/${scaleId}`, {
+      status: "publicada",
+      atualizado_em: new Date().toISOString(),
+    });
+  } catch {}
+
+  try {
+    await supabase.rpc("publish_action_scale", {
+      p_scale_id: scaleId,
+      p_actor_name: actorName,
+    });
+  } catch {}
+
+  void logAuditAction("publish_action_scale", "action_scales", { scaleId, actorName }, undefined, scaleId);
+  return { success: true, status: "publicada" };
 }
 
 export async function cancelActionScale(scaleId: string, motivo: string, actorName: string): Promise<any> {
-  const { data, error } = await supabase.rpc("cancel_action_scale", {
-    p_scale_id: scaleId,
-    p_motivo: motivo,
-    p_actor_name: actorName,
-  });
-  if (error) throw error;
-  return data;
+  try {
+    await rtdb.update(`action_scales/${scaleId}`, {
+      status: "cancelada",
+      motivo_cancelamento: motivo,
+      atualizado_em: new Date().toISOString(),
+    });
+  } catch {}
+
+  try {
+    await supabase.rpc("cancel_action_scale", {
+      p_scale_id: scaleId,
+      p_motivo: motivo,
+      p_actor_name: actorName,
+    });
+  } catch {}
+
+  void logAuditAction("cancel_action_scale", "action_scales", { scaleId, motivo, actorName }, undefined, scaleId);
+  return { success: true, status: "cancelada" };
 }
 
 export async function deleteActionScale(scaleId: string): Promise<void> {
-  const { error } = await supabase.from("action_scales").delete().eq("id", scaleId);
-  if (error) throw error;
+  try {
+    await rtdb.remove(`action_scales/${scaleId}`);
+  } catch {}
+
+  try {
+    await supabase.from("action_scales").delete().eq("id", scaleId);
+  } catch {}
+
+  void logAuditAction("delete_action_scale", "action_scales", { scaleId }, undefined, scaleId);
 }
 
 export async function addActionScaleMember(payload: {

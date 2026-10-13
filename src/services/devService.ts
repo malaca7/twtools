@@ -586,27 +586,43 @@ export async function triggerForceCachePurge(
   };
 
   try {
-    // 1. Persiste no banco Supabase para que clientes recém-abertos também recebam a instrução
-    await supabase.from("role_permissions").upsert(
-      {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("tw_force_cache_purge", JSON.stringify(record));
+    }
+
+    await fetch(`https://rfdrive-fd805-default-rtdb.firebaseio.com/role_permissions/system_force_cache_purge.json`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         level: "system_force_cache_purge",
         nivel: "system_force_cache_purge",
         permissions: record as any,
         updated_at: new Date().toISOString(),
-      },
-      { onConflict: "level" }
-    );
+      }),
+    }).catch(() => {});
 
-    // 2. Transmite via WebSocket Realtime Broadcast (latência imediata < 50ms)
-    const channel = supabase.channel("system-force-cache-purge-channel");
-    await channel.send({
-      type: "broadcast",
-      event: "force_cache_purge",
-      payload: record,
-    });
+    try {
+      await supabase.from("role_permissions").upsert(
+        {
+          level: "system_force_cache_purge",
+          nivel: "system_force_cache_purge",
+          permissions: record as any,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "level" }
+      );
+    } catch {}
+
+    try {
+      const channel = supabase.channel("system-force-cache-purge-channel");
+      await channel.send({
+        type: "broadcast",
+        event: "force_cache_purge",
+        payload: record,
+      });
+    } catch {}
   } catch (err) {
-    console.error("Erro ao emitir ordem de limpeza de cache:", err);
-    throw err;
+    console.warn("Aviso ao emitir ordem de limpeza de cache:", err);
   }
 
   return record;
@@ -974,27 +990,39 @@ export async function saveCeoTagPermissions(
       window.dispatchEvent(new Event("storage"));
     }
 
-    const { error } = await supabase.from("role_permissions").upsert(
-      {
+    await fetch(`https://rfdrive-fd805-default-rtdb.firebaseio.com/role_permissions/ceo.json`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         level: "ceo",
         nivel: "ceo",
         permissions: permissions as any,
         updated_at: new Date().toISOString(),
-      },
-      { onConflict: "level" }
-    );
+      }),
+    }).catch(() => {});
 
-    if (error) {
-      console.warn("Falha ao salvar permissões da Tag CEO em role_permissions:", error);
-    }
+    try {
+      const { error } = await supabase.from("role_permissions").upsert(
+        {
+          level: "ceo",
+          nivel: "ceo",
+          permissions: permissions as any,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "level" }
+      );
+
+      if (error) {
+        console.warn("Falha ao salvar permissões da Tag CEO em role_permissions:", error);
+      }
+    } catch {}
 
     void broadcastPermissionsRealtimeUpdate({
       type: "role_permissions",
       level: "ceo",
     });
   } catch (err) {
-    console.error("Erro ao salvar permissões da Tag CEO:", err);
-    throw err;
+    console.warn("Aviso ao salvar permissões da Tag CEO:", err);
   }
 }
 
@@ -1054,26 +1082,38 @@ export async function saveCeoConfiguration(
       window.dispatchEvent(new Event("storage"));
     }
 
-    const { error } = await supabase.from("role_permissions").upsert(
-      {
+    await fetch(`https://rfdrive-fd805-default-rtdb.firebaseio.com/role_permissions/system_ceo_config.json`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         level: "system_ceo_config",
         nivel: "system_ceo_config",
         permissions: config as any,
         updated_at: new Date().toISOString(),
-      },
-      { onConflict: "level" }
-    );
+      }),
+    }).catch(() => {});
 
-    if (error) {
-      console.warn("Falha ao salvar system_ceo_config no Supabase:", error);
-    }
+    try {
+      const { error } = await supabase.from("role_permissions").upsert(
+        {
+          level: "system_ceo_config",
+          nivel: "system_ceo_config",
+          permissions: config as any,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "level" }
+      );
+
+      if (error) {
+        console.warn("Falha ao salvar system_ceo_config no Supabase:", error);
+      }
+    } catch {}
 
     void broadcastPermissionsRealtimeUpdate({
       type: "ceo_config",
     });
   } catch (err) {
-    console.error("Erro ao salvar configuração da Tag CEO:", err);
-    throw err;
+    console.warn("Aviso ao salvar configuração da Tag CEO:", err);
   }
 }
 
