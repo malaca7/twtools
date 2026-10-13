@@ -434,6 +434,318 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
         });
       }
 
+      if (rpcName === 'submit_verification_request_rpc') {
+        const reqId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `vreq_${Date.now()}`;
+        const newReq = {
+          id: reqId,
+          user_id: body.p_user_id,
+          requested_title: body.p_requested_title,
+          justification: body.p_justification,
+          status: 'pending',
+          created_at: new Date().toISOString(),
+        };
+        await fetch(`${FIREBASE_RTDB_URL}/verification_requests/${reqId}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newReq),
+        }).catch(() => {});
+        return new Response(JSON.stringify(newReq), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (rpcName === 'cancel_verification_request_rpc') {
+        if (body.p_request_id) {
+          await fetch(`${FIREBASE_RTDB_URL}/verification_requests/${body.p_request_id}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'cancelled', updated_at: new Date().toISOString() }),
+          }).catch(() => {});
+        }
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (rpcName === 'review_verification_request_rpc') {
+        if (body.p_request_id) {
+          await fetch(`${FIREBASE_RTDB_URL}/verification_requests/${body.p_request_id}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              status: body.p_status || 'approved',
+              admin_notes: body.p_admin_notes || null,
+              reviewed_by: body.p_reviewer_id || null,
+              reviewed_at: new Date().toISOString(),
+            }),
+          }).catch(() => {});
+          if (body.p_status === 'approved' && body.p_target_user_id) {
+            await fetch(`${FIREBASE_RTDB_URL}/profiles/${body.p_target_user_id}.json`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                is_verified: true,
+                verified_title: body.p_approved_title || 'Verificado Oficial',
+                verified_badge_color: body.p_badge_color || null,
+                verified_at: new Date().toISOString(),
+              }),
+            }).catch(() => {});
+          }
+        }
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (rpcName === 'execute_production_rpc') {
+        const prodId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `prod_${Date.now()}`;
+        const qty = Number(body.p_quantity) || 1;
+        const productId = body.p_product_id;
+        const now = new Date().toISOString();
+
+        // Decrement raw materials
+        if (Array.isArray(body.p_raw_materials)) {
+          for (const rm of body.p_raw_materials) {
+            const rmId = rm.raw_material_id;
+            const used = Number(rm.quantity_used) || 0;
+            if (rmId && used > 0) {
+              const curRm = await fetch(`${FIREBASE_RTDB_URL}/raw_materials/${rmId}.json`).then(r => r.json()).catch(() => null);
+              const newRmBal = Math.max(0, (Number(curRm?.current_stock) || 0) - used);
+              await fetch(`${FIREBASE_RTDB_URL}/raw_materials/${rmId}.json`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ current_stock: newRmBal, updated_at: now }),
+              }).catch(() => {});
+            }
+          }
+        }
+
+        // Increment warehouse stock
+        let warehouseBal = qty;
+        if (productId) {
+          const curStock = await fetch(`${FIREBASE_RTDB_URL}/warehouse_stock/${productId}.json`).then(r => r.json()).catch(() => null);
+          warehouseBal = (Number(curStock?.quantity) || 0) + qty;
+          await fetch(`${FIREBASE_RTDB_URL}/warehouse_stock/${productId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              product_id: productId,
+              quantity: warehouseBal,
+              reserved_quantity: curStock?.reserved_quantity || 0,
+              updated_at: now,
+            }),
+          }).catch(() => {});
+        }
+
+        // Log production
+        const prodRecord = {
+          id: prodId,
+          product_id: productId,
+          quantity: qty,
+          observation: body.p_observation || null,
+          created_at: now,
+        };
+        await fetch(`${FIREBASE_RTDB_URL}/productions/${prodId}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(prodRecord),
+        }).catch(() => {});
+
+        return new Response(JSON.stringify({
+          success: true,
+          production_id: prodId,
+          product_id: productId,
+          quantity: qty,
+          product_name: 'Produção Concluída',
+          warehouse_balance: warehouseBal,
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (rpcName === 'adjust_warehouse_stock_rpc') {
+        const productId = body.p_product_id;
+        const newQty = Number(body.p_new_quantity) || 0;
+        const now = new Date().toISOString();
+        if (productId) {
+          await fetch(`${FIREBASE_RTDB_URL}/warehouse_stock/${productId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              product_id: productId,
+              quantity: newQty,
+              reserved_quantity: 0,
+              updated_at: now,
+            }),
+          }).catch(() => {});
+        }
+        return new Response(JSON.stringify({ success: true, previous: 0, new_balance: newQty }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (rpcName === 'transfer_warehouse_to_storage_rpc') {
+        const productId = body.p_product_id;
+        const qty = Number(body.p_quantity) || 0;
+        let newBal = 0;
+        if (productId) {
+          const curStock = await fetch(`${FIREBASE_RTDB_URL}/warehouse_stock/${productId}.json`).then(r => r.json()).catch(() => null);
+          newBal = Math.max(0, (Number(curStock?.quantity) || 0) - qty);
+          await fetch(`${FIREBASE_RTDB_URL}/warehouse_stock/${productId}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quantity: newBal, updated_at: new Date().toISOString() }),
+          }).catch(() => {});
+        }
+        return new Response(JSON.stringify({
+          success: true,
+          transferred: qty,
+          warehouse_balance: newBal,
+          destination: body.p_bau_id ? 'Baú Selecionado' : 'Estoque Geral',
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (rpcName === 'transfer_warehouse_to_sale_rpc') {
+        const productId = body.p_product_id;
+        const qty = Number(body.p_quantity) || 0;
+        let newBal = 0;
+        if (productId) {
+          const curStock = await fetch(`${FIREBASE_RTDB_URL}/warehouse_stock/${productId}.json`).then(r => r.json()).catch(() => null);
+          newBal = Math.max(0, (Number(curStock?.quantity) || 0) - qty);
+          await fetch(`${FIREBASE_RTDB_URL}/warehouse_stock/${productId}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quantity: newBal, updated_at: new Date().toISOString() }),
+          }).catch(() => {});
+        }
+        return new Response(JSON.stringify({
+          success: true,
+          transferred: qty,
+          warehouse_balance: newBal,
+          sale_available_balance: qty,
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (rpcName === 'get_coins_exchange_config_rpc') {
+        const conf = await fetch(`${FIREBASE_RTDB_URL}/system_coins_config/default.json`).then(r => r.json()).catch(() => null);
+        const res = conf || {
+          id: 'default',
+          xp_to_coin_rate: 10,
+          min_xp_exchange: 100,
+          is_enabled: true,
+          updated_at: new Date().toISOString(),
+        };
+        return new Response(JSON.stringify(res), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (rpcName === 'dev_update_coins_config_rpc') {
+        const conf = {
+          id: 'default',
+          xp_to_coin_rate: Number(body.p_rate ?? 10),
+          min_xp_exchange: Number(body.p_min ?? 100),
+          is_enabled: body.p_is_enabled ?? true,
+          updated_at: new Date().toISOString(),
+        };
+        await fetch(`${FIREBASE_RTDB_URL}/system_coins_config/default.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(conf),
+        }).catch(() => {});
+        return new Response(JSON.stringify(conf), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (rpcName === 'get_gamification_ranking') {
+        const profs = await fetch(`${FIREBASE_RTDB_URL}/profiles.json`).then(r => r.json()).catch(() => null);
+        const list = profs ? Object.values(profs).filter((p: any) => p && !p._schema_info) : [];
+        list.sort((a: any, b: any) => (Number(b.xp) || 0) - (Number(a.xp) || 0));
+        return new Response(JSON.stringify(list), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (rpcName === 'grant_insignia_rpc' || rpcName === 'dev_grant_insignia_rpc') {
+        const userInsigniaId = `${body.p_user_id || body.p_member_id}_${body.p_insignia_id}`;
+        const record = {
+          id: userInsigniaId,
+          user_id: body.p_user_id || body.p_member_id,
+          insignia_id: body.p_insignia_id,
+          reason: body.p_reason || 'Concedida manualmente',
+          granted_by: body.p_granted_by || null,
+          created_at: new Date().toISOString(),
+        };
+        await fetch(`${FIREBASE_RTDB_URL}/member_insignias/${userInsigniaId}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(record),
+        }).catch(() => {});
+        return new Response(JSON.stringify({ success: true, insignia: record }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (rpcName === 'dev_revoke_insignia_rpc') {
+        const userInsigniaId = `${body.p_user_id || body.p_member_id}_${body.p_insignia_id}`;
+        await fetch(`${FIREBASE_RTDB_URL}/member_insignias/${userInsigniaId}.json`, {
+          method: 'DELETE',
+        }).catch(() => {});
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (rpcName === 'save_insignia_rpc') {
+        const insId = body.p_id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `ins_${Date.now()}`);
+        const insObj = {
+          id: insId,
+          name: body.p_name,
+          description: body.p_description || '',
+          icon: body.p_icon || 'award',
+          category: body.p_category || 'geral',
+          xp_bonus: Number(body.p_xp_bonus) || 0,
+          is_active: body.p_is_active ?? true,
+          updated_at: new Date().toISOString(),
+        };
+        await fetch(`${FIREBASE_RTDB_URL}/insignias/${insId}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(insObj),
+        }).catch(() => {});
+        return new Response(JSON.stringify(insObj), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (rpcName === 'dev_delete_insignia_rpc') {
+        if (body.p_id) {
+          await fetch(`${FIREBASE_RTDB_URL}/insignias/${body.p_id}.json`, { method: 'DELETE' }).catch(() => {});
+        }
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
       // Default para quaisquer outros RPCs
       return new Response(JSON.stringify({ success: true, result: 'ok' }), {
         status: 200,
@@ -462,10 +774,22 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
           ) {
             primaryKeyFilter = { field: key, val: cleanVal };
           }
+        } else if (val.startsWith('neq.')) {
+          filters.push({ field: key, op: 'neq', val: val.replace('neq.', '') });
+        } else if (val.startsWith('gte.')) {
+          filters.push({ field: key, op: 'gte', val: val.replace('gte.', '') });
+        } else if (val.startsWith('lte.')) {
+          filters.push({ field: key, op: 'lte', val: val.replace('lte.', '') });
+        } else if (val.startsWith('gt.')) {
+          filters.push({ field: key, op: 'gt', val: val.replace('gt.', '') });
+        } else if (val.startsWith('lt.')) {
+          filters.push({ field: key, op: 'lt', val: val.replace('lt.', '') });
         } else if (val.startsWith('in.(') && val.endsWith(')')) {
           filters.push({ field: key, op: 'in', val: val.slice(4, -1) });
         } else if (val === 'is.null') {
           filters.push({ field: key, op: 'is', val: 'null' });
+        } else if (val === 'is.not.null' || val === 'not.is.null') {
+          filters.push({ field: key, op: 'not_null', val: '' });
         }
       }
 
@@ -588,6 +912,11 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
         items = items.filter((item: any) => {
           return filters.every(f => {
             if (f.op === 'eq') return String(item[f.field]) === String(f.val);
+            if (f.op === 'neq') return String(item[f.field]) !== String(f.val);
+            if (f.op === 'gte') return Number(item[f.field]) >= Number(f.val);
+            if (f.op === 'lte') return Number(item[f.field]) <= Number(f.val);
+            if (f.op === 'gt') return Number(item[f.field]) > Number(f.val);
+            if (f.op === 'lt') return Number(item[f.field]) < Number(f.val);
             if (f.op === 'in') {
               const allowed = f.val.split(',').map(s => s.trim().replace(/^['"]|['"]$/g, ''));
               return allowed.includes(String(item[f.field]));
@@ -595,9 +924,49 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
             if (f.op === 'is' && f.val === 'null') {
               return item[f.field] === null || item[f.field] === undefined;
             }
+            if (f.op === 'not_null') {
+              return item[f.field] !== null && item[f.field] !== undefined;
+            }
             return true;
           });
         });
+      }
+
+      // Ordenação (order=field.asc ou order=field.desc)
+      const orderParam = searchParams.get('order');
+      if (orderParam) {
+        const [orderField, orderDirection] = orderParam.split('.');
+        const isDesc = orderDirection?.toLowerCase().startsWith('desc');
+        items.sort((a, b) => {
+          const valA = a[orderField];
+          const valB = b[orderField];
+          if (valA === valB) return 0;
+          if (valA === undefined || valA === null) return 1;
+          if (valB === undefined || valB === null) return -1;
+          if (typeof valA === 'number' && typeof valB === 'number') {
+            return isDesc ? valB - valA : valA - valB;
+          }
+          return isDesc
+            ? String(valB).localeCompare(String(valA))
+            : String(valA).localeCompare(String(valB));
+        });
+      }
+
+      // Paginação (offset e limit)
+      const offsetParam = searchParams.get('offset');
+      if (offsetParam) {
+        const offset = parseInt(offsetParam, 10);
+        if (!isNaN(offset) && offset > 0) {
+          items = items.slice(offset);
+        }
+      }
+
+      const limitParam = searchParams.get('limit');
+      if (limitParam) {
+        const limit = parseInt(limitParam, 10);
+        if (!isNaN(limit) && limit >= 0) {
+          items = items.slice(0, limit);
+        }
       }
 
       if (wantsSingle) {
@@ -621,6 +990,7 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
           'Content-Range': `0-${Math.max(0, items.length - 1)}/${items.length}`,
         },
       });
+
     }
   } catch (err) {
     console.warn('[SUPABASE RTDB BRIDGE] Erro ao interceptar requisição:', err);
