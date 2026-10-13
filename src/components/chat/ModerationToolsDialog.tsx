@@ -39,6 +39,7 @@ interface ModerationToolsDialogProps {
   conversation: ChatConversation | null;
   currentUserId?: string;
   onActionComplete?: () => void;
+  onMembersUpdated?: () => void;
 }
 
 export function ModerationToolsDialog({
@@ -47,6 +48,7 @@ export function ModerationToolsDialog({
   conversation,
   currentUserId,
   onActionComplete,
+  onMembersUpdated,
 }: ModerationToolsDialogProps) {
   const [activeTab, setActiveTab] = useState<"members" | "logs">("members");
   const [logs, setLogs] = useState<ChatModerationLog[]>([]);

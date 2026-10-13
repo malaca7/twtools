@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { rtdb } from "@/integrations/firebase/rtdb";
 import type { AppUser, Profile } from "@/lib/app-types";
 import type { AppLevel } from "@/lib/permissions";
 import { logAuditAction } from "@/lib/app-api";
@@ -170,10 +171,29 @@ export async function sendBotLifecycleCommand(
     lastRestartedAt: action === "restart" ? now : config.lastRestartedAt,
   };
 
-  // 1. Salva a nova configuração persistente no Supabase
+  // 1. Salva a nova configuração persistente no Firebase RTDB & Supabase
   await saveDiscordBotConfig(updatedConfig, user, profile, level);
 
-  // 2. Dispara broadcast imediato no canal do bot
+  // 2. Grava comando imediato no Firebase RTDB
+  try {
+    await rtdb.set("system_bot_control", {
+      action,
+      timestamp: Date.now(),
+      actor: profile?.nome || user?.email || "Desenvolvedor",
+      config: {
+        botStatus: updatedConfig.botStatus,
+        botStatusText: updatedConfig.botStatusText,
+        botActivityType: updatedConfig.botActivityType,
+        intentPresences: updatedConfig.intentPresences,
+        intentGuildMembers: updatedConfig.intentGuildMembers,
+        intentMessageContent: updatedConfig.intentMessageContent,
+      },
+    });
+  } catch (rtdbErr) {
+    console.warn("Aviso ao gravar comando no Firebase RTDB:", rtdbErr);
+  }
+
+  // 3. Dispara broadcast imediato no canal do bot (Supabase Realtime)
   try {
     const controlChannel = supabase.channel("system-discord-bot-control");
     await controlChannel.send({
@@ -197,7 +217,7 @@ export async function sendBotLifecycleCommand(
     console.warn("Falha ao emitir broadcast de comando do bot:", bcErr);
   }
 
-  // 3. Se houver Token da Discloud e App ID, tenta acionar a API da Discloud
+  // 4. Se houver Token da Discloud e App ID, tenta acionar a API da Discloud
   let discloudMessage = "";
   if (config.discloudApiToken && config.discloudApiToken.trim().length > 10) {
     const appId = config.discloudAppId || "twin";
@@ -223,7 +243,7 @@ export async function sendBotLifecycleCommand(
     }
   }
 
-  // 4. Registra log de auditoria
+  // 5. Registra log de auditoria
   try {
     await logAuditAction(`bot_${action}`, "discord_bot", {
       action,
@@ -248,9 +268,24 @@ export async function sendBotLifecycleCommand(
 }
 
 /**
- * Escuta batimentos cardíacos (Heartbeat) emitidos pelo bot em tempo real
+ * Escuta batimentos cardíacos (Heartbeat) emitidos pelo bot em tempo real (Firebase RTDB + Supabase)
  */
 export function subscribeToBotHeartbeat(onHeartbeat: (data: BotHeartbeatData) => void) {
+  // 1. Carrega imediatamente o último heartbeat ativo gravado no Firebase RTDB
+  rtdb.get<BotHeartbeatData>("system_bot_heartbeat").then((cached) => {
+    if (cached && cached.timestamp) {
+      onHeartbeat(cached);
+    }
+  }).catch(() => {});
+
+  // 2. Escuta alterações em tempo real no Firebase RTDB
+  const unsubRtdb = rtdb.subscribe<BotHeartbeatData>("system_bot_heartbeat", (data) => {
+    if (data && data.timestamp) {
+      onHeartbeat(data);
+    }
+  });
+
+  // 3. Também escuta canal broadcast do Supabase
   const channel = supabase
     .channel("system-discord-bot-heartbeat")
     .on("broadcast", { event: "heartbeat" }, (payload) => {
@@ -261,6 +296,7 @@ export function subscribeToBotHeartbeat(onHeartbeat: (data: BotHeartbeatData) =>
     .subscribe();
 
   return () => {
+    unsubRtdb();
     supabase.removeChannel(channel);
   };
 }
@@ -269,6 +305,13 @@ export function subscribeToBotHeartbeat(onHeartbeat: (data: BotHeartbeatData) =>
  * Solicita ao bot em tempo real o envio imediato de um batimento cardíaco (Heartbeat)
  */
 export async function requestBotHeartbeat(): Promise<void> {
+  try {
+    await rtdb.set("system_bot_control", {
+      action: "request_heartbeat",
+      timestamp: Date.now(),
+    });
+  } catch {}
+
   try {
     const controlChannel = supabase.channel("system-discord-bot-control");
     await controlChannel.send({
@@ -830,7 +873,7 @@ export async function sendBotDiscordMessage(params: SendDiscordMessageParams): P
 
   // 3. Auditoria
   try {
-    await logAuditAction("bot_send_message", {
+    await logAuditAction("bot_send_message", "bot", {
       channelId: targetChannel,
       hasEmbed: Boolean(payload.embeds?.length),
       contentSnippet: (payload.content || embed?.title || embed?.description || "").slice(0, 100),
@@ -901,6 +944,7 @@ export async function updateDiscordBotPresence(
   const updatedConfig: DiscordBotConfig = {
     ...currentConfig,
     ...params,
+    botActivityType: params.botActivityType === "None" ? undefined : (params.botActivityType || currentConfig.botActivityType),
   };
 
   // 1. Salva a configuração no banco de dados Supabase e localStorage (dispara system-discord-config-sync)
@@ -948,7 +992,7 @@ export async function updateDiscordBotPresence(
 
   // 4. Log de auditoria
   try {
-    await logAuditAction("bot_change_status", {
+    await logAuditAction("bot_change_status", "bot", {
       status: updatedConfig.botStatus,
       activityType: updatedConfig.botActivityType,
       statusText: updatedConfig.botStatusText,

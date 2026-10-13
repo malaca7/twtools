@@ -963,8 +963,8 @@ export function CeoGerenciarTagsPage() {
 
   const filteredMembersForAssign = useMemo(() => {
     const list = members.filter((m) => {
-      const memId = m.user_id || m.id;
-      const isAssigned = selectedMemberIds.has(memId) || (m.user_id && selectedMemberIds.has(m.user_id)) || (m.id && selectedMemberIds.has(m.id));
+      const memId = m.user_id || m.id || "";
+      const isAssigned = (memId ? selectedMemberIds.has(memId) : false) || (m.user_id && selectedMemberIds.has(m.user_id)) || (m.id && selectedMemberIds.has(m.id));
       if (memberAssignFilter === "assigned" && !isAssigned) return false;
       if (memberAssignFilter === "unassigned" && isAssigned) return false;
 
@@ -1056,7 +1056,10 @@ export function CeoGerenciarTagsPage() {
       return;
     }
     const next = new Set(selectedMemberIds);
-    filteredMembersForAssign.forEach((m) => next.add(m.user_id || m.id));
+    filteredMembersForAssign.forEach((m) => {
+      const id = m.user_id || m.id;
+      if (id) next.add(id);
+    });
     setSelectedMemberIds(next);
     setMemberAssignAutoSaved(false);
 
@@ -2190,14 +2193,14 @@ export function CeoGerenciarTagsPage() {
                 </div>
               ) : (
                 filteredMembersForAssign.map((m) => {
-                  const memKey = m.user_id || m.id;
+                  const memKey = m.user_id || m.id || "";
                   const isChecked = (m.user_id && selectedMemberIds.has(m.user_id)) || (m.id && selectedMemberIds.has(m.id));
                   const isSavingThisMember = memberAssignSavingId === m.user_id || (m.id && memberAssignSavingId === m.id);
 
                   return (
                     <div
                       key={memKey}
-                      onClick={() => handleToggleMember(memKey)}
+                      onClick={() => memKey && handleToggleMember(memKey)}
                       className={cn(
                         "p-2.5 flex items-center justify-between gap-3 cursor-pointer transition-colors select-none",
                         isChecked ? "bg-primary/10 hover:bg-primary/15" : "hover:bg-secondary/40"
@@ -2206,7 +2209,7 @@ export function CeoGerenciarTagsPage() {
                       <div className="flex items-center gap-2.5 min-w-0">
                         <Checkbox
                           checked={Boolean(isChecked)}
-                          onCheckedChange={() => handleToggleMember(memKey)}
+                          onCheckedChange={() => memKey && handleToggleMember(memKey)}
                           className="rounded pointer-events-none"
                         />
                         <Avatar className="h-7 w-7 border border-border/50 shrink-0">
@@ -2289,7 +2292,7 @@ export function CeoGerenciarTagsPage() {
                 {tagForPerms && (
                   <MemberTagBadge
                     tag={tagForPerms}
-                    size="lg"
+                    size="md"
                     showIcon
                     className="shadow-md font-bold text-sm"
                   />

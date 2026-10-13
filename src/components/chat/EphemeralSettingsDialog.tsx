@@ -20,7 +20,9 @@ interface EphemeralSettingsDialogProps {
   conversationTitle?: string;
   currentTtlHours?: number;
   currentUserId?: string;
+  canManage?: boolean;
   onSuccess?: () => void;
+  onSettingsUpdated?: () => void;
 }
 
 const EPHEMERAL_OPTIONS = [
@@ -37,7 +39,9 @@ export function EphemeralSettingsDialog({
   conversationTitle,
   currentTtlHours = 0,
   currentUserId,
+  canManage = true,
   onSuccess,
+  onSettingsUpdated,
 }: EphemeralSettingsDialogProps) {
   const [selectedHours, setSelectedHours] = useState<number>(currentTtlHours);
   const [isSaving, setIsSaving] = useState(false);
@@ -52,7 +56,7 @@ export function EphemeralSettingsDialog({
           : `Mensagens temporárias ativadas (${selectedHours === 24 ? "24 horas" : selectedHours === 168 ? "7 dias" : "30 dias"})! ⏱️`
       );
       onOpenChange(false);
-      onSuccess?.();
+      (onSuccess || onSettingsUpdated)?.();
     } catch (err: any) {
       toast.error(`Erro ao configurar mensagens temporárias: ${err.message || err}`);
     } finally {

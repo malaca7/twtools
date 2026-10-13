@@ -101,28 +101,26 @@ export function MessageInput({
 
   const isBlockedByAdminOnly = onlyAdminsCanPost && userRole !== "admin";
 
-  // Auto-focus input ao montar, trocar de conversa ou ao acionar resposta
   useEffect(() => {
-    if (!isBlockedByAdminOnly && !disabled) {
-      const timer1 = setTimeout(() => {
-        textareaRef.current?.focus({ preventScroll: true });
-      }, 40);
-      const timer2 = setTimeout(() => {
-        textareaRef.current?.focus({ preventScroll: true });
-      }, 120);
-      const timer3 = setTimeout(() => {
-        textareaRef.current?.focus({ preventScroll: true });
-      }, 300);
-      const timer4 = setTimeout(() => {
-        textareaRef.current?.focus({ preventScroll: true });
-      }, 600);
-      return () => {
-        clearTimeout(timer1);
-        clearTimeout(timer2);
-        clearTimeout(timer3);
-        clearTimeout(timer4);
-      };
-    }
+    if (isBlockedByAdminOnly || disabled) return;
+    const timer1 = setTimeout(() => {
+      textareaRef.current?.focus({ preventScroll: true });
+    }, 40);
+    const timer2 = setTimeout(() => {
+      textareaRef.current?.focus({ preventScroll: true });
+    }, 120);
+    const timer3 = setTimeout(() => {
+      textareaRef.current?.focus({ preventScroll: true });
+    }, 300);
+    const timer4 = setTimeout(() => {
+      textareaRef.current?.focus({ preventScroll: true });
+    }, 600);
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+      clearTimeout(timer4);
+    };
   }, [conversationId, replyingTo, isBlockedByAdminOnly, disabled]);
 
   // Listener global para focar no campo de digitação sempre que alguma ação no chat for acionada (ex: responder)

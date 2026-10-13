@@ -130,9 +130,8 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
   "loja-dev": "view_dev_shop",
   "dev-coins": "view_dev_coins",
   "coins-dev": "view_dev_coins",
-  tags: "view_dev_tags",
   "dev-tags": "view_dev_tags",
-  "gerenciar-tags": "view_dev_tags",
+  "dev-gerenciar-tags": "view_dev_tags",
 };
 
 function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mode: "dev" | "ceo" | "member" }) {
@@ -232,7 +231,7 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
   // DEV Specific modules
   if (mode === "dev") {
     if (normalizedPage === "hub") {
-      return <Navigate to="/dev/dashboard" replace />;
+      return <Navigate to="/dashboard" replace />;
     }
     if (normalizedPage === "bot") {
       return <DevBotPageContent initialTab={effectiveTab} />;

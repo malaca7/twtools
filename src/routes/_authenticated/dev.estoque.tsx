@@ -121,7 +121,7 @@ export function DevEstoquePageContent({ initialTab }: { initialTab?: string } = 
             size="sm"
             className="h-8 text-xs font-semibold gap-1.5 rounded-xl border-emerald-500/30 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 hover:text-emerald-300"
           >
-            <Link to="/dev/gestao-estoque">
+            <Link to="/gestao-estoque">
               <PackageCheck className="w-3.5 h-3.5" />
               <span>Gestão de Estoque Geral →</span>
             </Link>
@@ -807,7 +807,7 @@ function DiscordIntegrationTab() {
                     variant="ghost"
                     size="sm"
                     className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground shrink-0"
-                    onClick={() => copyToClipboard(config.last_message_id, "ID da Mensagem")}
+                    onClick={() => copyToClipboard(config.last_message_id!, "ID da Mensagem")}
                   >
                     <Copy className="w-3 h-3" />
                   </Button>

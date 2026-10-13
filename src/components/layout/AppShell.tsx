@@ -140,7 +140,7 @@ import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
 import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { VerificationRequestModal } from "@/components/verification/VerificationRequestModal";
 
-type MasterNavItem = {
+type BaseNavItem = {
   id: string;
   title: string;
   url: string;
@@ -150,7 +150,14 @@ type MasterNavItem = {
   defaultOrder: number;
 };
 
-const MASTER_NAV_ITEMS: MasterNavItem[] = [
+type MasterNavItem = BaseNavItem & {
+  category: string;
+  order: number;
+  visible: boolean;
+  isCustom?: boolean;
+};
+
+const MASTER_NAV_ITEMS: BaseNavItem[] = [
   { id: "produzir", title: "Produzir", url: "/producoes/produzir", icon: Factory, perm: "productions.view", defaultCat: "Produções", defaultOrder: 0 },
   { id: "materias-primas", title: "Matérias-Primas", url: "/producoes/materias-primas", icon: Layers, perm: "raw_materials.view", defaultCat: "Produções", defaultOrder: 1 },
   { id: "armazem", title: "Armazém", url: "/producoes/armazem", icon: Warehouse, perm: "warehouse.view", defaultCat: "Produções", defaultOrder: 2 },
@@ -286,12 +293,11 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/dev/configuracao": "manage_dev_config",
   "/dev/menu-lateral": "manage_dev_menu",
   "/dev/estoque": "view_dev_hub",
-  "/escalas": "escalas.view",
   "/dev/escalas": "escalas.view",
   "/ceo/escalas": "escalas.view",
 };
 
-const DEV_MODULE_NAV_ITEMS: MasterNavItem[] = [
+const DEV_MODULE_NAV_ITEMS: BaseNavItem[] = [
   { id: "dev-bot", title: "Bot", url: "/dev/bot", icon: Bot, defaultCat: "DEV", defaultOrder: 0 },
   { id: "dev-estoque", title: "Estoque", url: "/dev/estoque", icon: Boxes, defaultCat: "DEV", defaultOrder: 2 },
   { id: "dev-patch-notes", title: "Patch Notes & Releases", url: "/dev/patch-notes", icon: Sparkles, defaultCat: "DEV", defaultOrder: 3 },
@@ -306,7 +312,7 @@ const DEV_MODULE_NAV_ITEMS: MasterNavItem[] = [
   { id: "dev-notificacoes", title: "Central de Notificações", url: "/dev/notificacoes", icon: BellRing, defaultCat: "DEV", defaultOrder: 11 },
 ];
 
-const CEO_MODULE_NAV_ITEMS: MasterNavItem[] = [
+const CEO_MODULE_NAV_ITEMS: BaseNavItem[] = [
   { id: "ceo-executivo", title: "Visão Executiva & Métricas", url: "/ceo/executivo", icon: LayoutDashboard, defaultCat: "CEO", defaultOrder: 0 },
   { id: "ceo-bot", title: "Gerenciar Bot", url: "/ceo/bot", icon: Bot, defaultCat: "CEO", defaultOrder: 1 },
   { id: "ceo-webhooks", title: "WebHook Discord", url: "/ceo/webhooks", icon: Webhook, defaultCat: "CEO", defaultOrder: 2 },
@@ -500,7 +506,7 @@ function DynamicSidebarNavigation() {
       : ["Produções", "Gestão", "Administração"];
     const categoryOrder = rawCategories.filter((c) => c !== "Operação");
 
-    const masterItemsMap = new Map<string, MasterNavItem>();
+    const masterItemsMap = new Map<string, BaseNavItem>();
     MASTER_NAV_ITEMS.forEach((m) => {
       masterItemsMap.set(m.id, m);
       masterItemsMap.set(m.url, m);
@@ -540,6 +546,7 @@ function DynamicSidebarNavigation() {
             perm: autoPerm,
             category: cat,
             defaultCat: cat,
+            defaultOrder: typeof c.order === "number" ? c.order : idx,
             order: typeof c.order === "number" ? c.order : idx,
             visible: c.visible !== false,
             isCustom: Boolean(c.isCustom || !master),

@@ -44,7 +44,7 @@ import { usePanelTheme } from "@/lib/panelTheme";
 import { useAuth } from "@/hooks/useAuth";
 import { useMembers, useRolePermissions, useCustomRoles } from "@/hooks/useData";
 import { useMenuConfig } from "@/hooks/useMenuConfig";
-import { useCeoMenuConfig } from "@/hooks/useCeoMenuConfig";
+import { useCeoMenuConfig, type CeoMenuItemConfig } from "@/hooks/useCeoMenuConfig";
 import { useDevMenuConfig } from "@/hooks/useDevMenuConfig";
 import { DeveloperGuard } from "@/dev/guards/DeveloperGuard";
 import {
@@ -374,12 +374,17 @@ function DevPermissoesContent() {
       const memberConfigMap = new Map(memberItems.flatMap((c) => [[c.id, c], [c.url, c]]));
 
       const ceoItems = ceoMenuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
-      const ceoConfigMap = new Map(
-        ceoItems.flatMap((c) => [
-          [c.id, c],
-          [c.url, c],
-          ...(c.id === "ceo-dashboard" ? [["ceo", c], ["/ceo", c]] : []),
-        ])
+      const ceoConfigMap = new Map<string, CeoMenuItemConfig>(
+        ceoItems.flatMap((c) => {
+          const pairs: [string, CeoMenuItemConfig][] = [
+            [c.id, c],
+            [c.url, c],
+          ];
+          if (c.id === "ceo-dashboard") {
+            pairs.push(["ceo", c], ["/ceo", c]);
+          }
+          return pairs;
+        })
       );
 
       const devItems = devMenuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
@@ -1383,9 +1388,9 @@ function DevPermissoesContent() {
                     </Badge>
                   </div>
                   {isCargoSyncing ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-400 shrink-0 ml-0.5" title="Sincronizando..." />
+                    <span title="Sincronizando..."><Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-400 shrink-0 ml-0.5" /></span>
                   ) : (
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0 ml-0.5" title="Sincronizado em tempo real" />
+                    <span title="Sincronizado em tempo real"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0 ml-0.5" /></span>
                   )}
                 </div>
 

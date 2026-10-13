@@ -360,7 +360,15 @@ export type Permission =
   | "verification.revoke"
   | "verification.config"
   | "verification.requirements"
-  | "verification.audit";
+  | "verification.audit"
+  | "life_moderate_comments"
+  | "view_sensitive_data"
+  | "manage_roles"
+  | "manage_announcements"
+  | "permission.ceo_selos"
+  | "view_ceo_dashboard"
+  | "view_dev"
+  | "manage_dev_coins_config";
 
 export const ALL_PERMISSIONS: Permission[] = [
   // Permissões de Selos de Verificação

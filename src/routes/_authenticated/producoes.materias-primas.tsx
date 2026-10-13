@@ -443,11 +443,11 @@ export function MateriasPrimasPage() {
         const initStock = Math.max(0, parseInt(formInitialStock, 10) || 0);
         await createRawMaterial({
           name,
-          description: formDesc.trim() || null,
+          description: formDesc.trim() || undefined,
           unit: formUnit.trim() || "un",
           stock_quantity: initStock,
           min_stock: minS,
-          image_url: formImageUrl.trim() || null,
+          image_url: formImageUrl.trim() || undefined,
           is_active: formIsActive,
         });
       }
@@ -1297,7 +1297,6 @@ export function MateriasPrimasPage() {
               <Label className="text-xs font-semibold">Matéria-Prima</Label>
               <Select
                 value={selectedMaterialForPull?.id || ""}
-                onChangeCapture={() => {}}
                 onValueChange={(val) => {
                   const found = rawMaterials.find((m) => m.id === val);
                   setSelectedMaterialForPull(found || null);

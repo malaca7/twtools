@@ -375,8 +375,7 @@ export function useChatRoom(
           setTimeout(() => recentlyAlertedMessageIds.delete(newMsg.id), 8000);
 
           const isMention =
-            Boolean(newMsg.mentions) &&
-            (newMsg.mentions.includes(currentUserId) || newMsg.mentions.includes("todos"));
+            Boolean(newMsg.mentions && (newMsg.mentions.includes(currentUserId) || newMsg.mentions.includes("todos")));
 
           if (isMention) {
             chatSound.playMentionSound();
@@ -1016,9 +1015,10 @@ export function useChatRoom(
           const existing = currentReactions.find((r) => r.emoji === emoji);
           let nextReactions;
           if (existing) {
-            const hasReacted = existing.users.some((u) => u.user_id === currentUserId);
+            const currentUsers = existing.users || [];
+            const hasReacted = currentUsers.some((u: any) => u.user_id === currentUserId);
             if (hasReacted) {
-              const updatedUsers = existing.users.filter((u) => u.user_id !== currentUserId);
+              const updatedUsers = currentUsers.filter((u: any) => u.user_id !== currentUserId);
               nextReactions =
                 updatedUsers.length === 0
                   ? currentReactions.filter((r) => r.emoji !== emoji)
@@ -1030,8 +1030,8 @@ export function useChatRoom(
                 r.emoji === emoji
                   ? {
                       ...r,
-                      count: r.count + 1,
-                      users: [...r.users, { user_id: currentUserId, user_name: currentUserName }],
+                      count: (r.count || 0) + 1,
+                      users: [...(r.users || []), { user_id: currentUserId, user_name: currentUserName }],
                     }
                   : r
               );

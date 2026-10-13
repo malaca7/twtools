@@ -116,7 +116,7 @@ export function AtendimentoTicketsContent() {
     allowedTabs: ["all", "assigned_me", "unassigned", "urgent", "closed"],
   });
 
-  const [ticketParam, setTicketParam] = useSyncedUrlParam("ticket", "");
+  const [ticketParam, setTicketParam] = useSyncedUrlParam<string>("ticket", "");
   const selectedTicketId = ticketParam || null;
   const setSelectedTicketId = (id: string | null) => setTicketParam(id || "");
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
@@ -447,7 +447,7 @@ export function AtendimentoTicketsContent() {
               <SelectContent>
                 <SelectItem value="all">Todas Categorias</SelectItem>
                 {TICKET_CATEGORIES.map((cat) => (
-                  <SelectItem key={cat.value} value={cat.value}>
+                  <SelectItem key={cat.id} value={cat.id}>
                     {cat.label}
                   </SelectItem>
                 ))}
@@ -512,16 +512,16 @@ export function AtendimentoTicketsContent() {
                             {formatTicketNumber(ticket.ticket_number)}
                           </span>
 
-                          <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5", catInfo?.color)}>
+                          <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5", catInfo?.badgeClass)}>
                             {catInfo?.label || ticket.category}
                           </Badge>
 
-                          <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5", priorityInfo?.color)}>
+                          <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5", priorityInfo?.badgeClass)}>
                             {priorityInfo?.label || ticket.priority}
                           </Badge>
                         </div>
 
-                        <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5", statusInfo?.color)}>
+                        <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5", statusInfo?.badgeClass)}>
                           {statusInfo?.label || ticket.status}
                         </Badge>
                       </div>

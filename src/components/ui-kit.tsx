@@ -28,7 +28,7 @@ export function PageHeader({
     if (typeof icon === "object" && icon !== null) {
       if ("render" in icon || "$$typeof" in icon) {
         try {
-          const Comp = icon as React.ComponentType<{ className?: string }>;
+          const Comp = icon as unknown as React.ComponentType<{ className?: string }>;
           return <Comp className="h-6 w-6 text-primary" />;
         } catch {
           return null;
@@ -102,7 +102,7 @@ export function KpiCard({
     if (typeof icon === "object" && icon !== null) {
       if ("render" in icon || "$$typeof" in icon) {
         try {
-          const Comp = icon as React.ComponentType<{ className?: string }>;
+          const Comp = icon as unknown as React.ComponentType<{ className?: string }>;
           return <Comp className="h-5 w-5" />;
         } catch {
           return null;
@@ -169,7 +169,7 @@ export function EmptyState({
     if (typeof icon === "object" && icon !== null) {
       if ("render" in icon || "$$typeof" in icon) {
         try {
-          const Comp = icon as React.ComponentType<{ className?: string }>;
+          const Comp = icon as unknown as React.ComponentType<{ className?: string }>;
           return <Comp className="h-10 w-10 text-muted-foreground" />;
         } catch {
           return null;

@@ -121,7 +121,7 @@ export function CeoAjustesEstoqueContent() {
   const recentAdjustments = useMemo(() => {
     return movements
       .filter((m) => {
-        const isAdj = m.origin === "painel_dev" || m.origin === "painel_ceo" || m.type === "ajuste" || (m.reason && m.reason.length > 0);
+        const isAdj = m.origin === "painel_dev" || m.origin === "painel_ceo" || (m.type as string) === "ajuste" || (m.reason && m.reason.length > 0);
         if (!isAdj) return false;
         if (!historySearch.trim()) return true;
         const q = historySearch.toLowerCase();

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { rtdb } from "@/integrations/firebase/rtdb";
 import {
   TABLE_QUERY_KEYS,
   GLOBAL_CROSS_TAB_CHANNEL,
@@ -21,6 +22,7 @@ export function useRealtimeSync() {
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptsRef = useRef(0);
+  const unsubRtdbPulseRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -346,6 +348,26 @@ export function useRealtimeSync() {
         })
         .subscribe();
 
+      // 4.2.1 Pulso de Movimentações de Estoque via Firebase RTDB
+      try {
+        if (unsubRtdbPulseRef.current) {
+          unsubRtdbPulseRef.current();
+          unsubRtdbPulseRef.current = null;
+        }
+        unsubRtdbPulseRef.current = rtdb.subscribe("system_stock_sync_pulse", (pulse) => {
+          if (pulse?.timestamp) {
+            const stockKeys = ["movements", "product_baus", "baus", "products", "dashboard_metrics", "discord_stock_logs", "discord_stock_config"];
+            triggerInvalidations(stockKeys);
+            broadcastCrossTab(stockKeys);
+
+            const settings = getPlatformSettings();
+            if (settings.soundEffectsEnabled) {
+              playGamerSuccessSound(settings.soundVolume);
+            }
+          }
+        });
+      } catch {}
+
       // 4.3 Canal Broadcast de Configurações da Plataforma e Modo Manutenção
       settingsBroadcastChannel = supabase
         .channel("system-platform-settings")
@@ -511,6 +533,7 @@ export function useRealtimeSync() {
 
       if (bc) bc.close();
       if (permBc) permBc.close();
+      if (unsubRtdbPulseRef.current) unsubRtdbPulseRef.current();
       cleanupChannels();
     };
   }, [queryClient]);

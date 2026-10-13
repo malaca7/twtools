@@ -19,8 +19,10 @@ interface MuteConversationDialogProps {
   conversationId: string;
   conversationTitle?: string;
   isMuted?: boolean;
+  isCurrentlyMuted?: boolean;
   currentUserId?: string;
   onSuccess?: () => void;
+  onMuteUpdated?: () => void;
 }
 
 const MUTE_OPTIONS = [
@@ -37,9 +39,12 @@ export function MuteConversationDialog({
   conversationId,
   conversationTitle,
   isMuted = false,
+  isCurrentlyMuted,
   currentUserId,
   onSuccess,
+  onMuteUpdated,
 }: MuteConversationDialogProps) {
+  const activeMuted = isCurrentlyMuted ?? isMuted;
   const [selectedMinutes, setSelectedMinutes] = useState<number>(480);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -53,7 +58,7 @@ export function MuteConversationDialog({
           : "Notificações desta conversa foram silenciadas."
       );
       onOpenChange(false);
-      onSuccess?.();
+      (onSuccess || onMuteUpdated)?.();
     } catch (err: any) {
       toast.error(`Erro ao atualizar silenciamento: ${err.message || err}`);
     } finally {

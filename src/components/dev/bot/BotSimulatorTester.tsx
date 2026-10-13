@@ -147,9 +147,10 @@ export function BotSimulatorTester({ bot }: BotSimulatorTesterProps) {
                   <Label className="text-xs font-bold">Tipo de Alvo</Label>
                   <Select
                     value={selectedType}
-                    onValueChange={(val: "command" | "event") => {
-                      setSelectedType(val);
-                      if (val === "command") {
+                    onValueChange={(val: string) => {
+                      const type = val as "command" | "event";
+                      setSelectedType(type);
+                      if (type === "command") {
                         setTargetId(availableCommands[0]?.id || "");
                       } else {
                         setTargetId(availableEvents[0]?.id || "");

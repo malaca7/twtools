@@ -2303,7 +2303,7 @@ export function DevGamificationManager({ initialTab = "membros" }: { initialTab?
 
                   <Select
                     value={ruleStatusFilter}
-                    onValueChange={(val: "all" | "active" | "inactive") => setRuleStatusFilter(val)}
+                    onValueChange={(val: string) => setRuleStatusFilter(val as any)}
                   >
                     <SelectTrigger className="w-[120px] sm:w-[130px] h-9 text-xs">
                       <SelectValue placeholder="Status" />

@@ -48,6 +48,7 @@ interface MemberTagBadgeProps {
   showIcon?: boolean;
   onRemove?: () => void;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 export function MemberTagBadge({
@@ -56,6 +57,7 @@ export function MemberTagBadge({
   showIcon = true,
   onRemove,
   className,
+  style,
 }: MemberTagBadgeProps) {
   const Icon = resolveTagIcon(tag.icon);
   const color = tag.color || "#3b82f6";
@@ -83,6 +85,7 @@ export function MemberTagBadge({
         backgroundColor: `${color}18`,
         borderColor: `${color}45`,
         color: color,
+        ...style,
       }}
       title={tag.description || tag.name}
     >

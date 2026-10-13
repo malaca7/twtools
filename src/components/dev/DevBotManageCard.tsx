@@ -888,7 +888,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
 
       // 3. Log de auditoria
       try {
-        await logAuditAction("bot_send_message", {
+        await logAuditAction("bot_send_message", "bot", {
           channelId: targetChannel || "padrão",
           messageSnippet: sendMsgContent.trim().slice(0, 100),
           sender: profile?.nome || user?.email || "CEO",
@@ -1928,12 +1928,13 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                 <Select
                   disabled={!hasPermission("bot_change_intents") || saving}
                   value={config.intentPresences || "always"}
-                  onValueChange={(val: "always" | "never" | "auto") => {
+                  onValueChange={(val) => {
+                    const v = val as "always" | "never" | "auto";
                     if (!hasPermission("bot_change_intents")) {
                       toast.error("Você não possui permissão para mudar opções de intenção privilegiada.");
                       return;
                     }
-                    handleUpdateConfig({ intentPresences: val }, "Intenção de presença atualizada!");
+                    handleUpdateConfig({ intentPresences: v }, "Intenção de presença atualizada!");
                   }}
                 >
                   <SelectTrigger className="w-full bg-zinc-900 border-zinc-800 text-xs font-bold text-foreground disabled:opacity-50 disabled:cursor-not-allowed">
@@ -1960,12 +1961,13 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                 <Select
                   disabled={!hasPermission("bot_change_intents") || saving}
                   value={config.intentGuildMembers || "always"}
-                  onValueChange={(val: "always" | "never" | "auto") => {
+                  onValueChange={(val) => {
+                    const v = val as "always" | "never" | "auto";
                     if (!hasPermission("bot_change_intents")) {
                       toast.error("Você não possui permissão para mudar opções de intenção privilegiada.");
                       return;
                     }
-                    handleUpdateConfig({ intentGuildMembers: val }, "Intenção de membros atualizada!");
+                    handleUpdateConfig({ intentGuildMembers: v }, "Intenção de membros atualizada!");
                   }}
                 >
                   <SelectTrigger className="w-full bg-zinc-900 border-zinc-800 text-xs font-bold text-foreground disabled:opacity-50 disabled:cursor-not-allowed">
@@ -1992,12 +1994,13 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                 <Select
                   disabled={!hasPermission("bot_change_intents") || saving}
                   value={config.intentMessageContent || "always"}
-                  onValueChange={(val: "always" | "never" | "auto") => {
+                  onValueChange={(val) => {
+                    const v = val as "always" | "never" | "auto";
                     if (!hasPermission("bot_change_intents")) {
                       toast.error("Você não possui permissão para mudar opções de intenção privilegiada.");
                       return;
                     }
-                    handleUpdateConfig({ intentMessageContent: val }, "Intenção de conteúdo de mensagem atualizada!");
+                    handleUpdateConfig({ intentMessageContent: v }, "Intenção de conteúdo de mensagem atualizada!");
                   }}
                 >
                   <SelectTrigger className="w-full bg-zinc-900 border-zinc-800 text-xs font-bold text-foreground disabled:opacity-50 disabled:cursor-not-allowed">

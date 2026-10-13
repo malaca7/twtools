@@ -47,7 +47,7 @@ function AuthenticatedLayout() {
         <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/85 backdrop-blur-md px-4 sm:px-8 py-3 shadow-xs">
           <div className="mx-auto max-w-5xl flex items-center justify-between gap-4">
             <Link to="/" className="flex items-center gap-2.5 group">
-              <Brand size="sm" showSlogan={false} />
+              <Brand size="sm" />
             </Link>
 
             <div className="flex items-center gap-2">

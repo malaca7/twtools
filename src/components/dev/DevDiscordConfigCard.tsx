@@ -388,7 +388,7 @@ export function DevDiscordConfigCard() {
       </Card>
 
       {/* TABS DE GERENCIAMENTO */}
-      <Tabs value={subTab} onValueChange={setSubTab} className="w-full space-y-4">
+      <Tabs value={subTab} onValueChange={(val) => setSubTab(val as any)} className="w-full space-y-4">
         <TabsList className="grid grid-cols-2 md:grid-cols-5 gap-1 bg-secondary/40 p-1 rounded-xl border border-border/60 h-auto">
           <TabsTrigger value="channels" className="text-xs font-bold gap-1.5 py-2 data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
             <Hash className="h-3.5 w-3.5" />

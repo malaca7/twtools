@@ -108,12 +108,14 @@ export interface ChatReminder {
 }
 
 export interface MessageReaction {
-  id: string;
-  message_id: string;
-  user_id: string;
+  id?: string;
+  message_id?: string;
+  user_id?: string;
   emoji: string;
-  created_at: string;
+  created_at?: string;
   user_name?: string;
+  count?: number;
+  users?: { user_id: string; user_name: string }[];
 }
 
 export interface ChatParticipant {
@@ -139,10 +141,12 @@ export interface ChatMessage {
   reply_to_id?: string | null;
   reply_to_message?: {
     id: string;
+    sender_id?: string;
     sender_name: string;
     content: string;
     message_type: MessageType | "poll" | "event";
     attachment_name?: string | null;
+    attachment_url?: string | null;
   } | null;
   attachment_url?: string | null;
   attachment_name?: string | null;

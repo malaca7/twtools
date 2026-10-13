@@ -419,9 +419,13 @@ export function ArmazemPage() {
       );
     },
     onSuccess: (res) => {
-      toast.success(
-        `${Math.round(res.transferred)}x transferidos com sucesso para ${res.destination}!`
-      );
+      if (res) {
+        toast.success(
+          `${Math.round(res.transferred)}x transferidos com sucesso para ${res.destination}!`
+        );
+      } else {
+        toast.success("Transferido com sucesso!");
+      }
       void queryClient.invalidateQueries({ queryKey: ["warehouse_stock"] });
       void queryClient.invalidateQueries({ queryKey: ["products"] });
       void queryClient.invalidateQueries({ queryKey: ["warehouse_movements"] });
@@ -458,9 +462,13 @@ export function ArmazemPage() {
       );
     },
     onSuccess: (res) => {
-      toast.success(
-        `${Math.round(res.transferred)}x liberados para Vendas com sucesso! Saldo para venda: ${Math.round(res.sale_available_balance)}.`
-      );
+      if (res) {
+        toast.success(
+          `${Math.round(res.transferred)}x liberados para Vendas com sucesso! Saldo para venda: ${Math.round(res.sale_available_balance)}.`
+        );
+      } else {
+        toast.success("Liberado para Vendas com sucesso!");
+      }
       void queryClient.invalidateQueries({ queryKey: ["warehouse_stock"] });
       void queryClient.invalidateQueries({ queryKey: ["products"] });
       void queryClient.invalidateQueries({ queryKey: ["warehouse_movements"] });
@@ -2239,7 +2247,7 @@ export function ArmazemPage() {
                   <Label className="text-xs font-semibold">Origem (De onde sai) *</Label>
                   <Select
                     value={stockOrigin}
-                    onValueChange={(val: StockLocation) => setStockOrigin(val)}
+                    onValueChange={(val) => setStockOrigin(val as StockLocation)}
                   >
                     <SelectTrigger className="h-9 rounded-xl bg-background/50 text-xs">
                       <SelectValue placeholder="Origem" />
@@ -2276,7 +2284,7 @@ export function ArmazemPage() {
                     <Select
                       value={stockAction === "RETURN_WAREHOUSE" ? "WAREHOUSE" : stockDestination}
                       disabled={stockAction === "RETURN_WAREHOUSE"}
-                      onValueChange={(val: StockLocation) => setStockDestination(val)}
+                      onValueChange={(val) => setStockDestination(val as StockLocation)}
                     >
                       <SelectTrigger className="h-9 rounded-xl bg-background/50 text-xs">
                         <SelectValue placeholder="Destino" />

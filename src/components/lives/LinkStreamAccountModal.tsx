@@ -77,8 +77,8 @@ export function LinkStreamAccountModal({
   // Sugestão de apelido padrão baseado na identidade do membro
   const suggestedHandle =
     (profile?.nickname as string) ||
-    (user?.user_metadata?.custom_claims?.username as string) ||
-    (user?.user_metadata?.full_name as string) ||
+    ((user as any)?.user_metadata?.custom_claims?.username as string) ||
+    ((user as any)?.user_metadata?.full_name as string) ||
     "";
 
   // Sincroniza plataforma inicial e preenche o canal existente ou sugerido

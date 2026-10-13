@@ -274,12 +274,11 @@ export function usePageTitle(): PageTitleInfo {
  */
 export function useModalTitle(title: string | null | undefined, isOpen: boolean) {
   useEffect(() => {
-    if (isOpen && title) {
-      pushModalTitle(title);
-      return () => {
-        popModalTitle(title);
-      };
-    }
+    if (!isOpen || !title) return;
+    pushModalTitle(title);
+    return () => {
+      popModalTitle(title);
+    };
   }, [isOpen, title]);
 }
 

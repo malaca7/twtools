@@ -1787,7 +1787,7 @@ export async function submitSignupReview({ data }: { data: { requestId: string; 
         .eq("id", data.requestId)
         .maybeSingle();
       const reqObj = requestData as { nome?: string; nickname?: string; user_id?: string } | null;
-      applicantName = reqObj ? (reqObj.nickname ? `${reqObj.nickname} (${reqObj.nome})` : reqObj.nome) : null;
+      applicantName = (reqObj ? (reqObj.nickname ? `${reqObj.nickname} (${reqObj.nome})` : reqObj.nome) : null) || null;
       targetId = reqObj?.user_id;
     } catch {}
   }
@@ -4795,7 +4795,7 @@ export async function updateTicketStatus(
     closedAt = now;
     closedById = auth.user.id;
     closedByName = auth.nickname || auth.nome || "Gestor";
-  } else if (ticket.status === "fechado" && newStatus !== "fechado") {
+  } else if ((ticket.status as string) === "fechado") {
     closedAt = null;
     closedById = null;
     closedByName = null;

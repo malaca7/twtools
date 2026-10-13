@@ -1117,6 +1117,20 @@ export async function leaveOrDeleteGroup(
   if (error) throw error;
 }
 
+export async function updateGroupInfo(conversationId: string, title: string): Promise<void> {
+  await updateGroupSettings({ conversation_id: conversationId, title });
+}
+
+export async function addGroupMembers(conversationId: string, userIds: string[]): Promise<void> {
+  for (const uid of userIds) {
+    await manageGroupMember(conversationId, uid, "add");
+  }
+}
+
+export async function removeGroupMember(conversationId: string, targetUserId: string): Promise<void> {
+  await removeConversationParticipant(conversationId, targetUserId);
+}
+
 /**
  * Faz upload de um anexo para o bucket 'chat-attachments'.
  */
@@ -1245,7 +1259,7 @@ export async function forwardChatMessage(
   }
 
   return sendChatMessage(targetConversationId, message.content, {
-    messageType: message.message_type,
+    messageType: message.message_type as any,
     attachmentUrl: message.attachment_url,
     attachmentName: message.attachment_name,
     attachmentType: message.attachment_type,

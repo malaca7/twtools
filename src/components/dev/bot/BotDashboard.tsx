@@ -601,12 +601,12 @@ export const BotDashboard: React.FC<BotDashboardProps> = ({
                             {log.triggerType}
                           </Badge>
                           <span className="text-[10px] text-zinc-500 font-mono">
-                            {new Date(log.executedAt).toLocaleTimeString("pt-BR")}
+                            {log.executedAt ? new Date(log.executedAt).toLocaleTimeString("pt-BR") : "--:--"}
                           </span>
                         </div>
                         <div className="text-[11px] text-zinc-400">
-                          Disparado por: <span className="text-zinc-300">{log.user?.name || "Sistema"}</span> •
-                          Canal: <span className="text-zinc-300">{log.channel?.name || "Global"}</span>
+                          Disparado por: <span className="text-zinc-300">{(log.user as any)?.name || (log.user as any) || "Sistema"}</span> •
+                          Canal: <span className="text-zinc-300">{(log.channel as any)?.name || (log.channel as any) || "Global"}</span>
                         </div>
                       </div>
                     </div>

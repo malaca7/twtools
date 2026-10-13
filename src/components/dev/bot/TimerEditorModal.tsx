@@ -102,7 +102,7 @@ export function TimerEditorModal({ open, onOpenChange, timer, onSave }: TimerEdi
               <Label className="text-xs font-bold">Tipo de Agendamento</Label>
               <Select
                 value={formData.scheduleType}
-                onValueChange={(val: ScheduleType) => setFormData({ ...formData, scheduleType: val })}
+                onValueChange={(val: string) => setFormData({ ...formData, scheduleType: val as ScheduleType })}
               >
                 <SelectTrigger className="bg-zinc-950 border-zinc-800 text-xs font-bold">
                   <SelectValue />

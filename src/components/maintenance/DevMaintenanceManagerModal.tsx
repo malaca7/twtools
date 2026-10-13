@@ -872,11 +872,11 @@ export function DevMaintenanceManagerModal({
                                         isChecked && "text-amber-300"
                                       )}
                                     >
-                                      {tag.nome}
+                                      {tag.name || (tag as any).nome}
                                     </span>
                                   </div>
                                   <p className="text-[10px] text-muted-foreground truncate leading-tight mt-0.5">
-                                    {tag.descricao || "Tag de sistema"}
+                                    {tag.description || (tag as any).descricao || "Tag de sistema"}
                                   </p>
                                 </div>
                               </div>

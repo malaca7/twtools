@@ -1,15 +1,12 @@
 const { Events } = require('discord.js');
-const { Pool } = require('pg');
+const crypto = require('crypto');
+const firebaseRtdb = require('./firebase');
 
-let dbPool = null;
+const FIREBASE_RTDB_URL = process.env.FIREBASE_RTDB_URL || "https://rfdrive-fd805-default-rtdb.firebaseio.com";
 
-const FIREBASE_RTDB_URL = "https://rfdrive-fd805-default-rtdb.firebaseio.com";
-
-async function fetchFromFirebaseRtdb(path) {
+async function fetchFromFirebaseRtdb(nodePath) {
   try {
-    const res = await fetch(`${FIREBASE_RTDB_URL}/${path}.json`);
-    if (!res.ok) return null;
-    const data = await res.json();
+    const data = await firebaseRtdb.get(nodePath);
     if (!data) return null;
     if (typeof data === "object" && !Array.isArray(data)) {
       return Object.values(data);
@@ -76,7 +73,6 @@ function calculateSimilarity(a, b) {
 }
 
 function cleanItemName(rawName, mappings = {}) {
-  // Remove markdown, backslashes (ex: MTAR\-21 -> MTAR-21), bullets and leading/trailing spaces
   let name = rawName.replace(/\\/g, '').replace(/^[\s\-•\*\>]+/, '').trim();
   if (!name) return name;
 
@@ -229,7 +225,6 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}, defaultBau
   let toBauName = null;
   let bauName = defaultBauName || 'BAÚ QG';
 
-  // Checar se o título ou linha tem "Baú: Nome" ou "📦 Baú \n Nome"
   const bauTitleMatch = rawText.match(/(?:📦\s*)?ba[uú]\s*[:\-]\s*([^\n\r]+)/i);
   if (bauTitleMatch && bauTitleMatch[1]) {
     const extracted = bauTitleMatch[1].replace(/📦/g, '').replace(/^[:\-\s]+/, '').trim();
@@ -238,7 +233,6 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}, defaultBau
     }
   }
 
-  // Checar padrões explícitos de transferência entre dois baús
   const transferMatch = rawText.match(/(?:origem|de)\s*[:\-]\s*([^\n\r\|]+).*?(?:destino|para)\s*[:\-]\s*([^\n\r\|]+)/i) ||
                         rawText.match(/transfer(?:ência|ido)?\s*(?:de)?\s*([^\n\r\->]+)\s*(?:->|para)\s*([^\n\r]+)/i);
 
@@ -261,7 +255,7 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}, defaultBau
   }
 
   // 3. Detectar Ação Cidade Alta (Retirou vs Guardou)
-  let actionMultiplier = 1; // 1 = Guardou/Adicionou, -1 = Retirou/Removeu
+  let actionMultiplier = 1;
   let inItensSection = false;
   let inSaldoLiquidoSection = false;
   let inDetalhesSection = false;
@@ -281,20 +275,17 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}, defaultBau
     const rawLine = lines[i];
     const line = rawLine.replace(/[\*\_`\\]/g, '').trim();
 
-    // Se a linha em si for "Retirou" ou "Guardou"
     if (/^(?:💼\s*)?retirou|removido|retirada/i.test(line)) {
       actionMultiplier = -1;
     } else if (/^(?:💼\s*)?guardou|depositou|adicionado|dep[oó]sito/i.test(line)) {
       actionMultiplier = 1;
     }
 
-    // Seção de Itens (Cidade Alta)
     if (/(?:🎒\s*)?itens/i.test(line)) {
       inItensSection = true;
       inSaldoLiquidoSection = false;
       inDetalhesSection = false;
 
-      // Se os itens estiverem na mesma linha: "🎒 Itens: x10 algemas, x100 lockpick"
       const inlineItens = line.replace(/^(?:🎒\s*)?itens\s*[:\-]?\s*/i, '').trim();
       if (inlineItens) {
         const itemTokens = inlineItens.split(/[,;\n]+/).map(t => t.trim()).filter(Boolean);
@@ -305,7 +296,6 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}, defaultBau
       continue;
     }
 
-    // Início de Saldo Líquido
     if (/saldo\s*l[ií]quido/i.test(line)) {
       inSaldoLiquidoSection = true;
       inItensSection = false;
@@ -329,7 +319,6 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}, defaultBau
       continue;
     }
 
-    // Início de Detalhes da Movimentação
     if (/detalhes\s*da\s*movimenta[cç][aã]o/i.test(line)) {
       inSaldoLiquidoSection = false;
       inDetalhesSection = true;
@@ -337,7 +326,6 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}, defaultBau
       continue;
     }
 
-    // Linhas de rodapé ou metadados de fim
     if (/movimenta[cç][oõ]es\s*agrupadas|voc[eê]\s*consegue\s*agendar|cda\s*:\s*\d+|data|hor[aá]rio|respons[aá]vel/i.test(line)) {
       inItensSection = false;
       inSaldoLiquidoSection = false;
@@ -346,7 +334,6 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}, defaultBau
     }
 
     if (inItensSection) {
-      // Formato Cidade Alta: "x10 algemas", "100x Lockpick", "10x capuz", "x10 algemas, x50 capuz"
       const subTokens = line.split(/[,;]+/).map(t => t.trim()).filter(Boolean);
       for (const token of subTokens) {
         parseItemToken(token, actionMultiplier, parsedItems, isTransfer, fromBauName, toBauName, bauName, config);
@@ -371,7 +358,6 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}, defaultBau
         }
       }
     } else if (inDetalhesSection && parsedItems.length === 0) {
-      // Fallback para quando Saldo Líquido não estiver presente
       const arrowMatch = line.match(/^[↳\->]+\s*([+-]?\s*\d+)\s*(removid[oa]s?|retirad[oa]s?|adicionad[oa]s?|colocad[oa]s?|guardad[oa]s?)?/i);
       if (arrowMatch && lastItemPendingQty) {
         let qty = parseInt(arrowMatch[1].replace(/\s+/g, ''), 10);
@@ -392,7 +378,6 @@ function parseDiscordStockMessage(rawText, embed = null, config = {}, defaultBau
         lastItemPendingQty = cleanItemName(line, config.item_mappings);
       }
     } else {
-      // Padrão de linha individual: "Metanfetamina -72"
       const itemMatch = line.match(/^([a-zA-Z0-9À-ÿ\s\.\-_]+?)\s+([+-]\d+)$/);
       if (itemMatch && !/saldo|detalhe|ba[uú]|id|data|a[cç][aã]o|registro/i.test(itemMatch[1])) {
         const itemName = cleanItemName(itemMatch[1], config.item_mappings);
@@ -427,7 +412,7 @@ let cachedConfig = null;
 let cachedAllBaus = [];
 let cachedStockChannelIds = new Set();
 let lastCacheLoad = 0;
-const CACHE_TTL_MS = 15000; // 15 segundos de TTL com auto-refresh em background e via Postgres change
+const CACHE_TTL_MS = 15000;
 
 const processedMessageIds = new Set();
 function markMessageProcessed(id) {
@@ -445,24 +430,18 @@ async function refreshCache() {
     let prods = [];
     let allBaus = [];
 
-    if (dbPool) {
-      try {
-        const configRes = await dbPool.query(`SELECT * FROM public.discord_stock_config LIMIT 1`);
-        if (configRes && configRes.rows && configRes.rows.length > 0) config = configRes.rows[0];
-        const prodsRes = await dbPool.query(`SELECT nome, cda_name FROM public.products WHERE ativo = true`);
-        prods = prodsRes?.rows || [];
-        const bausRes = await dbPool.query(`SELECT id, nome, tipo_gestao, discord_channel_id, discord_guild_id, ativo FROM public.baus WHERE ativo = true`);
-        allBaus = bausRes?.rows || [];
-      } catch {}
+    // Carregar configurações diretamente do Firebase Realtime Database
+    const fbConfigList = await fetchFromFirebaseRtdb("discord_stock_config");
+    if (fbConfigList && fbConfigList.length > 0) {
+      config = fbConfigList[0];
     }
-
-    if (!config) {
-      const fbConfigList = await fetchFromFirebaseRtdb("discord_stock_config");
-      if (fbConfigList && fbConfigList.length > 0) config = fbConfigList[0];
-      const fbProds = await fetchFromFirebaseRtdb("products");
-      if (fbProds) prods = fbProds.filter(p => p.ativo !== false);
-      const fbBaus = await fetchFromFirebaseRtdb("baus");
-      if (fbBaus) allBaus = fbBaus.filter(b => b.ativo !== false);
+    const fbProds = await fetchFromFirebaseRtdb("products");
+    if (fbProds) {
+      prods = fbProds.filter(p => p.ativo !== false);
+    }
+    const fbBaus = await fetchFromFirebaseRtdb("baus");
+    if (fbBaus) {
+      allBaus = fbBaus.filter(b => b.ativo !== false);
     }
 
     if (!config) return null;
@@ -507,7 +486,7 @@ async function refreshCache() {
 
     return { config: cachedConfig, allBaus: cachedAllBaus, targetChannelIds: cachedStockChannelIds };
   } catch (e) {
-    console.warn("⚠️ [STOCK-ENGINE] Falha ao atualizar cache de configurações:", e.message);
+    console.warn("⚠️ [STOCK-ENGINE] Falha ao atualizar cache de configurações via Firebase:", e.message);
     if (cachedConfig) {
       return { config: cachedConfig, allBaus: cachedAllBaus, targetChannelIds: cachedStockChannelIds };
     }
@@ -523,7 +502,7 @@ async function getOrRefreshConfigAndBaus(force = false) {
 }
 
 /**
- * Processa uma mensagem individual de estoque do Discord
+ * Processa uma mensagem individual de estoque do Discord gravando no Firebase RTDB
  */
 async function processStockMessage(message, config, allBaus, broadcastChannel = null) {
   try {
@@ -531,7 +510,7 @@ async function processStockMessage(message, config, allBaus, broadcastChannel = 
     if (!channelId) return;
 
     if (processedMessageIds.has(message.id)) {
-      return; // Já processada nesta sessão
+      return;
     }
 
     let matchedBau = null;
@@ -580,7 +559,6 @@ async function processStockMessage(message, config, allBaus, broadcastChannel = 
         return;
       }
     } else {
-      // Se não pertence a nenhum baú específico, verifica se é o canal fallback global OU se é embed de estoque (canal de teste/simulação)
       const confChannelId = String(config.channel_id || '').trim();
       const isConfigChannel = confChannelId && channelId === confChannelId;
 
@@ -598,6 +576,7 @@ async function processStockMessage(message, config, allBaus, broadcastChannel = 
       if (!matchedBau && config.default_bau_id) {
         matchedBau = allBaus.find(b => b.id === config.default_bau_id);
       }
+
       if (!matchedBau) {
         matchedBau = allBaus.find(b => b.ativo && b.tipo_gestao !== 'manual') || allBaus[0];
       }
@@ -612,168 +591,345 @@ async function processStockMessage(message, config, allBaus, broadcastChannel = 
       return;
     }
 
-    // Verificar no banco se a mensagem já foi processada anteriormente com sucesso
-    const checkLog = await dbPool.query(
-      `SELECT id, status FROM public.discord_stock_logs WHERE message_id = $1 LIMIT 1`,
-      [message.id]
-    );
-    if (checkLog.rows.length > 0 && checkLog.rows[0].status === 'success') {
-      markMessageProcessed(message.id);
-      return;
-    }
+    // Marcar como processada para evitar duplicatas instantâneas
+    markMessageProcessed(message.id);
 
     console.log(`📦 [STOCK-ENGINE] Processando movimentação automática instantânea no baú "${matchedBau?.nome || 'Geral'}" (Msg ID: ${message.id})`);
 
-    // Interpretar conteúdo passando o baú do canal como default
     const { authorName, gamePlayerId, parsedItems } = parseDiscordStockMessage(rawText, embedObj, config, matchedBau?.nome);
 
     if (!parsedItems || parsedItems.length === 0) {
       console.warn(`⚠️ [STOCK-ENGINE] Nenhum item reconhecido na msg ${message.id}`);
-      await dbPool.query(`
-        INSERT INTO public.discord_stock_logs (
-          message_id, channel_id, guild_id, author_name, game_player_id, raw_content, raw_embeds, parsed_items, status, error_message
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'error', 'Nenhum item válido identificado no formato esperado')
-        ON CONFLICT (message_id) DO UPDATE 
-          SET status = 'error', error_message = 'Nenhum item válido identificado no formato esperado'
-      `, [
-        message.id,
-        channelId,
-        message.guildId || message.guild?.id || null,
-        authorName || 'Sistema Twin Wheels',
-        gamePlayerId,
-        rawText,
-        embedObj ? JSON.stringify(embedObj) : null,
-        JSON.stringify([])
-      ]);
-      markMessageProcessed(message.id);
+      const errorLogId = crypto.randomUUID();
+      await firebaseRtdb.set(`discord_stock_logs/${errorLogId}`, {
+        id: errorLogId,
+        message_id: message.id,
+        channel_id: channelId,
+        guild_id: message.guildId || message.guild?.id || null,
+        author_name: authorName || 'Sistema Twin Wheels',
+        game_player_id: gamePlayerId || null,
+        raw_content: rawText,
+        raw_embeds: embedObj,
+        parsed_items: [],
+        status: 'error',
+        error_message: 'Nenhum item válido identificado no formato esperado',
+        created_at: new Date().toISOString()
+      }).catch(() => {});
       return;
     }
 
-    // Chamar RPC process_discord_stock_log
-    const rpcQuery = `
-      SELECT public.process_discord_stock_log(
-        $1::TEXT, $2::TEXT, $3::TEXT, $4::TEXT, $5::TEXT, $6::TEXT, $7::JSONB, $8::JSONB
-      ) as result
-    `;
-    const values = [
-      message.id,
-      message.guildId || message.guild?.id || null,
-      channelId,
-      authorName,
-      gamePlayerId,
-      rawText,
-      embedObj ? JSON.stringify(embedObj) : null,
-      JSON.stringify(parsedItems)
-    ];
+    // Resolver membro / perfil do usuário pelo game_player_id ou nome
+    let finalUserId = null;
+    let finalAuthorName = authorName || 'Sistema Twin Wheels';
 
-    const res = await dbPool.query(rpcQuery, values);
-    const resultObj = res.rows[0]?.result;
-
-    if (resultObj && resultObj.success) {
-      markMessageProcessed(message.id);
-      console.log(`✅ [STOCK-ENGINE] Movimentação automática gravada com sucesso! (Msg: ${message.id}, ${parsedItems.length} itens, Baú: ${matchedBau?.nome || 'QG'}, Autor: ${resultObj.author || authorName})`);
-
-      // Enviar evento de sincronização em tempo real instantâneo (<50ms) via Supabase Realtime Broadcast
-      if (broadcastChannel) {
-        try {
-          await broadcastChannel.send({
-            type: 'broadcast',
-            event: 'stock_movement_created',
-            payload: {
-              message_id: message.id,
-              channel_id: channelId,
-              bau_id: matchedBau?.id,
-              bau_name: matchedBau?.nome,
-              author_name: resultObj.author || authorName,
-              items_count: parsedItems.length,
-              timestamp: Date.now()
-            }
-          });
-          console.log(`📡 [STOCK-ENGINE] Broadcast de sincronização instantânea emitido com sucesso!`);
-        } catch (bcErr) {
-          console.warn(`⚠️ [STOCK-ENGINE] Falha ao emitir broadcast Supabase:`, bcErr.message);
-        }
-      }
-    } else {
-      console.warn(`⚠️ [STOCK-ENGINE] Resultado RPC para msg ${message.id}:`, resultObj);
-      if (resultObj?.error?.includes('anteriormente')) {
-        markMessageProcessed(message.id);
+    const profilesList = await fetchFromFirebaseRtdb("profiles") || [];
+    if (gamePlayerId) {
+      const pFound = profilesList.find(p => p.game_id && String(p.game_id).trim() === String(gamePlayerId).trim());
+      if (pFound) {
+        finalUserId = pFound.user_id || pFound.id;
+        finalAuthorName = pFound.nome || finalAuthorName;
       }
     }
+    if (!finalUserId && authorName) {
+      const lowerAuthor = authorName.trim().toLowerCase();
+      const pFound = profilesList.find(p => 
+        (p.nome && p.nome.trim().toLowerCase() === lowerAuthor) ||
+        (p.nickname && p.nickname.trim().toLowerCase() === lowerAuthor)
+      );
+      if (pFound) {
+        finalUserId = pFound.user_id || pFound.id;
+        finalAuthorName = pFound.nome || finalAuthorName;
+      }
+    }
+
+    const allowNegative = config.allow_negative_stock === true;
+    const nowIso = new Date().toISOString();
+
+    // Carregar produtos e product_baus atuais do Firebase
+    let allProducts = await fetchFromFirebaseRtdb("products") || [];
+    let productBausMap = await firebaseRtdb.get("product_baus") || {};
+
+    for (const item of parsedItems) {
+      const cleanName = (item.item_name || '').trim();
+      const lowerClean = cleanName.toLowerCase();
+      const normClean = normalizeText(cleanName);
+
+      // Localizar produto existente
+      let targetProduct = allProducts.find(p => {
+        if (!p.nome) return false;
+        if (p.nome.trim().toLowerCase() === lowerClean) return true;
+        if (normalizeText(p.nome) === normClean) return true;
+        if (p.cda_name) {
+          const aliases = p.cda_name.split(/[,;\n|]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
+          if (aliases.includes(lowerClean)) return true;
+        }
+        return false;
+      });
+
+      // Se produto não existir, auto-cadastrar no Firebase RTDB
+      if (!targetProduct) {
+        const newProdId = crypto.randomUUID();
+        targetProduct = {
+          id: newProdId,
+          nome: cleanName,
+          cda_name: cleanName,
+          categoria_id: null,
+          ativo: true,
+          estoque_atual: "0.00",
+          estoque_minimo: "0.00",
+          preco_sugerido: "0.00",
+          unidade: "un",
+          created_at: nowIso,
+          updated_at: nowIso,
+        };
+        await firebaseRtdb.set(`products/${newProdId}`, targetProduct);
+        allProducts.push(targetProduct);
+        console.log(`✨ [STOCK-ENGINE] Novo produto auto-cadastrado no Firebase RTDB: ${cleanName} (${newProdId})`);
+      }
+
+      if (item.is_transfer) {
+        // Transferência entre baús
+        const fromBau = allBaus.find(b => b.nome && b.nome.toLowerCase() === (item.from_bau_name || '').toLowerCase()) || matchedBau;
+        const toBau = allBaus.find(b => b.nome && b.nome.toLowerCase() === (item.to_bau_name || '').toLowerCase()) || matchedBau;
+        const qty = Math.abs(item.quantity_change);
+
+        // 1. Saída do baú de origem
+        const fromKey = `${targetProduct.id}_${fromBau.id}`;
+        const fromPrev = parseFloat(productBausMap[fromKey]?.quantidade || 0) || 0;
+        const fromNew = allowNegative ? (fromPrev - qty) : Math.max(0, fromPrev - qty);
+
+        const fromPbData = {
+          product_id: targetProduct.id,
+          bau_id: fromBau.id,
+          quantidade: fromNew.toFixed(2),
+          updated_at: nowIso,
+        };
+        await firebaseRtdb.set(`product_baus/${fromKey}`, fromPbData);
+        productBausMap[fromKey] = fromPbData;
+
+        const movSaidaId = crypto.randomUUID();
+        await firebaseRtdb.set(`stock_movements/${movSaidaId}`, {
+          id: movSaidaId,
+          product_id: targetProduct.id,
+          bau_id: fromBau.id,
+          user_id: finalUserId,
+          type: "saida",
+          quantity: qty.toFixed(2),
+          previous_balance: fromPrev.toFixed(2),
+          resulting_balance: fromNew.toFixed(2),
+          reason: `Transferência automática para ${toBau.nome || 'Baú'}`,
+          discord_message_id: message.id,
+          discord_user_name: finalAuthorName,
+          game_player_id: gamePlayerId || null,
+          origin: "discord",
+          raw_log: rawText,
+          status: "completed",
+          created_at: nowIso,
+        });
+
+        // 2. Entrada no baú de destino
+        const toKey = `${targetProduct.id}_${toBau.id}`;
+        const toPrev = parseFloat(productBausMap[toKey]?.quantidade || 0) || 0;
+        const toNew = toPrev + qty;
+
+        const toPbData = {
+          product_id: targetProduct.id,
+          bau_id: toBau.id,
+          quantidade: toNew.toFixed(2),
+          updated_at: nowIso,
+        };
+        await firebaseRtdb.set(`product_baus/${toKey}`, toPbData);
+        productBausMap[toKey] = toPbData;
+
+        const movEntradaId = crypto.randomUUID();
+        await firebaseRtdb.set(`stock_movements/${movEntradaId}`, {
+          id: movEntradaId,
+          product_id: targetProduct.id,
+          bau_id: toBau.id,
+          user_id: finalUserId,
+          type: "entrada",
+          quantity: qty.toFixed(2),
+          previous_balance: toPrev.toFixed(2),
+          resulting_balance: toNew.toFixed(2),
+          reason: `Transferência automática recebida de ${fromBau.nome || 'Baú'}`,
+          discord_message_id: message.id,
+          discord_user_name: finalAuthorName,
+          game_player_id: gamePlayerId || null,
+          origin: "discord",
+          raw_log: rawText,
+          status: "completed",
+          created_at: nowIso,
+        });
+
+      } else {
+        // Movimentação direta (Entrada ou Saída)
+        let targetBau = matchedBau;
+        if (item.bau_name && !['baú', 'bau'].includes(item.bau_name.trim().toLowerCase())) {
+          const bFound = allBaus.find(b => b.nome && b.nome.toLowerCase() === item.bau_name.trim().toLowerCase());
+          if (bFound) targetBau = bFound;
+        }
+
+        const pbKey = `${targetProduct.id}_${targetBau.id}`;
+        const prevQty = parseFloat(productBausMap[pbKey]?.quantidade || 0) || 0;
+        const qtyChange = item.quantity_change;
+        let newQty = prevQty + qtyChange;
+        if (!allowNegative && newQty < 0) {
+          newQty = 0;
+        }
+
+        const pbData = {
+          product_id: targetProduct.id,
+          bau_id: targetBau.id,
+          quantidade: newQty.toFixed(2),
+          updated_at: nowIso,
+        };
+        await firebaseRtdb.set(`product_baus/${pbKey}`, pbData);
+        productBausMap[pbKey] = pbData;
+
+        const movId = crypto.randomUUID();
+        const movType = qtyChange > 0 ? "entrada" : "saida";
+        await firebaseRtdb.set(`stock_movements/${movId}`, {
+          id: movId,
+          product_id: targetProduct.id,
+          bau_id: targetBau.id,
+          user_id: finalUserId,
+          type: movType,
+          quantity: Math.abs(qtyChange).toFixed(2),
+          previous_balance: prevQty.toFixed(2),
+          resulting_balance: newQty.toFixed(2),
+          reason: `Sincronizado via Discord Logs (${movType})`,
+          discord_message_id: message.id,
+          discord_user_name: finalAuthorName,
+          game_player_id: gamePlayerId || null,
+          origin: "discord",
+          raw_log: rawText,
+          status: "completed",
+          created_at: nowIso,
+        });
+      }
+
+      // Recalcular saldo total do produto em todos os baús
+      let totalStock = 0;
+      for (const [k, pb] of Object.entries(productBausMap)) {
+        if (pb && pb.product_id === targetProduct.id) {
+          totalStock += parseFloat(pb.quantidade || 0) || 0;
+        }
+      }
+      if (!allowNegative && totalStock < 0) totalStock = 0;
+
+      await firebaseRtdb.update(`products/${targetProduct.id}`, {
+        estoque_atual: totalStock.toFixed(2),
+        updated_at: nowIso,
+      });
+    }
+
+    // Salvar log de sucesso em discord_stock_logs
+    const stockLogId = crypto.randomUUID();
+    await firebaseRtdb.set(`discord_stock_logs/${stockLogId}`, {
+      id: stockLogId,
+      message_id: message.id,
+      channel_id: channelId,
+      guild_id: message.guildId || message.guild?.id || null,
+      author_name: finalAuthorName,
+      game_player_id: gamePlayerId || null,
+      raw_content: rawText,
+      raw_embeds: embedObj,
+      parsed_items: parsedItems,
+      status: "success",
+      error_message: null,
+      created_at: nowIso,
+    });
+
+    // Atualizar status na configuração do estoque
+    if (config.id) {
+      await firebaseRtdb.update(`discord_stock_config/${config.id}`, {
+        last_message_id: message.id,
+        last_processed_at: nowIso,
+        last_status: "success",
+        updated_at: nowIso,
+      }).catch(() => {});
+    }
+
+    console.log(`✅ [STOCK-ENGINE] Movimentação automática gravada no Firebase RTDB com sucesso! (Msg: ${message.id}, ${parsedItems.length} itens, Baú: ${matchedBau?.nome || 'QG'}, Autor: ${finalAuthorName})`);
+
+    // Emitir pulso de sincronização no Firebase RTDB para atualização imediata do frontend web
+    try {
+      await firebaseRtdb.set('system_stock_sync_pulse', {
+        timestamp: Date.now(),
+        message_id: message.id,
+        channel_id: channelId,
+        bau_id: matchedBau?.id,
+        bau_name: matchedBau?.nome,
+        author_name: finalAuthorName,
+        items_count: parsedItems.length,
+      });
+    } catch {}
+
+    // Emitir também broadcast via Supabase Realtime (se cliente disponível)
+    if (broadcastChannel) {
+      try {
+        await broadcastChannel.send({
+          type: 'broadcast',
+          event: 'stock_movement_created',
+          payload: {
+            message_id: message.id,
+            channel_id: channelId,
+            bau_id: matchedBau?.id,
+            bau_name: matchedBau?.nome,
+            author_name: finalAuthorName,
+            items_count: parsedItems.length,
+            timestamp: Date.now(),
+          }
+        });
+      } catch {}
+    }
+
   } catch (err) {
     console.error(`❌ [STOCK-ENGINE] Erro ao processar mensagem ${message.id}:`, err);
   }
 }
 
 function initStockEngine(client, supabaseClient = null) {
-  console.log("📦 [STOCK-ENGINE] Inicializando Motor de Estoque Automático em Tempo Real...");
+  console.log("📦 [STOCK-ENGINE] Inicializando Motor de Estoque Automático em Tempo Real (Firebase RTDB)...");
 
-  if (process.env.DATABASE_URL) {
-    dbPool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
-      max: 10,
-    });
-  } else {
-    console.warn("⚠️ [STOCK-ENGINE] DATABASE_URL não configurado. Listener de estoque inativo.");
-    return;
-  }
-
-  // Inicializar canal de broadcast Supabase para notificação imediata (<50ms) ao painel web
   let stockBroadcastChannel = null;
   if (supabaseClient) {
-    stockBroadcastChannel = supabaseClient.channel('system-stock-events', {
-      config: { broadcast: { self: false } }
-    });
-    stockBroadcastChannel.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        console.log("📡 [STOCK-ENGINE] Canal de broadcast Supabase 'system-stock-events' conectado e pronto!");
-      }
-    });
-
-    // Assistir alterações de configuração no banco para invalidar cache em tempo real
-    supabaseClient
-      .channel('stock_engine_db_watcher')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'discord_stock_config' }, () => {
-        console.log('🔄 [STOCK-ENGINE] discord_stock_config alterado no DB. Atualizando cache...');
-        refreshCache();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'baus' }, () => {
-        console.log('🔄 [STOCK-ENGINE] baus alterado no DB. Atualizando cache...');
-        refreshCache();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
-        refreshCache();
-      })
-      .subscribe();
+    try {
+      stockBroadcastChannel = supabaseClient.channel('system-stock-events', {
+        config: { broadcast: { self: false } }
+      });
+      stockBroadcastChannel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log("📡 [STOCK-ENGINE] Canal de broadcast Supabase 'system-stock-events' conectado.");
+        }
+      });
+    } catch {}
   }
 
   // Pré-aquecer cache na inicialização
   refreshCache().then((loaded) => {
     if (loaded) {
-      console.log(`📦 [STOCK-ENGINE] Cache inicializado: ${loaded.allBaus.length} baús carregados, ${loaded.targetChannelIds.size} canais ativos de estoque monitorados.`);
+      console.log(`📦 [STOCK-ENGINE] Cache inicializado via Firebase: ${loaded.allBaus.length} baús carregados, ${loaded.targetChannelIds.size} canais de estoque monitorados.`);
+    } else {
+      console.log("📦 [STOCK-ENGINE] Aguardando configurações no Firebase RTDB...");
     }
   });
 
-  // 1. Listener em tempo real ultrarrápido (MessageCreate) com suporte a simulação e canais de teste
+  // 1. Listener em tempo real ultrarrápido (MessageCreate)
   client.on(Events.MessageCreate, async (message) => {
     try {
       const channelId = String(message.channelId || message.channel?.id || '').trim();
       if (!channelId) return;
 
-      // Descarte instantâneo em 0ms se a mensagem já foi processada
       if (processedMessageIds.has(message.id)) return;
 
-      // Detecta se é embed de movimentação de estoque (Cidade Alta APP ou simulação técnica)
       const hasStockEmbed = message.embeds?.length > 0 &&
         /saldo\s*l[ií]quido|detalhes\s*da\s*movimenta[cç][aã]o|retirou|guardou|depositou|ba[uú]|itens|a[cç][aã]o\s*e\s*registro/i.test(
           (message.embeds[0].title || '') + '\n' + (message.embeds[0].description || '') + '\n' + (message.embeds[0].fields?.map(f => f.name + ' ' + f.value).join('\n') || '')
         );
 
-      // Ignorar mensagens enviadas pelo próprio bot (EXCETO se for mensagem de simulação/teste de estoque)
       if (message.author?.id === client.user?.id && !hasStockEmbed) return;
 
-      // Descarte ultrarrápido em 0ms se o canal não for monitorado (a menos que seja um embed de estoque de teste)
       if (!hasStockEmbed && cachedStockChannelIds.size > 0 && !cachedStockChannelIds.has(channelId)) {
         return;
       }
@@ -781,7 +937,6 @@ function initStockEngine(client, supabaseClient = null) {
       const loaded = await getOrRefreshConfigAndBaus();
       if (!loaded || loaded.config.is_active === false) return;
 
-      // Verificação final pós-cache se necessário (permite embeds de estoque para canais de teste)
       if (!hasStockEmbed && !loaded.targetChannelIds.has(channelId)) return;
 
       await processStockMessage(message, loaded.config, loaded.allBaus, stockBroadcastChannel);
@@ -790,7 +945,7 @@ function initStockEngine(client, supabaseClient = null) {
     }
   });
 
-  // 2. Rotina de Sincronização e Catch-up Periódico (a cada 15s) para garantir que NENHUMA log seja perdida
+  // 2. Rotina de Sincronização e Catch-up Periódico (a cada 20s) para garantir que NENHUMA log seja perdida
   setInterval(async () => {
     try {
       const loaded = await getOrRefreshConfigAndBaus();
@@ -802,25 +957,24 @@ function initStockEngine(client, supabaseClient = null) {
           const channel = client.channels.cache.get(chId) || await client.channels.fetch(chId).catch(() => null);
           if (!channel || typeof channel.messages?.fetch !== 'function') continue;
 
-          const recentMsgs = await channel.messages.fetch({ limit: 15 }).catch(() => null);
+          const recentMsgs = await channel.messages.fetch({ limit: 10 }).catch(() => null);
           if (!recentMsgs || recentMsgs.size === 0) continue;
 
-          // Processar da mais antiga para a mais recente
           const sortedMsgs = Array.from(recentMsgs.values()).reverse();
           for (const msg of sortedMsgs) {
             if (processedMessageIds.has(msg.id)) continue;
             await processStockMessage(msg, config, allBaus, stockBroadcastChannel);
           }
         } catch (chErr) {
-          // Ignore individual channel fetch error
+          // Ignora erro em canal individual
         }
       }
     } catch (syncErr) {
-      // Ignore background sync error
+      // Ignora erro de sincronização em segundo plano
     }
-  }, 15 * 1000);
+  }, 20 * 1000);
 
-  console.log("✅ [STOCK-ENGINE] Motor de estoque ativo com broadcast instantâneo e catch-up automático a cada 15s!");
+  console.log("✅ [STOCK-ENGINE] Motor de estoque ativo 100% no Firebase RTDB com broadcast e catch-up contínuo!");
 }
 
 module.exports = { initStockEngine, parseDiscordStockMessage };

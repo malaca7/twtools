@@ -221,8 +221,8 @@ export function ConditionGroupEditor({ groups, onChange }: ConditionGroupEditorP
                     <div className="min-w-[130px] shrink-0">
                       <Select
                         value={cond.operator}
-                        onValueChange={(val: ConditionOperator) =>
-                          updateCondition(group.id, cond.id, { operator: val })
+                        onValueChange={(val: string) =>
+                          updateCondition(group.id, cond.id, { operator: val as ConditionOperator })
                         }
                       >
                         <SelectTrigger className="h-8 text-xs bg-zinc-900 border-zinc-800">

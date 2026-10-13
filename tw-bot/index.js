@@ -36,21 +36,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Initialize Neon PostgreSQL Pool if DATABASE_URL is set
-const { Pool } = require("pg");
-let neonPool = null;
-if (process.env.DATABASE_URL) {
-  try {
-    neonPool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
-      max: 10,
-    });
-    console.log("🐘 [POSTGRES] Pool de conexões PostgreSQL Supabase inicializado com sucesso!");
-  } catch (poolErr) {
-    console.warn("⚠️ Falha ao inicializar pool PostgreSQL:", poolErr.message);
-  }
-}
+// Firebase RTDB URL
+const FIREBASE_RTDB_URL = process.env.FIREBASE_RTDB_URL || "https://rfdrive-fd805-default-rtdb.firebaseio.com";
+
 
 // Initialize Discord Client with all required intents
 const client = new Client({
@@ -62,8 +50,6 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
   ],
 });
-
-const FIREBASE_RTDB_URL = "https://rfdrive-fd805-default-rtdb.firebaseio.com";
 
 async function fetchFromFirebaseRtdb(path) {
   try {
@@ -164,22 +150,22 @@ async function loadDiscordConfig() {
     }
 
     if (permissions && typeof permissions === "object") {
-      const dbToken = data.permissions.botToken ? String(data.permissions.botToken).trim() : "";
+      const dbToken = permissions.botToken ? String(permissions.botToken).trim() : "";
 
       discordConfig = {
         ...discordConfig,
-        ...data.permissions,
+        ...permissions,
         logChannels: {
           ...discordConfig.logChannels,
-          ...(data.permissions.logChannels || {}),
+          ...(permissions.logChannels || {}),
         },
         enabledEvents: {
           ...discordConfig.enabledEvents,
-          ...(data.permissions.enabledEvents || {}),
+          ...(permissions.enabledEvents || {}),
         },
         embedColors: {
           ...discordConfig.embedColors,
-          ...(data.permissions.embedColors || {}),
+          ...(permissions.embedColors || {}),
         },
       };
       console.log("⚙️ [DISCORD CONFIG] Configurações de canais e eventos atualizadas do banco de dados.");
@@ -454,101 +440,35 @@ async function syncDiscordBotProfile(avatarUrl, bannerUrl, force = false) {
  */
 async function refreshAuxiliaryCaches() {
   try {
-    try {
-      const [fbProfiles, fbProducts, fbBaus] = await Promise.all([
-        fetchFromFirebaseRtdb("profiles"),
-        fetchFromFirebaseRtdb("products"),
-        fetchFromFirebaseRtdb("baus"),
-      ]);
-
-      if (fbProfiles && fbProfiles.length > 0) {
-        membersCache.clear();
-        for (const m of fbProfiles) {
-          if (m.user_id) membersCache.set(m.user_id, m);
-          if (m.id) membersCache.set(m.id, m);
-        }
-      }
-
-      if (fbProducts && fbProducts.length > 0) {
-        productsCache.clear();
-        for (const p of fbProducts) {
-          productsCache.set(p.id, p);
-        }
-      }
-
-      if (fbBaus && fbBaus.length > 0) {
-        bausCache.clear();
-        for (const b of fbBaus) {
-          bausCache.set(b.id, b);
-        }
-      }
-
-      if (fbProfiles && fbProducts && fbBaus) {
-        return;
-      }
-    } catch (fbErr) {
-      console.warn("⚠️ Aviso ao atualizar caches via Firebase RTDB:", fbErr.message);
-    }
-    if (neonPool) {
-      const [profilesRes, productsRes, bausRes] = await Promise.all([
-        neonPool.query("SELECT id, user_id, nome, nickname, discord_id, discord_avatar_url, avatar_url, discord_username FROM profiles"),
-        neonPool.query("SELECT id, nome, categoria_id, preco_sugerido FROM products"),
-        neonPool.query("SELECT id, nome FROM baus"),
-      ]);
-
-      if (profilesRes.rows) {
-        membersCache.clear();
-        for (const m of profilesRes.rows) {
-          if (m.user_id) membersCache.set(m.user_id, m);
-          if (m.id) membersCache.set(m.id, m);
-        }
-      }
-
-      if (productsRes.rows) {
-        productsCache.clear();
-        for (const p of productsRes.rows) {
-          productsCache.set(p.id, p);
-        }
-      }
-
-      if (bausRes.rows) {
-        bausCache.clear();
-        for (const b of bausRes.rows) {
-          bausCache.set(b.id, b);
-        }
-      }
-      return;
-    }
-
-    const [profilesRes, productsRes, bausRes] = await Promise.all([
-      supabase.from("profiles").select("id, user_id, nome, nickname, discord_id, discord_avatar_url, avatar_url, discord_username"),
-      supabase.from("products").select("id, nome, categoria_id, preco_sugerido"),
-      supabase.from("baus").select("id, nome"),
+    const [fbProfiles, fbProducts, fbBaus] = await Promise.all([
+      fetchFromFirebaseRtdb("profiles"),
+      fetchFromFirebaseRtdb("products"),
+      fetchFromFirebaseRtdb("baus"),
     ]);
 
-    if (profilesRes.data) {
+    if (fbProfiles && fbProfiles.length > 0) {
       membersCache.clear();
-      for (const m of profilesRes.data) {
+      for (const m of fbProfiles) {
         if (m.user_id) membersCache.set(m.user_id, m);
         if (m.id) membersCache.set(m.id, m);
       }
     }
 
-    if (productsRes.data) {
+    if (fbProducts && fbProducts.length > 0) {
       productsCache.clear();
-      for (const p of productsRes.data) {
+      for (const p of fbProducts) {
         productsCache.set(p.id, p);
       }
     }
 
-    if (bausRes.data) {
+    if (fbBaus && fbBaus.length > 0) {
       bausCache.clear();
-      for (const b of bausRes.data) {
+      for (const b of fbBaus) {
         bausCache.set(b.id, b);
       }
     }
   } catch (err) {
-    console.warn("⚠️ Erro ao atualizar caches auxiliares:", err.message);
+    console.warn("⚠️ Aviso ao atualizar caches auxiliares:", err.message);
   }
 }
 
@@ -1601,31 +1521,92 @@ function setupRealtimeListeners() {
           })
         : [];
 
-      const hbChannel = supabase.channel("system-discord-bot-heartbeat");
-      await hbChannel.send({
-        type: "broadcast",
-        event: "heartbeat",
-        payload: {
-          status: isOnline ? (discordConfig.botStatus || "online") : "offline",
-          uptimeSeconds: Math.floor(process.uptime()),
-          pingMs: isOnline ? (client.ws?.ping || 0) : -1,
-          guildCount: isOnline ? (client.guilds?.cache?.size || 0) : 0,
-          memberCount: membersCache?.size || 0,
-          memoryMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-          botTag: client?.user?.tag || "Twin Wheels Bot",
-          botId: client?.user?.id || (discordConfig.clientId || "1536184283197079622"),
-          timestamp: new Date().toISOString(),
-          guilds: guildsList,
-        },
-      });
+      const hbPayload = {
+        status: isOnline ? (discordConfig.botStatus || "online") : "offline",
+        uptimeSeconds: Math.floor(process.uptime()),
+        pingMs: isOnline ? (client.ws?.ping || 0) : -1,
+        guildCount: isOnline ? (client.guilds?.cache?.size || 0) : 0,
+        memberCount: membersCache?.size || 0,
+        memoryMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+        botTag: client?.user?.tag || "Twin Wheels Bot",
+        botId: client?.user?.id || (discordConfig.clientId || "1536184283197079622"),
+        timestamp: new Date().toISOString(),
+        guilds: guildsList,
+      };
+
+      try {
+        await fetch(`${FIREBASE_RTDB_URL}/system_bot_heartbeat.json`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(hbPayload),
+        });
+      } catch {}
+
+      try {
+        const hbChannel = supabase.channel("system-discord-bot-heartbeat");
+        await hbChannel.send({
+          type: "broadcast",
+          event: "heartbeat",
+          payload: hbPayload,
+        });
+      } catch {}
     } catch (err) {
       console.warn("Erro ao emitir heartbeat:", err.message);
     }
   };
 
-  // Emissor periódico de Heartbeat (a cada 25 segundos e logo na inicialização)
-  setInterval(sendHeartbeat, 25000);
+  // Emissor periódico de Heartbeat (a cada 20 segundos e logo na inicialização)
+  setInterval(sendHeartbeat, 20000);
   setTimeout(sendHeartbeat, 2000);
+
+  // Listener contínuo de controle do bot via Firebase RTDB (independente de falhas de websocket)
+  let lastRtdbControlTimestamp = Date.now();
+  setInterval(async () => {
+    try {
+      const control = await fetch(`${FIREBASE_RTDB_URL}/system_bot_control.json`).then(r => r.json());
+      if (control && control.timestamp && control.timestamp > lastRtdbControlTimestamp) {
+        lastRtdbControlTimestamp = control.timestamp;
+        console.log(`🤖 [BOT CONTROL RTDB] Comando recebido: "${control.action}" por ${control.actor || "Painel Web"}`);
+        if (control.action === "restart") {
+          try { if (client) client.destroy(); } catch {}
+          setTimeout(async () => {
+            try {
+              await loadDiscordConfig();
+              const tokenToUse = currentBotToken || process.env.DISCORD_BOT_TOKEN;
+              if (tokenToUse) {
+                await client.login(tokenToUse);
+                console.log("✅ [BOT CONTROL RTDB] Cliente Discord reiniciado com sucesso!");
+                setTimeout(sendHeartbeat, 1500);
+              }
+            } catch (e) {
+              console.error("❌ [BOT CONTROL RTDB] Erro ao reconectar:", e.message);
+            }
+          }, 1500);
+        } else if (control.action === "stop") {
+          try { if (client) client.destroy(); } catch {}
+          setTimeout(sendHeartbeat, 1000);
+        } else if (control.action === "start") {
+          try {
+            if (!client.isReady()) {
+              await loadDiscordConfig();
+              const tokenToUse = currentBotToken || process.env.DISCORD_BOT_TOKEN;
+              if (tokenToUse) {
+                await client.login(tokenToUse);
+                console.log("✅ [BOT CONTROL RTDB] Cliente conectado!");
+                setTimeout(sendHeartbeat, 1500);
+              }
+            }
+          } catch (e) {}
+        } else if (control.action === "request_heartbeat") {
+          sendHeartbeat();
+        }
+        if (control.config) {
+          discordConfig = { ...discordConfig, ...control.config };
+          updateBotPresence();
+        }
+      }
+    } catch {}
+  }, 4000);
 
   // 7. Canal de Despacho de Webhooks / Postagem em Canais por ID de Servidor e Canal
   supabase
@@ -4565,20 +4546,30 @@ initStockEngine(client, supabase);
 // Função principal de inicialização assíncrona do bot
 async function startBot() {
   try {
-    // 1. Tenta carregar token prioritário diretamente do banco de dados antes do primeiro login
+    // 1. Tenta carregar token prioritário diretamente do Firebase RTDB
     try {
-      const { data } = await supabase
-        .from("role_permissions")
-        .select("permissions")
-        .eq("level", "system_discord_config")
-        .maybeSingle();
-
-      if (data?.permissions?.botToken && String(data.permissions.botToken).trim().length > 20) {
-        currentBotToken = String(data.permissions.botToken).trim();
-        console.log("🔑 [DISCORD AUTH] Token carregado com sucesso do banco de dados Supabase.");
+      const fbConfig = await fetch(`${FIREBASE_RTDB_URL}/role_permissions/system_discord_config.json`).then(r => r.json());
+      if (fbConfig?.permissions?.botToken && String(fbConfig.permissions.botToken).trim().length > 20) {
+        currentBotToken = String(fbConfig.permissions.botToken).trim();
+        console.log("🔑 [DISCORD AUTH] Token carregado com sucesso do Firebase RTDB.");
       }
-    } catch (dbTokenErr) {
-      console.warn("⚠️ Não foi possível obter token inicial do banco:", dbTokenErr.message);
+    } catch {}
+
+    if (!currentBotToken) {
+      try {
+        const { data } = await supabase
+          .from("role_permissions")
+          .select("permissions")
+          .eq("level", "system_discord_config")
+          .maybeSingle();
+
+        if (data?.permissions?.botToken && String(data.permissions.botToken).trim().length > 20) {
+          currentBotToken = String(data.permissions.botToken).trim();
+          console.log("🔑 [DISCORD AUTH] Token carregado com sucesso do banco de dados Supabase.");
+        }
+      } catch (dbTokenErr) {
+        console.warn("⚠️ Não foi possível obter token inicial do banco:", dbTokenErr.message);
+      }
     }
 
     // 2. Login no Discord com token ativo

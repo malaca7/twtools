@@ -1190,7 +1190,7 @@ export function DevNotificationsManager() {
                     type="button"
                     onClick={() => {
                       setMobileMatrixTargetType("tag");
-                      setMobileMatrixTargetId(visibleTags[0]?.id || (FACCAO_SPECIAL_TAGS[0]?.id ?? ""));
+                      setMobileMatrixTargetId(visibleTags[0]?.id || "");
                     }}
                     className={cn(
                       "flex-1 py-1.5 text-xs font-bold rounded-lg transition-all text-center",

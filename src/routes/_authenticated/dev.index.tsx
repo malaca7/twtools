@@ -6,13 +6,13 @@ export const Route = createFileRoute("/_authenticated/dev/")({
 });
 
 export function DevHubContent() {
-  return <Navigate to="/dev/dashboard" replace />;
+  return <Navigate to="/dashboard" replace />;
 }
 
 function DevIndexRedirect() {
   return (
     <DeveloperGuard>
-      <Navigate to="/dev/dashboard" replace />
+      <Navigate to="/dashboard" replace />
     </DeveloperGuard>
   );
 }

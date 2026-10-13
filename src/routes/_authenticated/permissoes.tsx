@@ -556,9 +556,9 @@ export function PermissoesPage() {
                 </Badge>
               </div>
               {isSyncing ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-400 shrink-0 ml-0.5" title="Sincronizando..." />
+                <span title="Sincronizando..."><Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-400 shrink-0 ml-0.5" /></span>
               ) : (
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0 ml-0.5" title="Sincronizado em tempo real" />
+                <span title="Sincronizado em tempo real"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0 ml-0.5" /></span>
               )}
             </div>
 

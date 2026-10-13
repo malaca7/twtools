@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { rtdb } from "@/integrations/firebase/rtdb";
 import type { AppUser, Profile } from "@/lib/app-types";
 import type { AppLevel } from "@/lib/permissions";
 import { assertDeveloperAccess, isUserDeveloper, isUserCeo } from "@/services/devService";
@@ -51,7 +52,7 @@ export interface DiscordBotConfig {
   botBannerUrl?: string;
   botStatus?: "online" | "idle" | "dnd" | "invisible";
   botStatusText?: string;
-  botActivityType?: "Playing" | "Watching" | "Listening" | "Competing" | "Streaming" | "Custom";
+  botActivityType?: "Playing" | "Watching" | "Listening" | "Competing" | "Streaming" | "Custom" | "None";
   botStreamingUrl?: string;
   intentPresences?: "always" | "never" | "auto";
   intentGuildMembers?: "always" | "never" | "auto";
@@ -142,6 +143,39 @@ const DISCORD_CONFIG_LEVEL = "system_discord_config";
  * Carrega a configuração do Discord a partir do Supabase ou Cache Local
  */
 export async function getDiscordBotConfig(): Promise<DiscordBotConfig> {
+  // 1. Tentar obter do Firebase Realtime Database
+  try {
+    const fbData = await rtdb.get<any>("role_permissions/system_discord_config");
+    if (fbData?.permissions && typeof fbData.permissions === "object") {
+      const dbConfig = fbData.permissions as Partial<DiscordBotConfig>;
+      const merged: DiscordBotConfig = {
+        ...DEFAULT_DISCORD_CONFIG,
+        ...dbConfig,
+        logChannels: {
+          ...DEFAULT_DISCORD_CONFIG.logChannels,
+          ...(dbConfig.logChannels || {}),
+        },
+        enabledEvents: {
+          ...DEFAULT_DISCORD_CONFIG.enabledEvents,
+          ...(dbConfig.enabledEvents || {}),
+        },
+        embedColors: {
+          ...DEFAULT_DISCORD_CONFIG.embedColors,
+          ...(dbConfig.embedColors || {}),
+        },
+      };
+
+      try {
+        localStorage.setItem(DISCORD_CONFIG_STORAGE_KEY, JSON.stringify(merged));
+      } catch {}
+
+      return merged;
+    }
+  } catch (fbErr) {
+    console.warn("Falha ao buscar discord_config no Firebase RTDB:", fbErr);
+  }
+
+  // 2. Fallback para Supabase
   try {
     const { data, error } = await supabase
       .from("role_permissions")
@@ -294,31 +328,36 @@ export async function saveDiscordBotConfig(
       } catch {}
     }
 
-    // Salva no banco de dados Supabase na tabela role_permissions
-    let saveSuccess = false;
+    // 1. Salva no Firebase Realtime Database
+    try {
+      await rtdb.set("role_permissions/system_discord_config", {
+        level: DISCORD_CONFIG_LEVEL,
+        nivel: DISCORD_CONFIG_LEVEL,
+        permissions: finalConfig,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (fbErr) {
+      console.warn("Aviso ao salvar discord_config no Firebase RTDB:", fbErr);
+    }
+
+    // 2. Salva no banco de dados Supabase na tabela role_permissions (se disponível)
     try {
       const { error: rpcErr } = await supabase.rpc("save_role_permissions", {
         _level: DISCORD_CONFIG_LEVEL,
         _permissions: finalConfig as any,
       });
-      if (!rpcErr) saveSuccess = true;
-    } catch {}
-
-    if (!saveSuccess) {
-      const { error } = await supabase.from("role_permissions").upsert(
-        {
-          level: DISCORD_CONFIG_LEVEL,
-          nivel: DISCORD_CONFIG_LEVEL,
-          permissions: finalConfig as any,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "level" }
-      );
-
-      if (error) {
-        throw error;
+      if (rpcErr) {
+        await supabase.from("role_permissions").upsert(
+          {
+            level: DISCORD_CONFIG_LEVEL,
+            nivel: DISCORD_CONFIG_LEVEL,
+            permissions: finalConfig as any,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "level" }
+        );
       }
-    }
+    } catch {}
 
     // Dispara broadcast em tempo real para o tw-bot atualizar a memória imediatamente
     const channel = supabase.channel("system-discord-config-sync");

@@ -1513,12 +1513,12 @@ export function EscalasPage() {
                                   (ID: {m.game_id})
                                 </span>
                               )}
-                              {m.cargo && (
+                              {((m as any).cargo || (m as any).role || m.nivel) && (
                                 <Badge
                                   variant="outline"
                                   className="text-[9px] py-0 px-1 border-border/50 text-muted-foreground"
                                 >
-                                  {m.cargo}
+                                  {((m as any).cargo || (m as any).role || m.nivel)}
                                 </Badge>
                               )}
                             </div>

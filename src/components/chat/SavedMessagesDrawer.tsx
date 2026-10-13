@@ -20,16 +20,18 @@ interface SavedMessagesDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   currentUserId?: string;
-  conversations: ChatConversation[];
-  onNavigateToMessage: (conversationId: string, messageId: string) => void;
+  conversations?: ChatConversation[];
+  onNavigateToMessage?: (conversationId: string, messageId: string) => void;
+  onSelectSavedMessage?: (saved: SavedMessage) => void;
 }
 
 export function SavedMessagesDrawer({
   open,
   onOpenChange,
   currentUserId,
-  conversations,
+  conversations = [],
   onNavigateToMessage,
+  onSelectSavedMessage,
 }: SavedMessagesDrawerProps) {
   const [savedList, setSavedList] = useState<SavedMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -66,7 +68,11 @@ export function SavedMessagesDrawer({
 
   const handleJump = (item: SavedMessage) => {
     onOpenChange(false);
-    onNavigateToMessage(item.conversation_id, item.message_id);
+    if (onSelectSavedMessage) {
+      onSelectSavedMessage(item);
+    } else {
+      onNavigateToMessage?.(item.conversation_id, item.message_id);
+    }
   };
 
   return (

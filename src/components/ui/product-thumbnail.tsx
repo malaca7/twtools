@@ -8,6 +8,7 @@ export interface ProductThumbnailProps {
   imageUrl?: string | null;
   name?: string;
   productName?: string;
+  alt?: string;
   size?: "xs" | "sm" | "md" | "lg" | "xl" | "2xl" | "full";
   className?: string;
   fallbackIconClassName?: string;

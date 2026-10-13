@@ -528,8 +528,8 @@ export function HierarquiaPage() {
 
                         // Recupera todas as tags que o membro possui no sistema
                         const assignedTags =
-                          memberTagsMap[member.user_id] ||
-                          memberTagsMap[member.id] ||
+                          (member.user_id ? memberTagsMap[member.user_id] : undefined) ||
+                          (member.id ? memberTagsMap[member.id] : undefined) ||
                           [];
 
                         // Recupera as insígnias que o membro possui
@@ -752,8 +752,8 @@ export function HierarquiaPage() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         {rankMembers.map((m) => {
                           const assignedTags =
-                            memberTagsMap[m.user_id] ||
-                            memberTagsMap[m.id] ||
+                            (m.user_id ? memberTagsMap[m.user_id] : undefined) ||
+                            (m.id ? memberTagsMap[m.id] : undefined) ||
                             [];
 
                           const memberInsignias = getInsigniasForMember(m);

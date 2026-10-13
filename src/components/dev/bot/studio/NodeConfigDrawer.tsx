@@ -252,9 +252,9 @@ export function NodeConfigDrawer({
                   <Label className="text-xs font-bold text-zinc-200">Tipo de Evento Discord</Label>
                   <Select
                     value={data.triggerType || "message_create"}
-                    onValueChange={(val: EventTriggerType) => {
+                    onValueChange={(val: string) => {
                       onUpdateNodeData(id, {
-                        triggerType: val,
+                        triggerType: val as EventTriggerType,
                         label: `Evento: ${val}`,
                       });
                     }}

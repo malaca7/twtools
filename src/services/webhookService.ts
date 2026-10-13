@@ -66,7 +66,7 @@ export interface WebhookAntiSpamConfig {
   autoDeleteChannelSpam: boolean;
   notifyOnSpamBlocked: boolean;
   stats?: {
-    totalBlocked: number;
+    totalBlocked?: number;
     lastBlockedAt?: string;
     lastBlockedReason?: string;
     lastBlockedChannel?: string;

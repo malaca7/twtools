@@ -53,7 +53,7 @@ const nodeTypes = {
   triggerNode: TriggerNode,
   actionNode: ActionNode,
   conditionNode: ConditionNode,
-};
+} as any;
 
 interface BotStudioProps {
   mode: "command" | "event";
@@ -115,14 +115,14 @@ function BotStudioInner({
             parameters: [],
             conditions: [],
             enabled: true,
-          },
+          } as FlowNodeData,
         },
       ],
       edges: [],
     };
   }, [mode, initialCommand, initialEvent, botPrefix]);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node<FlowNodeData>>(initialFlow.nodes);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node<FlowNodeData>>(initialFlow.nodes as Node<FlowNodeData>[]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initialFlow.edges);
 
   // Responsive layout & Breakpoints

@@ -3760,7 +3760,7 @@ function SaldosTabContent({ canAdjust, canManageBalance }: SaldosTabContentProps
     () => visibleBaus.filter((b) => evaluateBauAccess(b, userAuthContext).isActiveForUser),
     [visibleBaus, userAuthContext]
   );
-  const displayedProducts = exactFilteredProducts.length > 0 ? exactFilteredProducts : similarFilteredProducts.map((s) => s.product);
+  const displayedProducts: Product[] = exactFilteredProducts.length > 0 ? exactFilteredProducts : similarFilteredProducts.map((s: FuzzyProductMatch) => s.product);
 
   return (
     <div className="space-y-4 sm:space-y-6">

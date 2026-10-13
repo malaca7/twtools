@@ -1152,7 +1152,7 @@ export function CeoSelosPage() {
                               <div className="space-y-0.5">
                                 <div className="flex items-center gap-2">
                                   <span className="font-bold text-foreground">{req.title}</span>
-                                  {(req.is_required ?? req.required) ? (
+                                  {(req.is_required ?? (req as any).required) ? (
                                     <Badge variant="outline" className="text-[9px] bg-rose-500/10 text-rose-400 border-rose-500/30">
                                       Obrigatório
                                     </Badge>
@@ -1171,7 +1171,7 @@ export function CeoSelosPage() {
                                 <div className="flex items-center gap-1.5">
                                   <span className="text-[10px] text-muted-foreground">Obrigatório</span>
                                   <Switch
-                                    checked={Boolean(req.is_required ?? req.required)}
+                                    checked={Boolean(req.is_required ?? (req as any).required)}
                                     onCheckedChange={() => handleToggleCustomReq(req.id)}
                                   />
                                 </div>

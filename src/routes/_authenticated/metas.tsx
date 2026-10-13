@@ -180,7 +180,7 @@ function parseGoalAmount(
 export function MetasPage() {
   const { user, profile, hasPermission } = useAuth();
   const currentUserId = user?.id;
-  const currentLevel = (profile?.nivel || "novato") as AppLevel;
+  const currentLevel = ((profile as any)?.nivel || (profile as any)?.role || "novato") as AppLevel;
 
   const canView = hasPermission("view_goals");
   const canManage = hasPermission("manage_goals");
@@ -2084,7 +2084,7 @@ export function MetasPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold">Tipo de Meta</Label>
-                <Select value={goalType} onValueChange={(v: WeeklyGoalType) => setGoalType(v)}>
+                <Select value={goalType} onValueChange={(v: string) => setGoalType(v as WeeklyGoalType)}>
                   <SelectTrigger className="bg-secondary/40 text-xs">
                     <SelectValue />
                   </SelectTrigger>
@@ -2117,7 +2117,7 @@ export function MetasPage() {
             {/* Escopo da Meta */}
             <div className="space-y-1.5">
               <Label className="text-xs font-bold">Para Quem é a Meta?</Label>
-              <Select value={goalScope} onValueChange={(v: GoalTargetScope) => setGoalScope(v)}>
+              <Select value={goalScope} onValueChange={(v: string) => setGoalScope(v as GoalTargetScope)}>
                 <SelectTrigger className="bg-secondary/40 text-xs">
                   <SelectValue />
                 </SelectTrigger>

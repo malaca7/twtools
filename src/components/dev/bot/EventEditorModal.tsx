@@ -85,7 +85,7 @@ export function EventEditorModal({ open, onOpenChange, event, onSave }: EventEdi
               <Label className="text-xs font-bold">Gatilho do Evento</Label>
               <Select
                 value={formData.triggerType}
-                onValueChange={(val: EventTriggerType) => setFormData({ ...formData, triggerType: val })}
+                onValueChange={(val: string) => setFormData({ ...formData, triggerType: val as EventTriggerType })}
               >
                 <SelectTrigger className="bg-zinc-950 border-zinc-800 text-xs font-bold">
                   <SelectValue />

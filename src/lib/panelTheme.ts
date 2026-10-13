@@ -95,7 +95,10 @@ export interface PanelColorStyle {
   label: string;
   description: string;
   hex: string;
+  primaryHex: string;
   previewGradient?: string;
+  gradient?: string;
+  isGradient?: boolean;
   colorType: PanelColorType;
   textClass: string;
   iconClass: string;
@@ -113,7 +116,7 @@ export interface PanelColorStyle {
   itemIconHoverClass?: string;
 }
 
-export const PANEL_COLOR_STYLES: Record<PanelColor, PanelColorStyle> = {
+const RAW_PANEL_COLOR_STYLES: Record<PanelColor, Omit<PanelColorStyle, "primaryHex">> = {
   // ─── CORES SÓLIDAS & NEON ───
   rose: {
     key: "rose",
@@ -787,6 +790,18 @@ export const PANEL_COLOR_STYLES: Record<PanelColor, PanelColorStyle> = {
     itemIconHoverClass: "group-hover/menuitem:text-violet-300",
   },
 };
+
+export const PANEL_COLOR_STYLES: Record<PanelColor, PanelColorStyle> = Object.fromEntries(
+  Object.entries(RAW_PANEL_COLOR_STYLES).map(([k, v]) => [
+    k,
+    {
+      ...v,
+      primaryHex: v.hex,
+      gradient: v.previewGradient,
+      isGradient: v.colorType === "gradient",
+    },
+  ])
+) as Record<PanelColor, PanelColorStyle>;
 
 export function getPanelColorStyle(color?: string | null, fallback: PanelColor = "rose"): PanelColorStyle {
   if (color && color in PANEL_COLOR_STYLES) {

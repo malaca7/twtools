@@ -854,7 +854,7 @@ export function ChatWindow({
         open={Boolean(profileUserId)}
         onOpenChange={(open) => !open && setProfileUserId(null)}
         userId={profileUserId}
-        onStartPrivateChat={(uid) => {
+        onStartPrivateChat={(uid: any) => {
           setProfileUserId(null);
           onStartPrivateChat?.(uid);
         }}
@@ -921,7 +921,7 @@ export function ChatWindow({
       <SavedMessagesDrawer
         open={savedMessagesOpen}
         onOpenChange={setSavedMessagesOpen}
-        onSelectSavedMessage={(saved) => {
+        onSelectSavedMessage={(saved: any) => {
           if (saved.conversation_id === conversation.id) {
             handleScrollToMessage(saved.message_id);
           } else {
@@ -936,6 +936,7 @@ export function ChatWindow({
       <CreateReminderDialog
         open={Boolean(reminderMessage)}
         onOpenChange={(open) => !open && setReminderMessage(null)}
+        conversationId={conversation.id}
         message={reminderMessage}
       />
 
@@ -949,6 +950,7 @@ export function ChatWindow({
       <ReportMessageDialog
         open={Boolean(reportedMessage)}
         onOpenChange={(open) => !open && setReportedMessage(null)}
+        conversationId={conversation.id}
         message={reportedMessage}
       />
 
@@ -956,6 +958,7 @@ export function ChatWindow({
         open={Boolean(threadMessage)}
         onOpenChange={(open) => !open && setThreadMessage(null)}
         parentMessage={threadMessage}
+        conversationId={conversation.id}
         conversationTitle={title}
       />
 

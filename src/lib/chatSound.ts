@@ -299,7 +299,7 @@ class ChatNotificationManager {
           osc.start(t);
           osc.stop(t + 0.25);
         });
-      } else if (theme === "whatsapp_pop" || theme === "whatsapp") {
+      } else if ((theme as string) === "whatsapp_pop" || (theme as string) === "whatsapp") {
         // WhatsApp Pop Web Dual Tone
         [1046.5, 1318.51].forEach((freq, i) => {
           const t = now + i * 0.08;
@@ -381,7 +381,7 @@ class ChatNotificationManager {
           osc.start(t);
           osc.stop(t + 0.35);
         });
-      } else if (theme === "pop") {
+      } else if ((theme as string) === "pop") {
         // Pop suave moderno
         const gain = ctx.createGain();
         gain.connect(ctx.destination);

@@ -180,7 +180,7 @@ function SolicitarSeloContent() {
       profile?.discord_username,
       profile?.discord_id,
       profile?.data_entrada,
-      profile?.created_at,
+      (profile as any)?.created_at,
       level,
       config?.requirements_config,
       config?.allow_self_request,

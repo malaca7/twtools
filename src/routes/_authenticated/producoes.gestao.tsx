@@ -2238,10 +2238,11 @@ export function GestaoProducaoPage() {
                 </Label>
                 <Select
                   value={stockOrigin}
-                  onValueChange={(val: StockLocation) => {
-                    setStockOrigin(val);
-                    if (val === stockDestination && stockAction === "TRANSFER" && val !== "BAU") {
-                      setStockDestination(val === "WAREHOUSE" ? "BAU" : "WAREHOUSE");
+                  onValueChange={(val: string) => {
+                    const loc = val as StockLocation;
+                    setStockOrigin(loc);
+                    if (loc === stockDestination && stockAction === "TRANSFER" && loc !== "BAU") {
+                      setStockDestination(loc === "WAREHOUSE" ? "BAU" : "WAREHOUSE");
                     }
                   }}
                 >
@@ -2294,7 +2295,7 @@ export function GestaoProducaoPage() {
                   </Label>
                   <Select
                     value={stockAction === "RETURN_WAREHOUSE" ? "WAREHOUSE" : stockDestination}
-                    onValueChange={(val: StockLocation) => setStockDestination(val)}
+                    onValueChange={(val: string) => setStockDestination(val as StockLocation)}
                     disabled={stockAction === "RETURN_WAREHOUSE"}
                   >
                     <SelectTrigger className="text-xs rounded-xl bg-background/50 border-border/60 font-semibold">

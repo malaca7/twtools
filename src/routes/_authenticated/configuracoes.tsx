@@ -1034,7 +1034,7 @@ class MenuTabErrorBoundary extends Component<{ children: React.ReactNode }, { ha
     } catch {}
   }
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       return (
         <div className="p-6 text-center space-y-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-400">

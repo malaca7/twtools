@@ -189,9 +189,9 @@ export function useLinkStreamAccount() {
     mutationFn: (payload: LinkStreamAccountPayload) => {
       if (!user?.id) throw new Error("Usuário não autenticado.");
       return linkStreamAccount(user.id, payload, {
-        nome: profile?.nome,
-        nickname: profile?.nickname,
-        avatar_url: profile?.avatar_url || profile?.discord_avatar_url,
+        nome: profile?.nome || undefined,
+        nickname: profile?.nickname || undefined,
+        avatar_url: profile?.avatar_url || profile?.discord_avatar_url || undefined,
       });
     },
     onSuccess: () => {

@@ -701,7 +701,7 @@ export function ConversationList({
                         />
                       )}
                       {isGroup && c.only_admins_can_post && (
-                        <Lock className="h-3 w-3 text-amber-400 shrink-0" title="Somente admins" />
+                        <span title="Somente admins"><Lock className="h-3 w-3 text-amber-400 shrink-0" /></span>
                       )}
                     </div>
 
@@ -737,11 +737,11 @@ export function ConversationList({
 
                     <div className="flex items-center gap-1 shrink-0">
                       {isMuted && (
-                        <VolumeX className="h-3.5 w-3.5 text-[#8696a0]" title="Silenciado" />
+                        <span title="Silenciado"><VolumeX className="h-3.5 w-3.5 text-[#8696a0]" /></span>
                       )}
 
                       {isPinned && (
-                        <Pin className="h-3.5 w-3.5 text-[#8696a0] fill-[#8696a0] rotate-45" title="Fixada" />
+                        <span title="Fixada"><Pin className="h-3.5 w-3.5 text-[#8696a0] fill-[#8696a0] rotate-45" /></span>
                       )}
 
                       {unread > 0 && (

@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { ProfilePost, ProfileFollowStats, FollowMemberItem } from "@/types/profileFeed";
+import type { ProfilePost, ProfileFollowStats, FollowMemberItem, ProfilePostComment } from "@/types/profileFeed";
 
 /**
  * Extrai hashtags (#tag) de um texto

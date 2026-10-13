@@ -37,9 +37,11 @@ import type { AuditLog } from "@/lib/app-types";
 interface DevAuditLogModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  isAuditActive: boolean;
-  onTriggerTestLog: () => Promise<void>;
-  triggeringTest: boolean;
+  isAuditActive?: boolean;
+  onTriggerTestLog?: () => Promise<void>;
+  triggeringTest?: boolean;
+  triggeringTestLog?: boolean;
+  logs?: AuditLog[];
 }
 
 export function DevAuditLogModal({
@@ -48,8 +50,11 @@ export function DevAuditLogModal({
   isAuditActive,
   onTriggerTestLog,
   triggeringTest,
+  triggeringTestLog,
+  logs: propLogs,
 }: DevAuditLogModalProps) {
-  const { data: logs = [], isLoading, refetch } = useAuditLogs();
+  const { data: fetchedLogs = [], isLoading, refetch } = useAuditLogs();
+  const logs = propLogs || fetchedLogs;
   const { data: members = [] } = useMembers();
 
   const [search, setSearch] = useState("");

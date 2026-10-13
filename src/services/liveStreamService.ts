@@ -721,7 +721,7 @@ export async function runAutoLiveStreamCheckCycle(): Promise<void> {
           // Dispara notificação in-app em tempo real
           await createNotification({
             title: `${acc.display_name || acc.channel_name} está Ao Vivo! 🔴`,
-            message: `Transmitindo "${sessionPayload.title}" na ${STREAM_PLATFORMS[acc.platform].name}!`,
+            message: `Transmitindo "${sessionPayload.title}" na ${STREAM_PLATFORMS[acc.platform as StreamPlatform]?.name || acc.platform}!`,
             type: "live",
             category: "alert",
             link: "/lives",

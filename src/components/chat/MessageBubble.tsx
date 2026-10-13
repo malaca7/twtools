@@ -266,8 +266,10 @@ function MessageBubbleBase({
   (message.reactions || []).forEach((r) => {
     const cur = reactionsMap.get(r.emoji) || { count: 0, userIds: [], hasReacted: false };
     cur.count += 1;
-    cur.userIds.push(r.user_id);
-    if (r.user_id === currentUserId) cur.hasReacted = true;
+    if (r.user_id) {
+      cur.userIds.push(r.user_id);
+      if (r.user_id === currentUserId) cur.hasReacted = true;
+    }
     reactionsMap.set(r.emoji, cur);
   });
 
@@ -384,7 +386,7 @@ function MessageBubbleBase({
 
                   {canViewMessageInfo && (
                     <DropdownMenuItem
-                      onClick={() => onOpenMessageInfo(message)}
+                      onClick={() => onOpenMessageInfo?.(message)}
                       className="cursor-pointer hover:bg-white/10 rounded-lg text-[#53bdeb] font-medium"
                     >
                       <Info className="h-3.5 w-3.5 mr-2" /> Dados da mensagem

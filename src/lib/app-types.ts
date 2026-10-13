@@ -1,5 +1,5 @@
-import type { AppLevel } from "./permissions";
-export type { AppLevel };
+import type { AppLevel, Permission } from "./permissions";
+export type { AppLevel, Permission };
 
 export type UserThemeSettings = {
   themeStyle: string;
@@ -118,6 +118,7 @@ export type Product = {
   estoque_minimo: number;
   preco_sugerido: number;
   imagem_url: string | null;
+  foto_url?: string | null;
   can_be_produced?: boolean;
   can_be_sold?: boolean;
   sale_available_quantity?: number;
@@ -224,6 +225,8 @@ export type Bau = {
   foto_url?: string | null;
   imagem_url?: string | null;
   banner_url?: string | null;
+  capacidade?: number | null;
+  capacidade_maxima?: number | null;
   ativo: boolean;
   tipo_gestao?: "automatico" | "manual";
   discord_channel_id?: string | null;
@@ -354,6 +357,8 @@ export type Member = {
   status: string;
   data_entrada: string;
   nivel: AppLevel | null;
+  cargo?: string | null;
+  role?: string | null;
   presence_status?: UserPresenceStatus;
   last_seen?: string | null;
   presence_updated_at?: string | null;
@@ -365,6 +370,11 @@ export type Member = {
   discord_id?: string | null;
   discord_username?: string | null;
   discord_avatar_url?: string | null;
+  avatar_url?: string | null;
+  is_verified?: boolean;
+  banner_url?: string | null;
+  bio?: string | null;
+  custom_status?: string | null;
   discord_email?: string | null;
   is_developer?: boolean;
   is_ceo?: boolean;
@@ -528,7 +538,7 @@ export type CreateAbsencePayload = {
 };
 
 export type WeeklyGoalType = "financeiro" | "quantidade" | "vendas" | "geral";
-export type GoalTargetScope = "todos" | "cargo" | "membro";
+export type GoalTargetScope = "todos" | "cargo" | "membro" | "individual";
 
 export type WeeklyGoal = {
   id: string;

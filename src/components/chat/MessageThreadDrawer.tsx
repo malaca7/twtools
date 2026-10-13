@@ -30,6 +30,7 @@ interface MessageThreadDrawerProps {
   onOpenChange: (open: boolean) => void;
   parentMessage: ChatMessage | null;
   conversationId: string;
+  conversationTitle?: string;
   currentUserId?: string;
   onReplySent?: () => void;
 }

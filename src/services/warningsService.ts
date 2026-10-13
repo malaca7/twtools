@@ -343,9 +343,9 @@ export async function updateWarning(
         console.warn("Aviso ao remover tag de punição antiga:", err);
       }
     }
-    if (payload.applied_tag_id && (payload.member_id || current.member_id)) {
+    if (payload.applied_tag_id && current.member_id) {
       try {
-        await assignMemberTag(payload.member_id || current.member_id, payload.applied_tag_id, adminUser?.id);
+        await assignMemberTag(current.member_id, payload.applied_tag_id, adminUser?.id);
       } catch (err) {
         console.warn("Aviso ao atribuir nova tag de punição:", err);
       }

@@ -10,6 +10,8 @@ export interface RoleBadgeProps {
   showIcon?: boolean;
   className?: string;
   label?: string;
+  text?: string;
+  children?: React.ReactNode;
 }
 
 export function DevBadge({
@@ -17,8 +19,11 @@ export function DevBadge({
   showIcon = true,
   className,
   label = "DEV",
+  text,
+  children,
 }: RoleBadgeProps) {
   const { devStyle, DevIcon } = usePanelTheme();
+  const badgeText = children ?? text ?? label;
 
   const sizeClasses = {
     xs: "text-[9px] px-1.5 py-0 h-4 gap-1",
@@ -43,7 +48,7 @@ export function DevBadge({
       )}
     >
       {showIcon && <DevIcon className={cn("shrink-0", iconSizes[size])} />}
-      <span>{label}</span>
+      <span>{badgeText}</span>
     </Badge>
   );
 }
@@ -53,8 +58,11 @@ export function CeoBadge({
   showIcon = true,
   className,
   label = "CEO",
+  text,
+  children,
 }: RoleBadgeProps) {
   const { ceoStyle, CeoIcon } = usePanelTheme();
+  const badgeText = children ?? text ?? label;
 
   const sizeClasses = {
     xs: "text-[9px] px-1.5 py-0 h-4 gap-1",
@@ -78,7 +86,7 @@ export function CeoBadge({
       )}
     >
       {showIcon && <CeoIcon className={cn("shrink-0", iconSizes[size])} />}
-      <span>{label}</span>
+      <span>{badgeText}</span>
     </Badge>
   );
 }
@@ -88,8 +96,11 @@ export function MemberBadge({
   showIcon = true,
   className,
   label = "MEMBRO",
+  text,
+  children,
 }: RoleBadgeProps) {
   const { memberStyle, MemberIcon } = usePanelTheme();
+  const badgeText = children ?? text ?? label;
 
   const sizeClasses = {
     xs: "text-[9px] px-1.5 py-0 h-4 gap-1",
@@ -114,7 +125,7 @@ export function MemberBadge({
       )}
     >
       {showIcon && <MemberIcon className={cn("shrink-0", iconSizes[size])} />}
-      <span>{label}</span>
+      <span>{badgeText}</span>
     </Badge>
   );
 }

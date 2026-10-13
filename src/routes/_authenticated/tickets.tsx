@@ -104,7 +104,7 @@ function TicketsContent() {
     paramName: "tab",
     allowedTabs: ["my", "all"],
   });
-  const [ticketParam, setTicketParam] = useSyncedUrlParam("ticket", "");
+  const [ticketParam, setTicketParam] = useSyncedUrlParam<string>("ticket", "");
   const selectedTicketId = ticketParam || null;
   const setSelectedTicketId = (id: string | null) => setTicketParam(id || "");
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);

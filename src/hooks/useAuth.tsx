@@ -8,7 +8,7 @@ import { can, satisfiesPermission, LEVEL_LABEL, type AppLevel, type Permission }
 import { useRolePermissions } from "@/hooks/useData";
 import { isUserDeveloper, DEV_DISCORD_IDS, isDevBypassActive, DEV_CONFIG_EVENT, CEO_CONFIG_EVENT, getCeoTagPermissionsSync, getDevTagPermissionsSync, isUserCeo } from "@/services/devService";
 import { parseMemberTagRules, getMemberTags, getMemberTagAssignments, type MemberTag } from "@/services/memberTagsService";
-import type { MemberWarning } from "@/types/warnings";
+import type { MemberWarning, SuspensionFunctionalBlocks } from "@/types/warnings";
 import { getWarnings, WARNINGS_REALTIME_EVENT } from "@/services/warningsService";
 
 type Session = { user: AppUser } | null;

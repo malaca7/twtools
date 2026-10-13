@@ -15,6 +15,9 @@ export type ActionType =
   | "set_variable"
   | "condition_branch"
   | "delay"
+  | "wait_delay"
+  | "webhook_call"
+  | "custom_code"
   | "execute_command"
   | "log_audit"
   | "send_notification";
@@ -170,6 +173,9 @@ export interface ExecutionTraceItem {
   stepId: string;
   stepName: string;
   type: string;
+  actionType?: string;
+  description?: string;
+  result?: string;
   success: boolean;
   output?: any;
   error?: string;
@@ -181,14 +187,18 @@ export interface ExecutionLog {
   botId: string;
   source: "command" | "event" | "timer" | "test";
   triggerName: string;
+  triggerType?: string;
   triggeredBy: {
     id?: string;
     name?: string;
     username?: string;
   };
   startedAt: string;
+  executedAt?: string;
   durationMs: number;
-  status: "success" | "error" | "warning";
+  status: "success" | "error" | "warning" | "blocked";
+  user?: string;
+  channel?: string;
   stepsExecuted: number;
   error?: string;
   trace: ExecutionTraceItem[];

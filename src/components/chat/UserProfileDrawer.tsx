@@ -20,6 +20,7 @@ interface UserProfileDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onStartChat?: (userId: string) => void;
+  onStartPrivateChat?: (userId: string) => void;
 }
 
 export function UserProfileDrawer({
@@ -27,7 +28,9 @@ export function UserProfileDrawer({
   open,
   onOpenChange,
   onStartChat,
+  onStartPrivateChat,
 }: UserProfileDrawerProps) {
+  const startChatFn = onStartChat || onStartPrivateChat;
   const { data: members = [] } = useMembers();
   const member = members.find((m) => m.user_id === userId);
 
@@ -91,13 +94,13 @@ export function UserProfileDrawer({
             )}
           </div>
 
-          {onStartChat && (
+          {startChatFn && (
             <Button
               type="button"
               className="w-full bg-primary text-primary-foreground font-bold shadow-md mt-2 cursor-pointer"
               onClick={() => {
                 onOpenChange(false);
-                onStartChat(member.user_id);
+                startChatFn(member.user_id);
               }}
             >
               <MessageSquare className="h-4 w-4 mr-2" /> Conversar no Chat Privado

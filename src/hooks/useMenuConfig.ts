@@ -16,6 +16,7 @@ export type MenuItemConfig = {
 
 export type MenuConfig = {
   categories?: string[];
+  categoryIcons?: Record<string, string>;
   items: MenuItemConfig[];
   deletedItemIds?: string[];
 };

@@ -41,6 +41,8 @@ export async function executeSingleAction(
             avatarUrl: ctx.bot?.avatarUrl,
             embedColor: color,
             defaultTitle: title,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
           };
 
           await postMessageToWebhookChannel(

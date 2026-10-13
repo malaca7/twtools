@@ -104,7 +104,7 @@ export function useCreateWarningMutation() {
     mutationFn: async (payload: CreateWarningPayload) => {
       const adminUser = {
         id: user?.id || "admin",
-        name: profile?.name || user?.email || "Administrador",
+        name: profile?.nome || user?.email || "Administrador",
         nickname: profile?.nickname || null,
         avatar: profile?.avatar_url || null,
       };
@@ -139,7 +139,7 @@ export function useUpdateWarningMutation() {
     mutationFn: async ({ id, payload }: { id: string; payload: UpdateWarningPayload }) => {
       const adminUser = {
         id: user?.id || "admin",
-        name: profile?.name || user?.email || "Administrador",
+        name: profile?.nome || user?.email || "Administrador",
       };
       return updateWarning(id, payload, adminUser);
     },
@@ -164,7 +164,7 @@ export function useRevokeWarningMutation() {
     mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
       const adminUser = {
         id: user?.id || "admin",
-        name: profile?.name || user?.email || "Administrador",
+        name: profile?.nome || user?.email || "Administrador",
       };
       return revokeWarning(id, reason, adminUser);
     },
@@ -191,7 +191,7 @@ export function useDeleteWarningMutation() {
     mutationFn: async (id: string) => {
       const adminUser = {
         id: user?.id || "admin",
-        name: profile?.name || user?.email || "Administrador",
+        name: profile?.nome || user?.email || "Administrador",
       };
       return deleteWarning(id, adminUser);
     },

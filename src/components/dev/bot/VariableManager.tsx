@@ -307,7 +307,7 @@ export function VariableManager({ variables, botId, onChange }: VariableManagerP
                   <Label className="text-xs font-bold">Escopo</Label>
                   <Select
                     value={editingVar.scope}
-                    onValueChange={(val: VariableScope) => setEditingVar({ ...editingVar, scope: val })}
+                    onValueChange={(val: string) => setEditingVar({ ...editingVar, scope: val as VariableScope })}
                   >
                     <SelectTrigger className="bg-zinc-900 border-zinc-800 text-xs">
                       <SelectValue />
@@ -326,7 +326,7 @@ export function VariableManager({ variables, botId, onChange }: VariableManagerP
                   <Label className="text-xs font-bold">Tipo</Label>
                   <Select
                     value={editingVar.type}
-                    onValueChange={(val: VariableType) => setEditingVar({ ...editingVar, type: val })}
+                    onValueChange={(val: string) => setEditingVar({ ...editingVar, type: val as VariableType })}
                   >
                     <SelectTrigger className="bg-zinc-900 border-zinc-800 text-xs">
                       <SelectValue />

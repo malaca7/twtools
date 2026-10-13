@@ -143,6 +143,24 @@ export const ACTION_TYPE_METADATA: Record<
     icon: Bell,
     color: "text-amber-400 bg-amber-500/10 border-amber-500/20",
   },
+  wait_delay: {
+    label: "Aguardar Intervalo (Delay)",
+    description: "Pausa a execução por um período antes do próximo passo.",
+    icon: Clock,
+    color: "text-zinc-400 bg-zinc-800/40 border-zinc-700/40",
+  },
+  webhook_call: {
+    label: "Disparar Webhook HTTP",
+    description: "Faz uma requisição HTTP REST/Webhook para um serviço externo.",
+    icon: Globe,
+    color: "text-teal-400 bg-teal-500/10 border-teal-500/20",
+  },
+  custom_code: {
+    label: "Executar Código / Script",
+    description: "Executa uma lógica de script customizado.",
+    icon: FileCode,
+    color: "text-violet-400 bg-violet-500/10 border-violet-500/20",
+  },
 };
 
 export function ActionConfigDialog({ open, onOpenChange, action, onSave }: ActionConfigDialogProps) {

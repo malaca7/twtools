@@ -502,7 +502,7 @@ export function SimularMovimentacaoTab({ onNavigateToLogs }: SimularMovimentacao
                       </SelectTrigger>
                       <SelectContent>
                         {members.map((m) => (
-                          <SelectItem key={m.id} value={m.id} className="text-xs">
+                          <SelectItem key={m.id || Math.random().toString()} value={m.id || ""} className="text-xs">
                             {m.nome || m.nickname} {m.game_id ? `(ID ${m.game_id})` : ""}
                           </SelectItem>
                         ))}

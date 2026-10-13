@@ -90,14 +90,14 @@ export function useManagementPendingActions() {
   const { data: tickets = [] } = useTickets();
   const { data: absences = [] } = useAbsences();
   const { data: submissions = [] } = useGoalSubmissions();
-  const { data: products = [] } = useProducts(canStock);
+  const { data: products = [] } = useProducts();
 
   const pendingSignups = canSignups ? signupRequests.length : 0;
 
   const openTickets = useMemo(() => {
     if (!canTickets) return 0;
     return tickets.filter(
-      (t) => t.status === "aberto" || t.status === "aguardando_suporte"
+      (t) => t.status === "aberto" || t.status === "aguardando" || (t.status as string) === "aguardando_suporte"
     ).length;
   }, [tickets, canTickets]);
 
@@ -115,7 +115,8 @@ export function useManagementPendingActions() {
     if (!canStock) return 0;
     return products.filter((p) => {
       const min = p.estoque_minimo ?? 0;
-      return min > 0 && p.estoque <= min;
+      const stock = (p as any).estoque ?? p.estoque_atual ?? 0;
+      return min > 0 && stock <= min;
     }).length;
   }, [products, canStock]);
 

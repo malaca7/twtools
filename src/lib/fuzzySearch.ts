@@ -139,6 +139,8 @@ export interface FuzzyProductMatch {
 export interface ProductSearchResult {
   exactMatches: Product[];
   similarMatches: FuzzyProductMatch[];
+  exactFilteredProducts: Product[];
+  similarFilteredProducts: FuzzyProductMatch[];
 }
 
 /**
@@ -158,6 +160,8 @@ export function searchProductsWithFuzzy(
     return {
       exactMatches: products,
       similarMatches: [],
+      exactFilteredProducts: products,
+      similarFilteredProducts: [],
     };
   }
 
@@ -242,5 +246,7 @@ export function searchProductsWithFuzzy(
   return {
     exactMatches,
     similarMatches: similarCandidates,
+    exactFilteredProducts: exactMatches,
+    similarFilteredProducts: similarCandidates,
   };
 }

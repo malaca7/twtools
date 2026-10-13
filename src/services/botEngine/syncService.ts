@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { BotProject } from "./types";
+import type { BotProject, BotStatus } from "./types";
 import {
   DEFAULT_DISCORD_CONFIG,
   getDiscordBotConfig,
@@ -43,7 +43,7 @@ export async function syncDiscordConfigToBotProjects(
           guildId: discordConfig.guildId?.trim() || b.guildId,
           applicationId: discordConfig.clientId?.trim() || b.applicationId,
           enabled: discordConfig.enabled !== undefined ? discordConfig.enabled : b.enabled,
-          status: discordConfig.isBotRunning ? "online" : "offline",
+          status: (discordConfig.isBotRunning ? "online" : "offline") as BotStatus,
           updatedAt: new Date().toISOString(),
         };
       }

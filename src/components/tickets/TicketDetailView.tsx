@@ -653,7 +653,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
                   <span className="text-xs font-semibold text-foreground">
                     {ticket.creator_nickname || ticket.creator_name}
                   </span>
-                  <VerifiedBadge isVerified={members.find((m) => m.user_id === ticket.creator_id)?.is_verified} size="xs" />
+                  <VerifiedBadge isVerified={members.find((m) => m.user_id === (ticket.user_id || (ticket as any).creator_id))?.is_verified} size="xs" />
                   <Badge
                     variant="outline"
                     className={cn("text-[10px] px-1.5 py-0", levelBadgeClass(ticket.creator_role))}

@@ -295,7 +295,7 @@ export function GroupMembersDialog({
                           <span className="truncate font-bold text-foreground text-xs leading-tight">
                             {displayName}
                           </span>
-                          <VerifiedBadge isVerified={(prof as any)?.is_verified ?? allMembers.find(m => m.user_id === p.user_id)?.is_verified} size="xs" />
+                          <VerifiedBadge isVerified={(prof as any)?.is_verified ?? members.find((m: any) => m.user_id === p.user_id)?.is_verified} size="xs" />
                           {isSelf && (
                             <span className="text-[10px] font-mono text-muted-foreground">(você)</span>
                           )}

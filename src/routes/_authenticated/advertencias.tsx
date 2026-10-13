@@ -432,7 +432,7 @@ function AdvertenciasContent() {
     const memberNickname = targetMember?.nickname || null;
     const memberAvatar = targetMember?.avatar_url || null;
     const memberGameId = targetMember?.game_id || null;
-    const memberLevel = targetMember?.role || targetMember?.level || "Membro";
+    const memberLevel = targetMember?.nivel || (targetMember as any)?.role || "Membro";
 
     const isSusp = newType === "suspensao";
     const finalReason = selectedPreset.includes("Outro") && customReason.trim()
@@ -797,7 +797,7 @@ function AdvertenciasContent() {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3.5">
                 <Avatar className="h-14 w-14 border-2 border-primary/40 shadow-md">
-                  <AvatarImage src={getProxiedImageUrl(profile?.avatar_url || user?.user_metadata?.avatar_url || "") || undefined} />
+                  <AvatarImage src={getProxiedImageUrl(profile?.avatar_url || (user as any)?.avatar_url || (user as any)?.user_metadata?.avatar_url || "") || undefined} />
                   <AvatarFallback className="font-bold text-base bg-primary/20 text-primary">
                     {(profile?.nome || user?.email || "EU").substring(0, 2).toUpperCase()}
                   </AvatarFallback>
@@ -812,9 +812,9 @@ function AdvertenciasContent() {
                         ID: {profile.game_id}
                       </Badge>
                     )}
-                    {profile?.cargo && (
+                    {((profile as any)?.cargo || (profile as any)?.nivel) && (
                       <Badge variant="secondary" className="text-[10px] py-0 font-semibold">
-                        {profile.cargo}
+                        {(profile as any)?.cargo || (profile as any)?.nivel}
                       </Badge>
                     )}
                   </div>
@@ -1491,14 +1491,14 @@ function AdvertenciasContent() {
               <Label className="text-xs font-semibold text-foreground">
                 Membro Penalizado <span className="text-rose-500">*</span>
               </Label>
-              <Select value={selectedMemberId} onValueChange={setSelectedMemberId} required>
+              <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
                 <SelectTrigger className="mt-1 h-10 text-xs">
                   <SelectValue placeholder="Selecione o membro..." />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   {members.map((m) => (
                     <SelectItem key={m.id || m.user_id} value={m.id || m.user_id}>
-                      {m.nickname || m.nome} {m.game_id ? `(ID: ${m.game_id})` : ""} - {m.role || m.level || "Membro"}
+                      {m.nickname || m.nome} {m.game_id ? `(ID: ${m.game_id})` : ""} - {m.nivel || (m as any).role || "Membro"}
                     </SelectItem>
                   ))}
                 </SelectContent>
