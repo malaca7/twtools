@@ -1742,76 +1742,59 @@ async function updateProfileAvatar(discordId, newAvatarUrl, tag, forceOverwriteA
   if (!discordId || !newAvatarUrl) return false;
 
   try {
-    let data = null;
-    if (neonPool) {
-      try {
-        const checkRes = await neonPool.query(
-          "SELECT id, user_id, avatar_url, discord_avatar_url FROM profiles WHERE discord_id = $1 LIMIT 1",
-          [discordId]
-        );
-        const currentProf = checkRes.rows[0];
-        const hasCustomAvatar = currentProf && currentProf.avatar_url && !currentProf.avatar_url.includes("cdn.discordapp.com");
+    let updatedProfile = null;
 
-        let updateSql = "";
-        let params = [];
+    // 1. Atualizar no Firebase Realtime Database
+    try {
+      const fbProfiles = await fetchFromFirebaseRtdb("profiles") || [];
+      const prof = fbProfiles.find((p) => p.discord_id && String(p.discord_id).trim() === String(discordId).trim());
+      if (prof) {
+        const hasCustomAvatar = prof.avatar_url && !prof.avatar_url.includes("cdn.discordapp.com");
+        const patchData = {
+          discord_avatar_url: newAvatarUrl,
+          updated_at: new Date().toISOString(),
+        };
         if (forceOverwriteAvatar || !hasCustomAvatar) {
-          updateSql = "UPDATE profiles SET discord_avatar_url = $1, avatar_url = $1 WHERE discord_id = $2 RETURNING id, user_id, nome, nickname, discord_id, discord_avatar_url, avatar_url";
-          params = [newAvatarUrl, discordId];
-        } else {
-          updateSql = "UPDATE profiles SET discord_avatar_url = $1 WHERE discord_id = $2 RETURNING id, user_id, nome, nickname, discord_id, discord_avatar_url, avatar_url";
-          params = [newAvatarUrl, discordId];
+          patchData.avatar_url = newAvatarUrl;
         }
 
-        const pgRes = await neonPool.query(updateSql, params);
-        data = pgRes.rows;
-      } catch (poolErr) {
-        console.warn("⚠️ [UPDATE AVATAR Fallback Supabase]:", poolErr.message);
+        await fetch(`${FIREBASE_RTDB_URL}/profiles/${prof.id || prof.user_id}.json`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patchData),
+        });
+        updatedProfile = { ...prof, ...patchData };
+        console.log(`[SUCESSO RTDB] Avatar de ${tag || discordId} sincronizado no Firebase: ${newAvatarUrl}`);
       }
+    } catch (fbErr) {
+      console.warn("⚠️ [UPDATE AVATAR RTDB]:", fbErr.message);
     }
 
-    if (!data) {
+    // 2. Atualizar no Supabase (se acessível)
+    try {
       const { data: currentData } = await supabase
         .from("profiles")
         .select("id, user_id, avatar_url, discord_avatar_url")
         .eq("discord_id", discordId)
         .maybeSingle();
 
-      const hasCustomAvatar = currentData && currentData.avatar_url && !currentData.avatar_url.includes("cdn.discordapp.com");
-      const updatePayload = {
-        discord_avatar_url: newAvatarUrl,
-      };
-      if (forceOverwriteAvatar || !hasCustomAvatar) {
-        updatePayload.avatar_url = newAvatarUrl;
-      }
-
-      const { data: sbData, error } = await supabase
-        .from("profiles")
-        .update(updatePayload)
-        .eq("discord_id", discordId)
-        .select("id, user_id, nome, nickname, discord_id, discord_avatar_url, avatar_url");
-
-      if (error) {
-        console.error(`[ERRO Supabase] Falha ao atualizar foto de ${tag || discordId}:`, error.message);
-        return false;
-      }
-      data = sbData;
-    }
-
-    if (data && data.length > 0) {
-      console.log(`[SUCESSO] Avatar de ${tag || discordId} sincronizado: ${newAvatarUrl}`);
-      // Sincroniza metadados no Supabase Auth se avatar_url foi atualizado
-      for (const p of data) {
-        if (p.user_id && p.avatar_url) {
-          try {
-            await supabase.auth.admin.updateUserById(p.user_id, {
-              user_metadata: { avatar_url: p.avatar_url },
-            });
-          } catch {}
+      if (currentData) {
+        const hasCustomAvatar = currentData.avatar_url && !currentData.avatar_url.includes("cdn.discordapp.com");
+        const updatePayload = {
+          discord_avatar_url: newAvatarUrl,
+        };
+        if (forceOverwriteAvatar || !hasCustomAvatar) {
+          updatePayload.avatar_url = newAvatarUrl;
         }
+
+        await supabase
+          .from("profiles")
+          .update(updatePayload)
+          .eq("discord_id", discordId);
       }
-      return true;
-    }
-    return false;
+    } catch {}
+
+    return true;
   } catch (err) {
     console.error(`[ERRO Fatal] updateProfileAvatar:`, err);
     return false;
@@ -1833,24 +1816,21 @@ async function syncAllProfiles() {
 
   try {
     let profiles = [];
-    if (neonPool) {
-      try {
-        const res = await neonPool.query(
-          "SELECT id, user_id, discord_id, discord_avatar_url, avatar_url, discord_username FROM profiles WHERE discord_id IS NOT NULL"
-        );
-        profiles = res.rows || [];
-      } catch (poolErr) {
-        console.warn("⚠️ [SYNC Fallback Supabase]:", poolErr.message);
-      }
-    }
+
+    // Carregar do Firebase RTDB
+    try {
+      const fbProfiles = await fetchFromFirebaseRtdb("profiles") || [];
+      profiles = fbProfiles.filter((p) => p.discord_id);
+    } catch {}
 
     if (!profiles || profiles.length === 0) {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, user_id, discord_id, discord_avatar_url, avatar_url, discord_username")
-        .not("discord_id", "is", null);
-      if (error || !data || data.length === 0) return;
-      profiles = data;
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("id, user_id, discord_id, discord_avatar_url, avatar_url, discord_username")
+          .not("discord_id", "is", null);
+        if (!error && data) profiles = data;
+      } catch {}
     }
 
     for (const prof of profiles) {
