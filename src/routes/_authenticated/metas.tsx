@@ -263,9 +263,27 @@ export function MetasPage() {
     return weeklyGoals.find((g) => g.is_active) || weeklyGoals[0] || null;
   }, [weeklyGoals]);
 
-  // Selected goal to view, defaulting to active goal or first available
+  // Selected goal to view, defaulting to active goal, all goals, or first available
   const currentViewGoal = useMemo(() => {
-    if (viewedGoalId && viewedGoalId !== "active" && viewedGoalId !== "todos") {
+    if (viewedGoalId === "todos") {
+      return {
+        id: "todos",
+        title: "Visão Geral Acumulada de Todas as Metas",
+        description: "Consolidado geral de todas as metas e entregas registradas até o dia 13/10/26",
+        type: "financeiro" as WeeklyGoalType,
+        target_value: activeWeeklyGoal?.target_value || 50000,
+        unit_name: "R$",
+        scope: "todos" as GoalTargetScope,
+        target_role: "membro" as AppLevel,
+        period_start: "01/09/2026",
+        period_end: "13/10/2026",
+        is_active: false,
+        created_at: "2026-09-01T00:00:00.000Z",
+        created_by: "c5ef6dc6-e126-4027-80c3-319f0a870315",
+        created_by_name: "Liderança Twin Wheels",
+      };
+    }
+    if (viewedGoalId && viewedGoalId !== "active") {
       const found = weeklyGoals.find((g) => g.id === viewedGoalId);
       if (found) return found;
     }
@@ -412,8 +430,8 @@ export function MetasPage() {
     if (!currentViewGoal) return null;
 
     const allUserSubs = submissions.filter(isMySubmission);
-    const myGoalSubs = allUserSubs.filter((s) => s.goal_id === currentViewGoal.id);
-    const displayedSubs = mySubsGoalFilter === "all" ? allUserSubs : myGoalSubs;
+    const myGoalSubs = viewedGoalId === "todos" ? allUserSubs : allUserSubs.filter((s) => s.goal_id === currentViewGoal.id);
+    const displayedSubs = mySubsGoalFilter === "all" || viewedGoalId === "todos" ? allUserSubs : myGoalSubs;
 
     const approvedAmount = myGoalSubs
       .filter((s) => s.status === "aprovado")
@@ -455,7 +473,7 @@ export function MetasPage() {
       goalSubmissionsCount: myGoalSubs.length,
       totalAllGoalsDelivered,
     };
-  }, [currentViewGoal, submissions, currentUserId, profile, mySubsGoalFilter]);
+  }, [currentViewGoal, submissions, currentUserId, profile, mySubsGoalFilter, viewedGoalId]);
 
   // General Family / Members Progress Overview (Manager only)
   const membersProgress = useMemo(() => {
@@ -464,7 +482,7 @@ export function MetasPage() {
     return members.map((m) => {
       const mSubs = submissions.filter(
         (s) =>
-          s.goal_id === currentViewGoal.id &&
+          (viewedGoalId === "todos" || s.goal_id === currentViewGoal.id) &&
           (s.user_id === m.user_id ||
            s.user_id === m.id ||
            (m.nome && s.member_name?.toLowerCase().trim() === m.nome.toLowerCase().trim()) ||
@@ -530,7 +548,7 @@ export function MetasPage() {
         submissionsCount: mSubs.length,
       };
     });
-  }, [currentViewGoal, members, submissions]);
+  }, [currentViewGoal, members, submissions, viewedGoalId]);
 
   // Filtered Members Progress
   const filteredMembersProgress = useMemo(() => {
@@ -556,7 +574,7 @@ export function MetasPage() {
     const totalMembers = members.length || 1;
     const paidMembersCount = membersProgress.filter((m) => m.isPaid).length;
     const totalCollectedApproved = submissions
-      .filter((s) => s.status === "aprovado" && (!currentViewGoal || s.goal_id === currentViewGoal.id))
+      .filter((s) => s.status === "aprovado" && (!currentViewGoal || viewedGoalId === "todos" || s.goal_id === currentViewGoal.id))
       .reduce((acc, s) => acc + Number(s.amount), 0);
     const totalAllTimeApproved = submissions
       .filter((s) => s.status === "aprovado")
@@ -571,7 +589,7 @@ export function MetasPage() {
       totalAllTimeApproved,
       familyCompletionPct,
     };
-  }, [members, membersProgress, submissions, currentViewGoal]);
+  }, [members, membersProgress, submissions, currentViewGoal, viewedGoalId]);
 
   // Filtered Submissions List for Management Tab
   const filteredSubmissions = useMemo(() => {
@@ -1631,11 +1649,15 @@ export function MetasPage() {
                 <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Período & Meta Selecionada:
                 </span>
-                {currentViewGoal?.is_active && (
+                {viewedGoalId === "todos" ? (
+                  <Badge className="bg-primary/15 text-primary border-primary/30 text-[10px] font-bold py-0.5">
+                    📊 Histórico Acumulado (Todas as Metas)
+                  </Badge>
+                ) : currentViewGoal?.is_active ? (
                   <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px] font-bold py-0.5">
                     ⭐ Vigente (Semana Atual)
                   </Badge>
-                )}
+                ) : null}
               </div>
               <h3 className="text-base font-extrabold text-foreground mt-0.5">
                 {currentViewGoal ? currentViewGoal.title : "Nenhuma meta selecionada"}
@@ -1661,6 +1683,9 @@ export function MetasPage() {
               <SelectContent>
                 <SelectItem value="active">
                   ⭐ Meta Vigente ({activeWeeklyGoal ? `${activeWeeklyGoal.period_start} a ${activeWeeklyGoal.period_end}` : "Atual"})
+                </SelectItem>
+                <SelectItem value="todos">
+                  📊 Visão Geral Acumulada (Todas as Entregas até Hoje)
                 </SelectItem>
                 {weeklyGoals.map((g) => (
                   <SelectItem key={g.id} value={g.id}>
