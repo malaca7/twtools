@@ -205,10 +205,13 @@ export function MetasPage() {
   });
   const [submissionFilter, setSubmissionFilter] = useState<string>("todos");
   const [validationGoalFilter, setValidationGoalFilter] = useState<string>("todos");
+  const [validationSearch, setValidationSearch] = useState<string>("");
   const [memberSearch, setMemberSearch] = useState<string>("");
   const [roleFilter, setRoleFilter] = useState<string>("todos");
-  const [viewedGoalId, setViewedGoalId] = useState<string>("active");
+  const [viewedGoalId, setViewedGoalId] = useState<string>("todos");
   const [mySubsGoalFilter, setMySubsGoalFilter] = useState<"all" | "selected">("all");
+  const [subsScope, setSubsScope] = useState<"family" | "mine">("family");
+  const [subsFamilySearch, setSubsFamilySearch] = useState<string>("");
 
   // Modals State
   const [deliverModalOpen, setDeliverModalOpen] = useState(false);
@@ -591,14 +594,58 @@ export function MetasPage() {
     };
   }, [members, membersProgress, submissions, currentViewGoal, viewedGoalId]);
 
-  // Filtered Submissions List for Management Tab
+  // Helper de contagem de entregas por meta
+  const getGoalSubmissionCount = (goalId: string, status?: string) => {
+    return submissions.filter((s) => {
+      const matchGoal = goalId === "todos" || s.goal_id === goalId;
+      const matchStatus = !status || status === "todos" || s.status === status;
+      return matchGoal && matchStatus;
+    }).length;
+  };
+
+  // Submissões filtradas para o painel de validação
   const filteredSubmissions = useMemo(() => {
     return submissions.filter((s) => {
       const matchStatus = submissionFilter === "todos" || s.status === submissionFilter;
       const matchGoal = validationGoalFilter === "todos" || s.goal_id === validationGoalFilter;
-      return matchStatus && matchGoal;
+      const matchSearch =
+        !validationSearch ||
+        s.member_name?.toLowerCase().includes(validationSearch.toLowerCase()) ||
+        s.member_nickname?.toLowerCase().includes(validationSearch.toLowerCase()) ||
+        s.receiver_name?.toLowerCase().includes(validationSearch.toLowerCase()) ||
+        s.notes?.toLowerCase().includes(validationSearch.toLowerCase());
+      return matchStatus && matchGoal && matchSearch;
     });
-  }, [submissions, submissionFilter, validationGoalFilter]);
+  }, [submissions, submissionFilter, validationGoalFilter, validationSearch]);
+
+  const validationStatusCounts = useMemo(() => {
+    return {
+      todos: submissions.length,
+      pendente: submissions.filter((s) => s.status === "pendente").length,
+      aprovado: submissions.filter((s) => s.status === "aprovado").length,
+      rejeitado: submissions.filter((s) => s.status === "rejeitado").length,
+    };
+  }, [submissions]);
+
+  // Lista de entregas exibida na aba Minhas Metas & Entregas (com suporte a ver toda a família)
+  const visibleDeliveries = useMemo(() => {
+    let list = subsScope === "mine" ? submissions.filter(isMySubmission) : submissions;
+    if (viewedGoalId !== "todos" && mySubsGoalFilter === "selected" && currentViewGoal) {
+      list = list.filter((s) => s.goal_id === currentViewGoal.id);
+    }
+    if (subsFamilySearch.trim()) {
+      const q = subsFamilySearch.toLowerCase().trim();
+      list = list.filter(
+        (s) =>
+          s.member_name?.toLowerCase().includes(q) ||
+          s.member_nickname?.toLowerCase().includes(q) ||
+          s.receiver_name?.toLowerCase().includes(q) ||
+          s.notes?.toLowerCase().includes(q) ||
+          s.goal_title?.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [submissions, subsScope, viewedGoalId, mySubsGoalFilter, currentViewGoal, subsFamilySearch, currentUserId, profile]);
 
   // Potential Receivers (Leaders, Managers, Officers, Members)
   const potentialReceivers = useMemo(() => {
@@ -863,59 +910,107 @@ export function MetasPage() {
           </CardFooter>
         </Card>
 
-        {/* Histórico Pessoal de Entregas */}
+        {/* Histórico de Entregas (Pessoal ou de Toda a Família) */}
         <Card className="surface-card border-border/70 lg:col-span-2">
           <CardHeader className="pb-3 border-b border-border/40">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <CardTitle className="text-sm font-extrabold text-foreground flex items-center gap-2">
-                  <Receipt className="h-4 w-4 text-primary" /> Meus Comprovantes & Entregas Registradas
+                  <Receipt className="h-4 w-4 text-primary" /> Comprovantes & Entregas da Facção
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Lista de todas as entregas de meta que você enviou com comprovante e print do F8.
+                  {subsScope === "family"
+                    ? `Visualizando todas as ${visibleDeliveries.length} entregas registradas e sincronizadas pela família Twin Wheels.`
+                    : "Lista das suas entregas pessoais de meta com comprovante e print do F8."}
                 </CardDescription>
               </div>
 
-              {/* Filtro: Todas as Metas vs Desta Meta */}
-              <div className="flex items-center gap-1 bg-secondary/50 p-1 rounded-xl border border-border/60">
-                <button
-                  type="button"
-                  onClick={() => setMySubsGoalFilter("all")}
-                  className={cn(
-                    "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
-                    mySubsGoalFilter === "all"
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                  title="Ver todas as entregas e comprovantes enviados até hoje"
-                >
-                  Todas ({myGoalStats.totalUserSubmissionsCount})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMySubsGoalFilter("selected")}
-                  className={cn(
-                    "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
-                    mySubsGoalFilter === "selected"
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                  title="Ver apenas as entregas vinculadas à meta selecionada"
-                >
-                  Desta Meta ({myGoalStats.goalSubmissionsCount})
-                </button>
+              {/* Controles de Escopo e Filtro */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1 bg-secondary/50 p-1 rounded-xl border border-border/60">
+                  <button
+                    type="button"
+                    onClick={() => setSubsScope("family")}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                      subsScope === "family"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                    title="Ver todas as 19 entregas de todos os membros da família"
+                  >
+                    Toda a Família ({submissions.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSubsScope("mine")}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                      subsScope === "mine"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                    title="Ver apenas as minhas entregas pessoais"
+                  >
+                    Minhas Entregas ({myGoalStats.totalUserSubmissionsCount})
+                  </button>
+                </div>
+
+                {viewedGoalId !== "todos" && (
+                  <div className="flex items-center gap-1 bg-secondary/50 p-1 rounded-xl border border-border/60">
+                    <button
+                      type="button"
+                      onClick={() => setMySubsGoalFilter("all")}
+                      className={cn(
+                        "px-2 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                        mySubsGoalFilter === "all"
+                          ? "bg-primary/80 text-primary-foreground shadow-xs"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Todas
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMySubsGoalFilter("selected")}
+                      className={cn(
+                        "px-2 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                        mySubsGoalFilter === "selected"
+                          ? "bg-primary/80 text-primary-foreground shadow-xs"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Desta Meta
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Busca Rápida por Membro / Recebedor */}
+            <div className="pt-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar entrega por nome do membro, quem recebeu ou observação..."
+                  value={subsFamilySearch}
+                  onChange={(e) => setSubsFamilySearch(e.target.value)}
+                  className="pl-8 h-8 text-xs bg-secondary/30"
+                />
               </div>
             </div>
           </CardHeader>
 
           <CardContent className="p-0">
-            {myGoalStats.submissions.length === 0 ? (
+            {visibleDeliveries.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground space-y-2">
                 <ImageIcon className="h-8 w-8 mx-auto opacity-40" />
                 <p className="text-xs font-medium">
-                  {mySubsGoalFilter === "all"
-                    ? "Nenhum comprovante de entrega registrado em sua conta até o momento."
-                    : "Nenhum comprovante de entrega enviado ainda para esta meta selecionada."}
+                  {subsFamilySearch
+                    ? `Nenhuma entrega encontrada para a busca "${subsFamilySearch}".`
+                    : subsScope === "mine"
+                    ? "Nenhum comprovante de entrega registrado na sua conta até o momento."
+                    : "Nenhum comprovante de entrega encontrado para este filtro."}
                 </p>
                 <Button
                   size="sm"
@@ -927,8 +1022,8 @@ export function MetasPage() {
                 </Button>
               </div>
             ) : (
-              <div className="divide-y divide-border/40">
-                {myGoalStats.submissions.map((sub) => (
+              <div className="divide-y divide-border/40 max-h-[600px] overflow-y-auto">
+                {visibleDeliveries.map((sub) => (
                   <div key={sub.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-secondary/20 transition-colors">
                     <div className="flex items-start gap-3 min-w-0">
                       {/* Preview do print ou ícone */}
@@ -957,9 +1052,17 @@ export function MetasPage() {
 
                       <div className="space-y-0.5 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono font-extrabold text-sm text-foreground">
+                          <span className="font-mono font-extrabold text-sm text-emerald-400">
                             {sub.unit_name === "R$" ? currency(sub.amount) : `${num(sub.amount)} ${sub.unit_name || "itens"}`}
                           </span>
+                          <span className="text-xs font-bold text-foreground">
+                            • {sub.member_nickname || sub.member_name}
+                          </span>
+                          {sub.member_role && (
+                            <Badge className={cn("text-[9px] font-mono py-0 px-1.5", levelBadgeClass(sub.member_role as AppLevel))}>
+                              {LEVEL_LABEL[sub.member_role as AppLevel] || sub.member_role}
+                            </Badge>
+                          )}
                           <Badge variant="outline" className="text-[9px] font-bold border-primary/30 text-primary">
                             {sub.goal_title || "Meta Semanal"}
                           </Badge>
@@ -1015,12 +1118,13 @@ export function MetasPage() {
                         </Button>
                       )}
 
-                      {sub.status === "pendente" && (
+                      {sub.status === "pendente" && (canManage || isMySubmission(sub)) && (
                         <Button
                           size="sm"
                           variant="ghost"
                           onClick={() => deleteSubmissionMutation.mutate(sub.id)}
                           className="h-8 text-xs text-destructive hover:bg-destructive/10"
+                          title="Remover entrega"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
@@ -1052,34 +1156,57 @@ export function MetasPage() {
 
           {/* Filtros de Meta e Status */}
           <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative w-44">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Buscar membro..."
+                value={validationSearch}
+                onChange={(e) => setValidationSearch(e.target.value)}
+                className="pl-8 h-8 text-xs bg-secondary/40"
+              />
+            </div>
+
             <Select value={validationGoalFilter} onValueChange={setValidationGoalFilter}>
-              <SelectTrigger className="h-8 text-xs min-w-[180px] bg-secondary/40 font-semibold border-border">
+              <SelectTrigger className="h-8 text-xs min-w-[200px] bg-secondary/40 font-semibold border-border">
                 <SelectValue placeholder="Todas as Metas" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="todos">Todas as Metas</SelectItem>
-                {weeklyGoals.map((g) => (
-                  <SelectItem key={g.id} value={g.id}>
-                    {g.title} ({g.period_start.slice(5)} a {g.period_end.slice(5)})
-                  </SelectItem>
-                ))}
+                <SelectItem value="todos">Todas as Metas ({submissions.length} entregas)</SelectItem>
+                {weeklyGoals.map((g) => {
+                  const count = getGoalSubmissionCount(g.id);
+                  return (
+                    <SelectItem key={g.id} value={g.id}>
+                      {g.title} ({count} {count === 1 ? "entrega" : "entregas"})
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
 
             <div className="flex items-center gap-1.5 bg-secondary/40 p-1 rounded-xl border border-border/60">
-              {["todos", "pendente", "aprovado", "rejeitado"].map((st) => (
+              {(["todos", "pendente", "aprovado", "rejeitado"] as const).map((st) => (
                 <button
                   key={st}
                   type="button"
                   onClick={() => setSubmissionFilter(st)}
                   className={cn(
-                    "px-2.5 py-1 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer",
+                    "px-2.5 py-1 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer flex items-center gap-1",
                     submissionFilter === st
                       ? "bg-primary text-primary-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  {st}
+                  <span>{st}</span>
+                  <span
+                    className={cn(
+                      "text-[10px] px-1 rounded-full",
+                      submissionFilter === st
+                        ? "bg-primary-foreground/20 text-primary-foreground"
+                        : "bg-secondary text-muted-foreground"
+                    )}
+                  >
+                    {validationStatusCounts[st]}
+                  </span>
                 </button>
               ))}
             </div>
@@ -1677,21 +1804,24 @@ export function MetasPage() {
               value={viewedGoalId}
               onValueChange={(val) => setViewedGoalId(val)}
             >
-              <SelectTrigger className="h-9 text-xs min-w-[280px] bg-secondary/50 border-border font-bold">
+              <SelectTrigger className="h-9 text-xs min-w-[300px] bg-secondary/50 border-border font-bold">
                 <SelectValue placeholder="Selecione a Meta..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="active">
-                  ⭐ Meta Vigente ({activeWeeklyGoal ? `${activeWeeklyGoal.period_start} a ${activeWeeklyGoal.period_end}` : "Atual"})
-                </SelectItem>
                 <SelectItem value="todos">
-                  📊 Visão Geral Acumulada (Todas as Entregas até Hoje)
+                  📊 Visão Geral Consolidada ({submissions.length} Entregas Aprovadas)
                 </SelectItem>
-                {weeklyGoals.map((g) => (
-                  <SelectItem key={g.id} value={g.id}>
-                    {g.title} {g.created_by_name ? `• Criada por ${g.created_by_name}` : ""} ({g.period_start} a {g.period_end}) {g.is_active ? "• Ativa" : ""}
-                  </SelectItem>
-                ))}
+                <SelectItem value="active">
+                  ⭐ Meta Vigente ({activeWeeklyGoal ? `${activeWeeklyGoal.period_start} a ${activeWeeklyGoal.period_end}` : "Atual"}) — {activeWeeklyGoal ? `${getGoalSubmissionCount(activeWeeklyGoal.id)} entregas` : ""}
+                </SelectItem>
+                {weeklyGoals.map((g) => {
+                  const count = getGoalSubmissionCount(g.id);
+                  return (
+                    <SelectItem key={g.id} value={g.id}>
+                      {g.title} ({g.period_start} a {g.period_end}) — {count} {count === 1 ? "entrega" : "entregas"} {g.is_active ? "• Ativa" : ""}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
 

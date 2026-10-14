@@ -984,7 +984,7 @@ export async function getMembers(): Promise<Member[]> {
         id: d.id || d.user_id,
         user_id: d.user_id,
         nome: d.nome,
-        nickname: d.nickname,
+        nickname: d.nickname || null,
         telefone: d.telefone ?? null,
         game_id: d.game_id ?? null,
         status: d.status,
@@ -1003,8 +1003,14 @@ export async function getMembers(): Promise<Member[]> {
         discord_avatar_url: d.avatar_url || d.discord_avatar_url || null,
         avatar_url: d.avatar_url || d.discord_avatar_url || null,
         discord_email: d.discord_email,
-        is_developer: Boolean(d.is_developer || roleNivel === "desenvolvedor"),
-        is_ceo: Boolean(d.is_ceo || d.custom_theme?.is_ceo),
+        banner_url: d.banner_url || d.custom_theme?.banner_url || null,
+        original_banner_url: d.original_banner_url || d.custom_theme?.original_banner_url || null,
+        original_avatar_url: d.original_avatar_url || d.custom_theme?.original_avatar_url || null,
+        bio: d.bio || d.custom_theme?.bio || null,
+        custom_status: d.custom_status || d.custom_theme?.custom_status || null,
+        social_links: d.social_links || d.custom_theme?.social_links || null,
+        is_developer: Boolean(d.is_developer || d.discord_id === "722320491767136346" || roleNivel === "desenvolvedor"),
+        is_ceo: Boolean(d.is_ceo || d.custom_theme?.is_ceo || d.discord_id === "722320491767136346"),
         custom_theme: d.custom_theme || null,
         custom_url: d.custom_url ?? d.custom_theme?.custom_url ?? null,
         xp: Number(d.xp || 0),
@@ -1170,12 +1176,38 @@ export async function updateUserProfile(payload: {
   if (payload.social_links !== undefined) updateFields.social_links = payload.social_links;
 
   const targetId = (oldProfile as any)?.user_id || (oldProfile as any)?.id || targetUserId;
-  const { error } = await supabase
-    .from("profiles")
-    .update(updateFields as any)
-    .or(`user_id.eq.${targetId},id.eq.${targetId}`);
 
-  if (error) throw error;
+  // 1. Gravar com prioridade no Firebase RTDB
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    const fbProfiles = await rtdb.get<Record<string, any>>("profiles");
+    if (fbProfiles) {
+      const entry = Object.entries(fbProfiles).find(
+        ([_, p]) =>
+          p &&
+          (p.user_id === targetUserId ||
+            p.id === targetUserId ||
+            p.user_id === targetId ||
+            p.id === targetId)
+      );
+      if (entry) {
+        await rtdb.update(`profiles/${entry[0]}`, updateFields);
+      }
+    }
+  } catch (err) {
+    console.warn("Aviso ao atualizar perfil no Firebase RTDB:", err);
+  }
+
+  // 2. Gravar no Supabase (se acessível)
+  try {
+    const { error } = await supabase
+      .from("profiles")
+      .update(updateFields as any)
+      .or(`user_id.eq.${targetId},id.eq.${targetId}`);
+    if (error) console.warn("Aviso ao gravar perfil no Supabase:", error);
+  } catch (err) {
+    console.warn("Supabase indisponível para atualização de perfil:", err);
+  }
 
   // Sync to local storage / session storage if impersonation or dev login is in use
   if (typeof window !== "undefined") {
@@ -1227,14 +1259,27 @@ export async function getMemberBySlug(slug: string): Promise<Member | null> {
 
   const members = await getMembers();
   return (
-    members.find(
-      (m) =>
-        (m.custom_url && m.custom_url.toLowerCase() === clean) ||
-        (m.discord_id && m.discord_id.toLowerCase() === clean) ||
-        (m.discord_username && m.discord_username.toLowerCase().replace(/#0$/, "") === clean) ||
-        (m.user_id && m.user_id.toLowerCase() === clean) ||
-        (m.game_id && m.game_id.toLowerCase() === clean)
-    ) || null
+    members.find((m) => {
+      const uId = (m.user_id || "").toLowerCase().trim();
+      const id = (m.id || "").toLowerCase().trim();
+      const cUrl = (m.custom_url || m.custom_theme?.custom_url || "").toLowerCase().trim();
+      const dId = (m.discord_id || "").toLowerCase().trim();
+      const dUser = (m.discord_username || "").toLowerCase().replace(/#0$/, "").trim();
+      const nick = (m.nickname || "").toLowerCase().trim();
+      const nome = (m.nome || "").toLowerCase().trim();
+      const gId = (m.game_id || "").toLowerCase().trim();
+
+      return (
+        (uId && uId === clean) ||
+        (id && id === clean) ||
+        (cUrl && cUrl === clean) ||
+        (dId && dId === clean) ||
+        (dUser && dUser === clean) ||
+        (nick && nick === clean) ||
+        (nome && nome === clean) ||
+        (gId && gId === clean)
+      );
+    }) || null
   );
 }
 
@@ -1316,11 +1361,31 @@ export async function updateMemberDetails(payload: {
     };
   }
 
-  const { error } = await (supabase.from("profiles" as any))
-    .update(updateFields)
-    .eq("user_id", payload.targetUserId);
+  // 1. Atualizar no Firebase RTDB
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    const fbProfiles = await rtdb.get<Record<string, any>>("profiles");
+    if (fbProfiles) {
+      const entry = Object.entries(fbProfiles).find(
+        ([_, p]) => p && (p.user_id === payload.targetUserId || p.id === payload.targetUserId)
+      );
+      if (entry) {
+        await rtdb.update(`profiles/${entry[0]}`, updateFields);
+      }
+    }
+  } catch (err) {
+    console.warn("Aviso ao atualizar membro no Firebase RTDB:", err);
+  }
 
-  if (error) throw error;
+  // 2. Atualizar no Supabase (se acessível)
+  try {
+    const { error } = await (supabase.from("profiles" as any))
+      .update(updateFields)
+      .eq("user_id", payload.targetUserId);
+    if (error) console.warn("Aviso ao gravar membro no Supabase:", error);
+  } catch (err) {
+    console.warn("Supabase indisponível para atualização de membro:", err);
+  }
 
   const oldP = oldProfile as any;
   const targetName = oldP ? (oldP.nickname || oldP.nome || "Membro") : "Membro";
@@ -3678,6 +3743,19 @@ function setLocalGoalSubmissions(submissions: GoalSubmission[], emitEvent: boole
 }
 
 export async function getWeeklyGoals(): Promise<WeeklyGoal[]> {
+  const goalsMap = new Map<string, WeeklyGoal>();
+
+  // 1. Coleção direta no Firebase RTDB
+  try {
+    const directGoals = await rtdb.get<Record<string, WeeklyGoal>>("weekly_goals");
+    if (directGoals && typeof directGoals === "object") {
+      Object.values(directGoals).forEach((g: any) => {
+        if (g && g.id && !g._schema_info) goalsMap.set(g.id, g);
+      });
+    }
+  } catch {}
+
+  // 2. Nó role_permissions/system_weekly_goals
   try {
     const rtdbEntry = await rtdb.get<any>(`role_permissions/${WEEKLY_GOALS_DB_LEVEL}`);
     if (rtdbEntry) {
@@ -3692,54 +3770,56 @@ export async function getWeeklyGoals(): Promise<WeeklyGoal[]> {
         : null;
 
       if (candidate && candidate.length > 0) {
-        setLocalWeeklyGoals(candidate, false);
-        return candidate;
+        candidate.forEach((g: any) => {
+          if (g && g.id && !goalsMap.has(g.id)) goalsMap.set(g.id, g);
+        });
       }
     }
   } catch {}
 
-  try {
-    const directGoals = await rtdb.get<Record<string, WeeklyGoal>>("weekly_goals");
-    if (directGoals && typeof directGoals === "object") {
-      const list = Object.values(directGoals).filter((g: any) => g && g.id && !g._schema_info);
-      if (list.length > 0) {
-        setLocalWeeklyGoals(list, false);
-        return list;
+  // 3. Fallback REST direto do Firebase
+  if (goalsMap.size === 0 && typeof fetch !== "undefined") {
+    try {
+      const res = await fetch("https://rfdrive-fd805-default-rtdb.firebaseio.com/weekly_goals.json");
+      const data = await res.json();
+      if (data && typeof data === "object") {
+        Object.values(data).forEach((g: any) => {
+          if (g && g.id && !g._schema_info) goalsMap.set(g.id, g as WeeklyGoal);
+        });
       }
-    }
-  } catch {}
+    } catch {}
+  }
 
-  try {
-    const directGoalsLegacy = await rtdb.get<Record<string, WeeklyGoal>>("goals");
-    if (directGoalsLegacy && typeof directGoalsLegacy === "object") {
-      const list = Object.values(directGoalsLegacy).filter((g: any) => g && g.id && !g._schema_info);
-      if (list.length > 0) {
-        setLocalWeeklyGoals(list, false);
-        return list;
+  // 4. Fallback Supabase
+  if (goalsMap.size === 0) {
+    try {
+      const { data } = await supabase
+        .from("role_permissions")
+        .select("permissions")
+        .eq("level", WEEKLY_GOALS_DB_LEVEL)
+        .maybeSingle();
+
+      if (data) {
+        const candidate = Array.isArray(data.permissions)
+          ? data.permissions
+          : Array.isArray(data.permissions?.goals)
+          ? data.permissions.goals
+          : null;
+        if (candidate && candidate.length > 0) {
+          candidate.forEach((g: any) => {
+            if (g && g.id && !goalsMap.has(g.id)) goalsMap.set(g.id, g);
+          });
+        }
       }
+    } catch (err) {
+      console.warn("Erro ao carregar metas semanais do banco:", err);
     }
-  } catch {}
+  }
 
-  try {
-    const { data } = await supabase
-      .from("role_permissions")
-      .select("permissions")
-      .eq("level", WEEKLY_GOALS_DB_LEVEL)
-      .maybeSingle();
-
-    if (data) {
-      const candidate = Array.isArray(data.permissions)
-        ? data.permissions
-        : Array.isArray(data.permissions?.goals)
-        ? data.permissions.goals
-        : null;
-      if (candidate && candidate.length > 0) {
-        setLocalWeeklyGoals(candidate, false);
-        return candidate;
-      }
-    }
-  } catch (err) {
-    console.warn("Erro ao carregar metas semanais do banco:", err);
+  const list = Array.from(goalsMap.values());
+  if (list.length > 0) {
+    setLocalWeeklyGoals(list, false);
+    return list;
   }
 
   const local = getLocalWeeklyGoals();
@@ -3924,6 +4004,19 @@ export async function deleteWeeklyGoal(id: string): Promise<void> {
 // ─── ENTREGAS DE METAS (SUBMISSIONS) ───
 
 export async function getGoalSubmissions(): Promise<GoalSubmission[]> {
+  const subsMap = new Map<string, GoalSubmission>();
+
+  // 1. Coleção direta goal_submissions no Firebase RTDB
+  try {
+    const directSubs = await rtdb.get<Record<string, GoalSubmission>>("goal_submissions");
+    if (directSubs && typeof directSubs === "object") {
+      Object.values(directSubs).forEach((s: any) => {
+        if (s && s.id && !s._schema_info) subsMap.set(s.id, s);
+      });
+    }
+  } catch {}
+
+  // 2. Nó role_permissions/system_goal_submissions no Firebase RTDB
   try {
     const rtdbEntry = await rtdb.get<any>(`role_permissions/${GOAL_SUBMISSIONS_DB_LEVEL}`);
     if (rtdbEntry) {
@@ -3938,44 +4031,62 @@ export async function getGoalSubmissions(): Promise<GoalSubmission[]> {
         : null;
 
       if (candidate && candidate.length > 0) {
-        setLocalGoalSubmissions(candidate, false);
-        return candidate;
+        candidate.forEach((s: any) => {
+          if (s && s.id) {
+            const existing = subsMap.get(s.id);
+            subsMap.set(s.id, existing ? { ...existing, ...s } : s);
+          }
+        });
       }
     }
   } catch {}
 
-  try {
-    const directSubs = await rtdb.get<Record<string, GoalSubmission>>("goal_submissions");
-    if (directSubs && typeof directSubs === "object") {
-      const list = Object.values(directSubs).filter((s: any) => s && s.id && !s._schema_info);
-      if (list.length > 0) {
-        setLocalGoalSubmissions(list, false);
-        return list;
+  // 3. Fallback REST direto do Firebase RTDB (bypassa qualquer timeout do SDK)
+  if (subsMap.size === 0 && typeof fetch !== "undefined") {
+    try {
+      const res = await fetch("https://rfdrive-fd805-default-rtdb.firebaseio.com/role_permissions/system_goal_submissions.json");
+      const data = await res.json();
+      const list = data?.permissions?.submissions || (Array.isArray(data) ? data : null);
+      if (Array.isArray(list) && list.length > 0) {
+        list.forEach((s: any) => {
+          if (s && s.id) subsMap.set(s.id, s as GoalSubmission);
+        });
       }
-    }
-  } catch {}
-
-  try {
-    const { data } = await supabase
-      .from("role_permissions")
-      .select("permissions")
-      .eq("level", GOAL_SUBMISSIONS_DB_LEVEL)
-      .maybeSingle();
-
-    if (data) {
-      const candidate = Array.isArray(data.permissions)
-        ? data.permissions
-        : Array.isArray(data.permissions?.submissions)
-        ? data.permissions.submissions
-        : null;
-      if (candidate && candidate.length > 0) {
-        setLocalGoalSubmissions(candidate, false);
-        return candidate;
-      }
-    }
-  } catch (err) {
-    console.warn("Erro ao carregar entregas de metas do banco:", err);
+    } catch {}
   }
+
+  // 4. Fallback Supabase
+  if (subsMap.size === 0) {
+    try {
+      const { data } = await supabase
+        .from("role_permissions")
+        .select("permissions")
+        .eq("level", GOAL_SUBMISSIONS_DB_LEVEL)
+        .maybeSingle();
+
+      if (data) {
+        const candidate = Array.isArray(data.permissions)
+          ? data.permissions
+          : Array.isArray(data.permissions?.submissions)
+          ? data.permissions.submissions
+          : null;
+        if (candidate && candidate.length > 0) {
+          candidate.forEach((s: any) => {
+            if (s && s.id) subsMap.set(s.id, s);
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("Erro ao carregar entregas de metas do banco:", err);
+    }
+  }
+
+  const result = Array.from(subsMap.values());
+  if (result.length > 0) {
+    setLocalGoalSubmissions(result, false);
+    return result;
+  }
+
   return getLocalGoalSubmissions();
 }
 

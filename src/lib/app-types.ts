@@ -373,8 +373,11 @@ export type Member = {
   avatar_url?: string | null;
   is_verified?: boolean;
   banner_url?: string | null;
+  original_banner_url?: string | null;
+  original_avatar_url?: string | null;
   bio?: string | null;
   custom_status?: string | null;
+  social_links?: any;
   discord_email?: string | null;
   is_developer?: boolean;
   is_ceo?: boolean;

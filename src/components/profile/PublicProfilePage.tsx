@@ -54,6 +54,8 @@ import { VerificationRequestModal } from "@/components/verification/Verification
 
 export interface PublicProfilePageProps {
   handleOverride?: string;
+  initialMember?: any;
+  isSelfOverride?: boolean;
   isRootRoute?: boolean;
   onEditClick?: () => void;
   hideBackNav?: boolean;
@@ -61,6 +63,8 @@ export interface PublicProfilePageProps {
 
 export function PublicProfilePage({
   handleOverride,
+  initialMember,
+  isSelfOverride = false,
   isRootRoute = false,
   onEditClick,
   hideBackNav = false,
@@ -83,6 +87,8 @@ export function PublicProfilePage({
   return (
     <PublicProfileContent
       cleanHandle={cleanHandle}
+      initialMember={initialMember}
+      isSelfOverride={isSelfOverride}
       isRootRoute={isRootRoute}
       onEditClick={onEditClick}
       hideBackNav={hideBackNav}
@@ -92,11 +98,15 @@ export function PublicProfilePage({
 
 function PublicProfileContent({
   cleanHandle,
+  initialMember,
+  isSelfOverride = false,
   isRootRoute,
   onEditClick,
   hideBackNav,
 }: {
   cleanHandle: string;
+  initialMember?: any;
+  isSelfOverride?: boolean;
   isRootRoute: boolean;
   onEditClick?: () => void;
   hideBackNav?: boolean;
@@ -112,42 +122,51 @@ function PublicProfileContent({
 
   // Determina se o visitante é o próprio dono do perfil
   const isSelf = Boolean(
-    user &&
-    (!cleanHandle ||
-      (user.id && user.id.toLowerCase() === cleanHandle) ||
-      (authProfile?.id && String(authProfile.id).toLowerCase() === cleanHandle) ||
-      (authProfile?.user_id && String(authProfile.user_id).toLowerCase() === cleanHandle) ||
-      (authProfile?.custom_url && authProfile.custom_url.toLowerCase() === cleanHandle) ||
-      (authProfile?.discord_username && authProfile.discord_username.toLowerCase().replace(/#0$/, "") === cleanHandle) ||
-      (authProfile?.game_id && String(authProfile.game_id).toLowerCase() === cleanHandle))
+    isSelfOverride ||
+    (user &&
+      (!cleanHandle ||
+        (user.id && user.id.toLowerCase() === cleanHandle) ||
+        (authProfile?.id && String(authProfile.id).toLowerCase() === cleanHandle) ||
+        (authProfile?.user_id && String(authProfile.user_id).toLowerCase() === cleanHandle) ||
+        (authProfile?.custom_url && authProfile.custom_url.toLowerCase() === cleanHandle) ||
+        (authProfile?.discord_username && authProfile.discord_username.toLowerCase().replace(/#0$/, "") === cleanHandle) ||
+        (authProfile?.game_id && String(authProfile.game_id).toLowerCase() === cleanHandle)))
   );
 
   // 1. Busca rápida em cache local nos membros carregados
-  const cachedMember = members.find((m) => {
+  const cachedMember = initialMember || members.find((m) => {
     if (!cleanHandle) return false;
+    const uId = (m.user_id || "").toLowerCase().trim();
+    const id = (m.id || "").toLowerCase().trim();
     const cUrl = (m.custom_url || m.custom_theme?.custom_url || "").toLowerCase().trim();
     const dId = (m.discord_id || "").toLowerCase().trim();
     const dUser = (m.discord_username || "").toLowerCase().replace(/#0$/, "").trim();
-    const uId = (m.user_id || "").toLowerCase().trim();
+    const nick = (m.nickname || "").toLowerCase().trim();
+    const nome = (m.nome || "").toLowerCase().trim();
     const gId = (m.game_id || "").toLowerCase().trim();
+
     return (
+      (uId && uId === cleanHandle) ||
+      (id && id === cleanHandle) ||
       (cUrl && cUrl === cleanHandle) ||
       (dId && dId === cleanHandle) ||
       (dUser && dUser === cleanHandle) ||
-      (uId && uId === cleanHandle) ||
+      (nick && nick === cleanHandle) ||
+      (nome && nome === cleanHandle) ||
       (gId && gId === cleanHandle)
     );
   });
 
-  // 2. Consulta direta indexada e ultra-rápida no Supabase (não depende de auth)
+  // 2. Consulta direta indexada no Supabase ou Firebase RTDB (não depende de auth)
   const { data: dbProfile, isLoading: isDbLoading } = useQuery({
     queryKey: ["public-member-direct", cleanHandle],
     queryFn: async () => {
-      if (!cleanHandle) return null;
+      if (!cleanHandle || initialMember) return null;
 
+      // 2.1 Consulta Supabase
       try {
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanHandle);
-        let orQuery = `custom_url.ilike.${cleanHandle},discord_username.ilike.${cleanHandle}#0,discord_username.ilike.${cleanHandle},discord_id.eq.${cleanHandle},game_id.eq.${cleanHandle}`;
+        let orQuery = `custom_url.ilike.${cleanHandle},discord_username.ilike.${cleanHandle}#0,discord_username.ilike.${cleanHandle},discord_id.eq.${cleanHandle}`;
         if (isUuid) {
           orQuery += `,user_id.eq.${cleanHandle},id.eq.${cleanHandle}`;
         }
@@ -159,7 +178,6 @@ function PublicProfileContent({
           .maybeSingle();
 
         if (directData && !directErr) {
-          // Busca cargo correspondente
           const { data: roleData } = await supabase
             .from("user_roles")
             .select("nivel")
@@ -171,28 +189,44 @@ function PublicProfileContent({
             nivel: roleData?.nivel || (directData.is_developer || directData.is_ceo ? "01" : "novato"),
           };
         }
+      } catch {}
 
-        // Fallback: busca por custom_theme->>'custom_url'
-        const { data: jsonFallback } = await (supabase.from("profiles" as any))
-          .select("*, member_stream_accounts(*)")
-          .filter("custom_theme->>custom_url", "eq", cleanHandle)
-          .limit(1)
-          .maybeSingle();
+      // 2.2 Fallback para Firebase RTDB direto
+      try {
+        const { rtdb } = await import("@/integrations/firebase/rtdb");
+        const fbProfiles = await rtdb.getList<any>("profiles");
+        const found = fbProfiles.find((p) => {
+          const uId = (p.user_id || "").toLowerCase().trim();
+          const id = (p.id || "").toLowerCase().trim();
+          const cUrl = (p.custom_url || p.custom_theme?.custom_url || "").toLowerCase().trim();
+          const dId = (p.discord_id || "").toLowerCase().trim();
+          const dUser = (p.discord_username || "").toLowerCase().replace(/#0$/, "").trim();
+          const nick = (p.nickname || "").toLowerCase().trim();
+          const nome = (p.nome || "").toLowerCase().trim();
+          const gId = (p.game_id || "").toLowerCase().trim();
 
-        if (jsonFallback) {
-          const { data: roleData } = await supabase
-            .from("user_roles")
-            .select("nivel")
-            .eq("user_id", jsonFallback.user_id)
-            .maybeSingle();
+          return (
+            (uId && uId === cleanHandle) ||
+            (id && id === cleanHandle) ||
+            (cUrl && cUrl === cleanHandle) ||
+            (dId && dId === cleanHandle) ||
+            (dUser && dUser === cleanHandle) ||
+            (nick && nick === cleanHandle) ||
+            (nome && nome === cleanHandle) ||
+            (gId && gId === cleanHandle)
+          );
+        });
 
+        if (found) {
+          const fbRoles = await rtdb.getList<any>("user_roles");
+          const role = fbRoles.find((r) => r.user_id === found.user_id || r.user_id === found.id);
           return {
-            ...jsonFallback,
-            nivel: roleData?.nivel || (jsonFallback.is_developer || jsonFallback.is_ceo ? "01" : "novato"),
+            ...found,
+            nivel: role?.nivel || (found.is_developer || found.is_ceo ? "01" : "novato"),
           };
         }
       } catch (err) {
-        console.warn("Erro na busca direta do perfil:", err);
+        console.warn("Erro na busca direta do perfil no RTDB:", err);
       }
 
       return null;
@@ -200,9 +234,16 @@ function PublicProfileContent({
     staleTime: 1000 * 15,
   });
 
-  const baseData = dbProfile || cachedMember;
+  const baseData = initialMember || dbProfile || cachedMember;
   const memberData = isSelf && authProfile
-    ? { ...(baseData || {}), ...authProfile, custom_theme: { ...(baseData?.custom_theme || {}), ...(authProfile.custom_theme || {}) } }
+    ? {
+        ...(baseData || {}),
+        ...authProfile,
+        custom_theme: {
+          ...(baseData?.custom_theme || {}),
+          ...(authProfile.custom_theme || {}),
+        },
+      }
     : baseData;
   const userId = memberData?.user_id || (isSelf ? user?.id : undefined);
 

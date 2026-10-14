@@ -102,7 +102,14 @@ export function PerfilPage({ initialTab }: { initialTab?: "perfil" | "dados" | "
 function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publico" | "aparencia" } = {}) {
   const { profile, level, refresh, user, hasPermission } = useAuth();
   const { data: members = [] } = useMembers();
-  const myMember = members.find((m) => m.user_id === user?.id);
+  const myMember = members.find(
+    (m) =>
+      m.user_id === user?.id ||
+      m.id === profile?.id ||
+      m.discord_id === profile?.discord_id ||
+      (profile?.user_id && m.user_id === profile.user_id) ||
+      (user?.id && m.id === user.id)
+  );
   const myTags = useMyMemberTags();
   const queryClient = useQueryClient();
 
@@ -410,7 +417,7 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
     }
   };
 
-  const currentSlug = String(customUrl || profile?.discord_username?.replace(/#0$/, "") || user?.id || "").replace(/^@/, "");
+  const currentSlug = String(customUrl || profile?.custom_url || myMember?.custom_url || profile?.discord_username?.replace(/#0$/, "") || user?.id || "").replace(/^@/, "");
   const activeAvatar = profile?.discord_avatar_url || profile?.avatar_url;
   const activeBanner = bannerUrl || (profile as any)?.banner_url || profile?.custom_theme?.banner_url;
   const initials = (nickname || nome || "P").slice(0, 2).toUpperCase();
@@ -541,6 +548,8 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
               {/* PRÉVIA EMBARCADA DO PERFIL PÚBLICO */}
               <PublicProfilePage
                 handleOverride={currentSlug}
+                initialMember={myMember ? { ...myMember, ...profile } : profile}
+                isSelfOverride={true}
                 hideBackNav={true}
                 onEditClick={() => setIsEditingProfile(true)}
               />
