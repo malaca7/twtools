@@ -203,13 +203,9 @@ function parseGoalAmount(
 export function MetasPage() {
   const { user, profile, hasPermission } = useAuth();
   const currentUserId = user?.id;
-  const currentLevel = ((profile as any)?.nivel || (profile as any)?.role || "novato") as AppLevel;
 
-  // Liderança e Gestão sempre têm permissão garantida para gerenciar metas
-  const isLeadership =
-    Boolean((profile as any)?.is_ceo || (profile as any)?.is_developer) ||
-    ["01", "02", "03", "gerente", "sub_lider", "lider"].includes(currentLevel);
-  const canManage = hasPermission("manage_goals") || isLeadership;
+  // Permissão estrita: apenas quem possuir explicitamente a permissão manage_goals
+  const canManage = hasPermission("manage_goals");
   const canView = hasPermission("view_goals") || canManage;
 
   // Data Queries
@@ -230,6 +226,13 @@ export function MetasPage() {
     paramName: "tab",
     allowedTabs: ["minhas_metas", "painel_validacao", "membros", "metas_cadastradas"],
   });
+
+  // Redireciona para visão pessoal se o usuário não possuir a permissão explícita manage_goals
+  useEffect(() => {
+    if (!canManage && activeTab !== "minhas_metas") {
+      setActiveTab("minhas_metas");
+    }
+  }, [canManage, activeTab, setActiveTab]);
   const [submissionFilter, setSubmissionFilter] = useState<string>("todos");
   const [validationGoalFilter, setValidationGoalFilter] = useState<string>("todos");
   const [validationSearch, setValidationSearch] = useState<string>("");
@@ -736,6 +739,10 @@ export function MetasPage() {
 
   // Handler: Create Goal
   const handleCreateGoal = async () => {
+    if (!canManage) {
+      toast.error("Apenas usuários com a permissão explícita 'manage_goals' podem criar metas.");
+      return;
+    }
     if (!goalTitle.trim()) {
       toast.error("Informe um título para a meta.");
       return;
@@ -779,6 +786,10 @@ export function MetasPage() {
 
   // Handler: Confirm Rejection
   const handleConfirmReject = async () => {
+    if (!canManage) {
+      toast.error("Apenas usuários com a permissão explícita 'manage_goals' podem avaliar comprovantes.");
+      return;
+    }
     if (!rejectingSubmission) return;
     try {
       await reviewGoalMutation.mutateAsync({
@@ -799,6 +810,10 @@ export function MetasPage() {
 
   // Handler: Open Edit Goal Modal
   const handleOpenEditGoal = (goal: WeeklyGoal) => {
+    if (!canManage) {
+      toast.error("Apenas usuários com a permissão explícita 'manage_goals' podem editar metas.");
+      return;
+    }
     setEditingGoal(goal);
     setEditGoalTitle(goal.title);
     setEditGoalDesc(goal.description || "");
@@ -820,6 +835,10 @@ export function MetasPage() {
 
   // Handler: Save Edited Goal
   const handleSaveEditGoal = async () => {
+    if (!canManage) {
+      toast.error("Apenas usuários com a permissão explícita 'manage_goals' podem editar metas.");
+      return;
+    }
     if (!editingGoal) return;
     if (!editGoalTitle.trim()) {
       toast.error("Informe um título para a meta.");
@@ -878,11 +897,19 @@ export function MetasPage() {
 
   // Handler: Delete Goal with Confirmation
   const handleOpenDeleteGoal = (goal: WeeklyGoal) => {
+    if (!canManage) {
+      toast.error("Apenas usuários com a permissão explícita 'manage_goals' podem excluir metas.");
+      return;
+    }
     setGoalToDelete(goal);
     setDeleteGoalConfirmOpen(true);
   };
 
   const handleConfirmDeleteGoal = async () => {
+    if (!canManage) {
+      toast.error("Apenas usuários com a permissão explícita 'manage_goals' podem excluir metas.");
+      return;
+    }
     if (!goalToDelete) return;
     try {
       await deleteGoalMutation.mutateAsync(goalToDelete.id);
@@ -896,11 +923,19 @@ export function MetasPage() {
 
   // Handler: Delete Submission with Confirmation
   const handleOpenDeleteSub = (sub: GoalSubmission) => {
+    if (!canManage) {
+      toast.error("Apenas usuários com a permissão explícita 'manage_goals' podem excluir comprovantes.");
+      return;
+    }
     setSubToDelete(sub);
     setDeleteSubConfirmOpen(true);
   };
 
   const handleConfirmDeleteSub = async () => {
+    if (!canManage) {
+      toast.error("Apenas usuários com a permissão explícita 'manage_goals' podem excluir comprovantes.");
+      return;
+    }
     if (!subToDelete) return;
     try {
       await deleteSubmissionMutation.mutateAsync(subToDelete.id);
