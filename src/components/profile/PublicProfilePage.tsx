@@ -50,6 +50,7 @@ import { MemberInsigniasCardsSection } from "@/components/gamification/MemberIns
 import { useMemberTagsMap } from "@/hooks/useMemberTags";
 import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
 import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
+import { safeDate } from "@/lib/format";
 import { VerificationRequestModal } from "@/components/verification/VerificationRequestModal";
 
 export interface PublicProfilePageProps {
@@ -384,13 +385,20 @@ function PublicProfileContent({
   };
 
   // Cálculo de tempo de casa
-  const joinedDateFormatted = memberData.data_entrada
-    ? new Date(memberData.data_entrada).toLocaleDateString("pt-BR", {
+  const joinedDateFormatted = (() => {
+    if (!memberData?.data_entrada) return null;
+    const d = safeDate(memberData.data_entrada);
+    if (!d) return null;
+    try {
+      return d.toLocaleDateString("pt-BR", {
         day: "2-digit",
         month: "short",
         year: "numeric",
-      })
-    : null;
+      });
+    } catch {
+      return null;
+    }
+  })();
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 pb-20 animate-in fade-in-50 duration-200">

@@ -48,43 +48,105 @@ export const formatXp = (value: number | null | undefined, minDigits = 1, maxDig
     maximumFractionDigits: maxDigits,
   }).format(Number(value ?? 0));
 
-export const dateTime = (value: string | Date | null | undefined) =>
-  value
-    ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(
-        new Date(value),
-      )
-    : "—";
+/**
+ * Converte de forma segura qualquer entrada (string, Date, timestamp, formato brasileiro DD/MM/AAAA) em Date válido,
+ * ou retorna null se não for uma data finita e válida.
+ */
+export function safeDate(value: string | Date | number | null | undefined): Date | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (value instanceof Date) {
+    return isNaN(value.getTime()) ? null : value;
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return null;
+    const ms = value < 10000000000 ? value * 1000 : value;
+    const d = new Date(ms);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === "null" || trimmed === "undefined" || trimmed === "—" || trimmed === "Invalid Date") {
+      return null;
+    }
+
+    // Timestamp numérico em string
+    if (/^\d{10,13}$/.test(trimmed)) {
+      const num = parseInt(trimmed, 10);
+      const ms = trimmed.length === 10 ? num * 1000 : num;
+      const d = new Date(ms);
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    // Padrão brasileiro DD/MM/AAAA ou DD-MM-AAAA com ou sem horário
+    const brMatch = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?:[T\s]+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+    if (brMatch) {
+      const day = parseInt(brMatch[1], 10);
+      const month = parseInt(brMatch[2], 10) - 1;
+      const year = parseInt(brMatch[3], 10);
+      const hour = brMatch[4] ? parseInt(brMatch[4], 10) : 0;
+      const minute = brMatch[5] ? parseInt(brMatch[5], 10) : 0;
+      const second = brMatch[6] ? parseInt(brMatch[6], 10) : 0;
+      const d = new Date(year, month, day, hour, minute, second);
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    const d = new Date(trimmed);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+
+export const dateTime = (value: string | Date | null | undefined) => {
+  const d = safeDate(value);
+  if (!d) return typeof value === "string" && value ? value : "—";
+  try {
+    return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(d);
+  } catch {
+    return typeof value === "string" && value ? value : "—";
+  }
+};
 
 export const formatDate = dateTime;
 
-export const dateOnly = (value: string | Date | null | undefined) =>
-  value
-    ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(new Date(value))
-    : "—";
+export const dateOnly = (value: string | Date | null | undefined) => {
+  const d = safeDate(value);
+  if (!d) return typeof value === "string" && value ? value : "—";
+  try {
+    return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(d);
+  } catch {
+    return typeof value === "string" && value ? value : "—";
+  }
+};
 
 export const formatTimeOnly = (value: string | Date | null | undefined) => {
-  if (!value) return "";
-  const d = new Date(value);
-  const now = new Date();
-  const isToday = d.toDateString() === now.toDateString();
-  const yesterday = new Date(now.getTime() - 86400000);
-  const isYesterday = d.toDateString() === yesterday.toDateString();
+  const d = safeDate(value);
+  if (!d) return "";
+  try {
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    const yesterday = new Date(now.getTime() - 86400000);
+    const isYesterday = d.toDateString() === yesterday.toDateString();
 
-  const timeStr = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-  if (isToday) return timeStr;
-  if (isYesterday) return `Ontem ${timeStr}`;
-  return `${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} ${timeStr}`;
+    const timeStr = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    if (isToday) return timeStr;
+    if (isYesterday) return `Ontem ${timeStr}`;
+    return `${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} ${timeStr}`;
+  } catch {
+    return "";
+  }
 };
 
 export const isTodayDate = (value: string | Date | null | undefined) => {
-  if (!value) return false;
-  return new Date(value).toDateString() === new Date().toDateString();
+  const d = safeDate(value);
+  if (!d) return false;
+  return d.toDateString() === new Date().toDateString();
 };
 
 export const isYesterdayDate = (value: string | Date | null | undefined) => {
-  if (!value) return false;
+  const d = safeDate(value);
+  if (!d) return false;
   const yesterday = new Date(Date.now() - 86400000);
-  return new Date(value).toDateString() === yesterday.toDateString();
+  return d.toDateString() === yesterday.toDateString();
 };
 
 /**
@@ -112,23 +174,27 @@ export function formatAusenteDuration(updatedAtOrLastSeen?: string | Date | null
  */
 export function formatLastSeen(lastSeenOrUpdatedAt?: string | Date | null): string {
   if (!lastSeenOrUpdatedAt) return "Offline";
-  const d = new Date(lastSeenOrUpdatedAt);
-  if (isNaN(d.getTime())) return "Offline";
+  const d = safeDate(lastSeenOrUpdatedAt);
+  if (!d) return "Offline";
 
-  const now = new Date();
-  const isToday = d.toDateString() === now.toDateString();
-  const yesterday = new Date(now.getTime() - 86400000);
-  const isYesterday = d.toDateString() === yesterday.toDateString();
-  const timeStr = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  try {
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    const yesterday = new Date(now.getTime() - 86400000);
+    const isYesterday = d.toDateString() === yesterday.toDateString();
+    const timeStr = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
-  if (isToday) {
-    return `Visto por último hoje às ${timeStr}`;
+    if (isToday) {
+      return `Visto por último hoje às ${timeStr}`;
+    }
+    if (isYesterday) {
+      return `Visto por último ontem às ${timeStr}`;
+    }
+    const dateStr = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+    return `Visto por último em ${dateStr} às ${timeStr}`;
+  } catch {
+    return "Offline";
   }
-  if (isYesterday) {
-    return `Visto por último ontem às ${timeStr}`;
-  }
-  const dateStr = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-  return `Visto por último em ${dateStr} às ${timeStr}`;
 }
 
 /**

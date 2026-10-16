@@ -3854,16 +3854,33 @@ export async function getWeeklyGoals(): Promise<WeeklyGoal[]> {
 }
 
 export async function createWeeklyGoal(payload: CreateWeeklyGoalPayload): Promise<WeeklyGoal> {
-  const { data: { session } } = await supabase.auth.getSession();
-  
+  let sessionUserId: string | undefined = undefined;
   let creatorName = "Liderança";
-  if (session?.user?.id) {
-    const { data: profileRow } = await (supabase.from("profiles" as any))
-      .select("nome, nickname")
-      .eq("user_id", session.user.id)
-      .maybeSingle();
-    const p = profileRow as any;
-    if (p) creatorName = p.nickname || p.nome || "Liderança";
+
+  try {
+    const { data } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+    sessionUserId = data.session?.user?.id;
+  } catch {}
+
+  if (sessionUserId) {
+    try {
+      const { data: profileRow } = await (supabase.from("profiles" as any))
+        .select("nome, nickname")
+        .eq("user_id", sessionUserId)
+        .maybeSingle();
+      const p = profileRow as any;
+      if (p) creatorName = p.nickname || p.nome || "Liderança";
+    } catch {}
+  }
+
+  if (!sessionUserId && typeof window !== "undefined") {
+    try {
+      const localProfile = JSON.parse(localStorage.getItem("tw_user_profile") || "{}");
+      sessionUserId = localProfile?.user_id || localProfile?.id;
+      if (!creatorName || creatorName === "Liderança") {
+        creatorName = localProfile?.nickname || localProfile?.nome || "Liderança";
+      }
+    } catch {}
   }
 
   const newGoal: WeeklyGoal = {
@@ -3880,7 +3897,7 @@ export async function createWeeklyGoal(payload: CreateWeeklyGoalPayload): Promis
     period_start: payload.period_start,
     period_end: payload.period_end,
     is_active: payload.is_active ?? true,
-    created_by: session?.user?.id,
+    created_by: sessionUserId,
     created_by_name: creatorName,
     created_at: new Date().toISOString(),
   };
@@ -3888,6 +3905,16 @@ export async function createWeeklyGoal(payload: CreateWeeklyGoalPayload): Promis
   const currentList = await getWeeklyGoals();
   const updatedList = [newGoal, ...currentList.filter((g) => g.id !== newGoal.id)];
   setLocalWeeklyGoals(updatedList, true);
+
+  // Persistência direta no Firebase RTDB
+  try {
+    await rtdb.set(`weekly_goals/${newGoal.id}`, newGoal);
+    await rtdb.set(`goals/${newGoal.id}`, newGoal);
+    await rtdb.set(`role_permissions/${WEEKLY_GOALS_DB_LEVEL}/permissions/goals`, updatedList);
+    await rtdb.set(`role_permissions/${WEEKLY_GOALS_DB_LEVEL}/goals`, updatedList);
+  } catch (err) {
+    console.warn("Aviso ao persistir nova meta no RTDB:", err);
+  }
 
   await persistRolePermissionsData(WEEKLY_GOALS_DB_LEVEL, { goals: updatedList });
 
@@ -3914,7 +3941,7 @@ export async function createWeeklyGoal(payload: CreateWeeklyGoalPayload): Promis
       category: "info",
       user_id: newGoal.target_user_id,
       link: "/metas",
-      sender_id: session?.user?.id,
+      sender_id: sessionUserId,
       sender_name: creatorName,
     });
   } else if (newGoal.target_scope === "cargo" && newGoal.target_role) {
@@ -3925,7 +3952,7 @@ export async function createWeeklyGoal(payload: CreateWeeklyGoalPayload): Promis
       category: "info",
       target_roles: [newGoal.target_role],
       link: "/metas",
-      sender_id: session?.user?.id,
+      sender_id: sessionUserId,
       sender_name: creatorName,
     });
   } else {
@@ -3936,7 +3963,7 @@ export async function createWeeklyGoal(payload: CreateWeeklyGoalPayload): Promis
       category: "info",
       user_id: "all",
       link: "/metas",
-      sender_id: session?.user?.id,
+      sender_id: sessionUserId,
       sender_name: creatorName,
     });
   }
@@ -3961,6 +3988,16 @@ export async function updateWeeklyGoal(
   const updatedList = currentList.map((g) => (g.id === id ? updated : g));
   setLocalWeeklyGoals(updatedList, true);
 
+  // Atualização direta nos nós do Firebase RTDB
+  try {
+    await rtdb.set(`weekly_goals/${id}`, updated);
+    await rtdb.set(`goals/${id}`, updated);
+    await rtdb.set(`role_permissions/${WEEKLY_GOALS_DB_LEVEL}/permissions/goals`, updatedList);
+    await rtdb.set(`role_permissions/${WEEKLY_GOALS_DB_LEVEL}/goals`, updatedList);
+  } catch (err) {
+    console.warn("Aviso ao persistir atualização de meta no RTDB:", err);
+  }
+
   await persistRolePermissionsData(WEEKLY_GOALS_DB_LEVEL, { goals: updatedList });
 
   void logAuditAction(
@@ -3984,6 +4021,16 @@ export async function deleteWeeklyGoal(id: string): Promise<void> {
   const updatedList = currentList.filter((g) => g.id !== id);
 
   setLocalWeeklyGoals(updatedList, true);
+
+  // Remoção explícita de todos os nós do Firebase RTDB
+  try {
+    await rtdb.remove(`weekly_goals/${id}`);
+    await rtdb.remove(`goals/${id}`);
+    await rtdb.set(`role_permissions/${WEEKLY_GOALS_DB_LEVEL}/permissions/goals`, updatedList);
+    await rtdb.set(`role_permissions/${WEEKLY_GOALS_DB_LEVEL}/goals`, updatedList);
+  } catch (err) {
+    console.warn("Aviso ao remover meta do RTDB:", err);
+  }
 
   await persistRolePermissionsData(WEEKLY_GOALS_DB_LEVEL, { goals: updatedList });
 
@@ -4262,6 +4309,15 @@ export async function reviewGoalSubmission(
   const updatedList = currentList.map((s) => (s.id === submissionId ? updated : s));
   setLocalGoalSubmissions(updatedList, true);
 
+  // Persistência direta no Firebase RTDB
+  try {
+    await rtdb.set(`goal_submissions/${submissionId}`, updated);
+    await rtdb.set(`role_permissions/${GOAL_SUBMISSIONS_DB_LEVEL}/permissions/submissions`, updatedList);
+    await rtdb.set(`role_permissions/${GOAL_SUBMISSIONS_DB_LEVEL}/submissions`, updatedList);
+  } catch (err) {
+    console.warn("Aviso ao salvar revisão de entrega no RTDB:", err);
+  }
+
   await persistRolePermissionsData(GOAL_SUBMISSIONS_DB_LEVEL, { submissions: updatedList });
 
   void logAuditAction(
@@ -4304,6 +4360,15 @@ export async function deleteGoalSubmission(submissionId: string): Promise<void> 
   const updatedList = currentList.filter((s) => s.id !== submissionId);
 
   setLocalGoalSubmissions(updatedList, true);
+
+  // Remoção explícita de todos os nós do Firebase RTDB
+  try {
+    await rtdb.remove(`goal_submissions/${submissionId}`);
+    await rtdb.set(`role_permissions/${GOAL_SUBMISSIONS_DB_LEVEL}/permissions/submissions`, updatedList);
+    await rtdb.set(`role_permissions/${GOAL_SUBMISSIONS_DB_LEVEL}/submissions`, updatedList);
+  } catch (err) {
+    console.warn("Aviso ao remover entrega de meta do RTDB:", err);
+  }
 
   await persistRolePermissionsData(GOAL_SUBMISSIONS_DB_LEVEL, { submissions: updatedList });
 

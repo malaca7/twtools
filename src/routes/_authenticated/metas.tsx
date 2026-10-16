@@ -58,6 +58,7 @@ import {
   formatCurrencyInput,
   parseCurrencyInput,
   dateTime,
+  dateOnly,
   num,
 } from "@/lib/format";
 import {
@@ -76,6 +77,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUrlTab } from "@/hooks/useUrlTab";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -135,11 +137,32 @@ const GOAL_TYPE_META: Record<
   },
 };
 
+function toISODate(d?: string | null): string {
+  if (!d) return "";
+  const trimmed = d.trim();
+  if (trimmed.includes("/")) {
+    const parts = trimmed.split("/");
+    if (parts.length === 3) {
+      const [day, month, year] = parts;
+      const fullYear = year.length === 2 ? `20${year}` : year;
+      return `${fullYear}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+    }
+  }
+  return trimmed.slice(0, 10);
+}
+
 function formatGoalValue(val: number, type: WeeklyGoalType, unitName?: string | null) {
   if (type === "financeiro" || unitName === "R$") {
     return currency(val);
   }
   return `${num(val)} ${unitName || "unid"}`;
+}
+
+function formatGoalPeriod(start?: string | null, end?: string | null) {
+  if (!start && !end) return "Vigência Indefinida";
+  const s = start ? dateOnly(start) : "Início";
+  const e = end ? dateOnly(end) : "Fim";
+  return `${s} até ${e}`;
 }
 
 function parseGoalAmount(
@@ -182,8 +205,12 @@ export function MetasPage() {
   const currentUserId = user?.id;
   const currentLevel = ((profile as any)?.nivel || (profile as any)?.role || "novato") as AppLevel;
 
-  const canView = hasPermission("view_goals");
-  const canManage = hasPermission("manage_goals");
+  // Liderança e Gestão sempre têm permissão garantida para gerenciar metas
+  const isLeadership =
+    Boolean((profile as any)?.is_ceo || (profile as any)?.is_developer) ||
+    ["01", "02", "03", "gerente", "sub_lider", "lider"].includes(currentLevel);
+  const canManage = hasPermission("manage_goals") || isLeadership;
+  const canView = hasPermission("view_goals") || canManage;
 
   // Data Queries
   const { data: weeklyGoals = [], isLoading: loadingGoals } = useWeeklyGoals();
@@ -216,6 +243,11 @@ export function MetasPage() {
   // Modals State
   const [deliverModalOpen, setDeliverModalOpen] = useState(false);
   const [createGoalModalOpen, setCreateGoalModalOpen] = useState(false);
+  const [editGoalModalOpen, setEditGoalModalOpen] = useState(false);
+  const [deleteGoalConfirmOpen, setDeleteGoalConfirmOpen] = useState(false);
+  const [deleteSubConfirmOpen, setDeleteSubConfirmOpen] = useState(false);
+  const [goalToDelete, setGoalToDelete] = useState<WeeklyGoal | null>(null);
+  const [subToDelete, setSubToDelete] = useState<GoalSubmission | null>(null);
   const [proofViewerOpen, setProofViewerOpen] = useState(false);
   const [selectedProofSubmission, setSelectedProofSubmission] = useState<GoalSubmission | null>(null);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
@@ -248,6 +280,20 @@ export function MetasPage() {
     return sunday.toISOString().slice(0, 10);
   });
 
+  // Edit Goal Form State
+  const [editingGoal, setEditingGoal] = useState<WeeklyGoal | null>(null);
+  const [editGoalTitle, setEditGoalTitle] = useState("");
+  const [editGoalDesc, setEditGoalDesc] = useState("");
+  const [editGoalType, setEditGoalType] = useState<WeeklyGoalType>("financeiro");
+  const [editGoalTargetValue, setEditGoalTargetValue] = useState("");
+  const [editGoalUnitName, setEditGoalUnitName] = useState("R$");
+  const [editGoalScope, setEditGoalScope] = useState<GoalTargetScope>("todos");
+  const [editGoalTargetRole, setEditGoalTargetRole] = useState<AppLevel>("membro");
+  const [editGoalTargetUserId, setEditGoalTargetUserId] = useState("");
+  const [editGoalStart, setEditGoalStart] = useState("");
+  const [editGoalEnd, setEditGoalEnd] = useState("");
+  const [editGoalIsActive, setEditGoalIsActive] = useState(true);
+
   // Deliver Goal Form State
   const [selectedGoalId, setSelectedGoalId] = useState<string>("");
   const [deliverAmount, setDeliverAmount] = useState<string>("");
@@ -278,8 +324,8 @@ export function MetasPage() {
         unit_name: "R$",
         scope: "todos" as GoalTargetScope,
         target_role: "membro" as AppLevel,
-        period_start: "01/09/2026",
-        period_end: "13/10/2026",
+        period_start: "2026-09-01",
+        period_end: "2026-10-31",
         is_active: false,
         created_at: "2026-09-01T00:00:00.000Z",
         created_by: "c5ef6dc6-e126-4027-80c3-319f0a870315",
@@ -751,6 +797,122 @@ export function MetasPage() {
     } catch {}
   };
 
+  // Handler: Open Edit Goal Modal
+  const handleOpenEditGoal = (goal: WeeklyGoal) => {
+    setEditingGoal(goal);
+    setEditGoalTitle(goal.title);
+    setEditGoalDesc(goal.description || "");
+    setEditGoalType(goal.type);
+    setEditGoalTargetValue(
+      goal.type === "financeiro" || goal.unit_name === "R$"
+        ? formatCurrencyInput(String(Math.round(goal.target_value * 100)))
+        : String(goal.target_value)
+    );
+    setEditGoalUnitName(goal.unit_name || (goal.type === "financeiro" ? "R$" : "itens"));
+    setEditGoalScope(goal.target_scope || "todos");
+    setEditGoalTargetRole((goal.target_role as AppLevel) || "membro");
+    setEditGoalTargetUserId(goal.target_user_id || "");
+    setEditGoalStart(toISODate(goal.period_start));
+    setEditGoalEnd(toISODate(goal.period_end));
+    setEditGoalIsActive(goal.is_active);
+    setEditGoalModalOpen(true);
+  };
+
+  // Handler: Save Edited Goal
+  const handleSaveEditGoal = async () => {
+    if (!editingGoal) return;
+    if (!editGoalTitle.trim()) {
+      toast.error("Informe um título para a meta.");
+      return;
+    }
+    const val = editGoalType === "financeiro" ? parseCurrencyInput(editGoalTargetValue) : Number(editGoalTargetValue);
+    if (!Number.isFinite(val) || val <= 0) {
+      toast.error("Informe um valor alvo válido maior que zero.");
+      return;
+    }
+    if (!editGoalStart || !editGoalEnd) {
+      toast.error("Defina o período de vigência da meta.");
+      return;
+    }
+
+    let targetUserName: string | undefined = undefined;
+    if (editGoalScope === "membro" && editGoalTargetUserId) {
+      const m = members.find((x) => x.user_id === editGoalTargetUserId);
+      targetUserName = m ? m.nickname || m.nome : undefined;
+    }
+
+    try {
+      await updateGoalMutation.mutateAsync({
+        id: editingGoal.id,
+        updates: {
+          title: editGoalTitle.trim(),
+          description: editGoalDesc.trim() || undefined,
+          type: editGoalType,
+          target_value: val,
+          unit_name: editGoalType === "financeiro" ? "R$" : editGoalUnitName.trim() || "itens",
+          target_scope: editGoalScope,
+          target_role: editGoalScope === "cargo" ? editGoalTargetRole : undefined,
+          target_user_id: editGoalScope === "membro" ? editGoalTargetUserId : undefined,
+          target_user_name: targetUserName,
+          period_start: editGoalStart,
+          period_end: editGoalEnd,
+          is_active: editGoalIsActive,
+        },
+      });
+      setEditGoalModalOpen(false);
+      setEditingGoal(null);
+    } catch {}
+  };
+
+  // Quick preset for edit goal
+  const setEditThisWeekPreset = () => {
+    const now = new Date();
+    const day = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    setEditGoalStart(monday.toISOString().slice(0, 10));
+    setEditGoalEnd(sunday.toISOString().slice(0, 10));
+  };
+
+  // Handler: Delete Goal with Confirmation
+  const handleOpenDeleteGoal = (goal: WeeklyGoal) => {
+    setGoalToDelete(goal);
+    setDeleteGoalConfirmOpen(true);
+  };
+
+  const handleConfirmDeleteGoal = async () => {
+    if (!goalToDelete) return;
+    try {
+      await deleteGoalMutation.mutateAsync(goalToDelete.id);
+      setDeleteGoalConfirmOpen(false);
+      if (viewedGoalId === goalToDelete.id) {
+        setViewedGoalId("todos");
+      }
+      setGoalToDelete(null);
+    } catch {}
+  };
+
+  // Handler: Delete Submission with Confirmation
+  const handleOpenDeleteSub = (sub: GoalSubmission) => {
+    setSubToDelete(sub);
+    setDeleteSubConfirmOpen(true);
+  };
+
+  const handleConfirmDeleteSub = async () => {
+    if (!subToDelete) return;
+    try {
+      await deleteSubmissionMutation.mutateAsync(subToDelete.id);
+      setDeleteSubConfirmOpen(false);
+      if (selectedProofSubmission?.id === subToDelete.id) {
+        setProofViewerOpen(false);
+        setSelectedProofSubmission(null);
+      }
+      setSubToDelete(null);
+    } catch {}
+  };
+
   // ─── RENDER HELPER 1: VISÃO PESSOAL (MINHA META & MINHAS ENTREGAS) ───
   const renderPersonalGoalView = () => {
     if (!myGoalStats) {
@@ -895,7 +1057,7 @@ export function MetasPage() {
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Calendar className="h-3.5 w-3.5 text-primary" />
               <span>
-                Vigência: <strong>{myGoalStats.goal.period_start}</strong> até <strong>{myGoalStats.goal.period_end}</strong>
+                Vigência: <strong>{formatGoalPeriod(myGoalStats.goal.period_start, myGoalStats.goal.period_end)}</strong>
               </span>
             </div>
           </CardContent>
@@ -1448,8 +1610,9 @@ export function MetasPage() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => deleteSubmissionMutation.mutate(sub.id)}
-                      className="h-8 text-xs text-muted-foreground hover:text-destructive"
+                      onClick={() => handleOpenDeleteSub(sub)}
+                      className="h-8 text-xs text-muted-foreground hover:text-destructive cursor-pointer"
+                      title="Excluir comprovante permanentemente"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -1680,7 +1843,7 @@ export function MetasPage() {
                   <div className="flex items-center justify-between">
                     <span>Vigência:</span>
                     <strong className="text-foreground font-mono text-[11px]">
-                      {g.period_start} até {g.period_end}
+                      {formatGoalPeriod(g.period_start, g.period_end)}
                     </strong>
                   </div>
                 </div>
@@ -1694,13 +1857,23 @@ export function MetasPage() {
                     setViewedGoalId(g.id);
                     setActiveTab("minhas_metas");
                   }}
-                  className="text-xs h-7 border-border font-bold text-primary gap-1"
+                  className="text-xs h-7 border-border font-bold text-primary gap-1 cursor-pointer"
                 >
                   <Eye className="h-3 w-3" /> Ver no Painel
                 </Button>
 
                 {canManage && (
                   <div className="flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleOpenEditGoal(g)}
+                      className="text-xs h-7 border-border hover:bg-secondary text-foreground gap-1 cursor-pointer font-medium"
+                      title="Editar detalhes desta meta"
+                    >
+                      <Edit3 className="h-3 w-3 text-primary" /> Editar
+                    </Button>
+
                     <Button
                       size="sm"
                       variant="ghost"
@@ -1710,7 +1883,13 @@ export function MetasPage() {
                           updates: { is_active: !g.is_active },
                         })
                       }
-                      className="text-xs h-7 text-muted-foreground hover:text-foreground"
+                      className={cn(
+                        "text-xs h-7 cursor-pointer",
+                        g.is_active
+                          ? "text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                          : "text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                      )}
+                      title={g.is_active ? "Desativar meta" : "Ativar meta"}
                     >
                       {g.is_active ? "Desativar" : "Ativar"}
                     </Button>
@@ -1718,8 +1897,9 @@ export function MetasPage() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => deleteGoalMutation.mutate(g.id)}
-                      className="text-xs h-7 text-destructive hover:bg-destructive/10"
+                      onClick={() => handleOpenDeleteGoal(g)}
+                      className="text-xs h-7 text-destructive hover:bg-destructive/10 cursor-pointer"
+                      title="Excluir meta permanentemente"
                     >
                       <Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir
                     </Button>
@@ -1825,6 +2005,18 @@ export function MetasPage() {
               </SelectContent>
             </Select>
 
+            {canManage && currentViewGoal && currentViewGoal.id !== "todos" && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleOpenEditGoal(currentViewGoal as WeeklyGoal)}
+                className="h-9 border-border bg-secondary/40 hover:bg-secondary text-foreground font-bold gap-1.5 cursor-pointer text-xs"
+                title="Editar esta meta"
+              >
+                <Edit3 className="h-3.5 w-3.5 text-primary" /> Editar Meta
+              </Button>
+            )}
+
             <Button
               size="sm"
               onClick={() => handleOpenDeliverModal(currentViewGoal?.id)}
@@ -1843,7 +2035,7 @@ export function MetasPage() {
             </span>
             <span>•</span>
             <span>
-              Vigência: <strong className="text-foreground">{currentViewGoal?.period_start}</strong> até <strong className="text-foreground">{currentViewGoal?.period_end}</strong>
+              Vigência: <strong className="text-foreground">{formatGoalPeriod(currentViewGoal?.period_start, currentViewGoal?.period_end)}</strong>
             </span>
             <span>•</span>
             <span>
@@ -2576,10 +2768,303 @@ export function MetasPage() {
             <Button
               disabled={createGoalMutation.isPending}
               onClick={handleCreateGoal}
-              className="bg-gradient-brand text-primary-foreground font-bold gap-2"
+              className="bg-gradient-brand text-primary-foreground font-bold gap-2 cursor-pointer"
             >
               {createGoalMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               Criar Meta Semanal
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════════════════════════════════════════════════════════════ */}
+      {/* MODAL 2.1: EDITAR META SEMANAL (GESTÃO)                         */}
+      {/* ═══════════════════════════════════════════════════════════════ */}
+      <Dialog open={editGoalModalOpen} onOpenChange={setEditGoalModalOpen}>
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-extrabold text-foreground">
+              <Edit3 className="h-5 w-5 text-primary" /> Editar Meta Semanal
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Atualize as configurações, valores, prazo de vigência ou status desta meta semanal.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Título da Meta */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Título da Meta</Label>
+              <Input
+                placeholder="Ex: Meta Semanal - Farm & Dinheiro Sujo"
+                value={editGoalTitle}
+                onChange={(e) => setEditGoalTitle(e.target.value)}
+                className="text-xs bg-secondary/40 font-semibold"
+              />
+            </div>
+
+            {/* Tipo de Meta e Valor Alvo */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Tipo de Meta</Label>
+                <Select
+                  value={editGoalType}
+                  onValueChange={(v: string) => {
+                    const t = v as WeeklyGoalType;
+                    setEditGoalType(t);
+                    if (t === "financeiro") setEditGoalUnitName("R$");
+                    else if (editGoalUnitName === "R$") setEditGoalUnitName("itens");
+                  }}
+                >
+                  <SelectTrigger className="bg-secondary/40 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="financeiro">Financeiro (R$)</SelectItem>
+                    <SelectItem value="quantidade">Insumos / Itens</SelectItem>
+                    <SelectItem value="vendas">Qtd. de Vendas</SelectItem>
+                    <SelectItem value="geral">Geral / Misto</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">
+                  {editGoalType === "financeiro" ? "Valor Alvo (R$)" : "Quantidade Alvo"}
+                </Label>
+                <Input
+                  placeholder={editGoalType === "financeiro" ? "R$ 50.000" : "Ex: 500"}
+                  value={editGoalTargetValue}
+                  onChange={(e) =>
+                    setEditGoalTargetValue(
+                      editGoalType === "financeiro" ? formatCurrencyInput(e.target.value) : e.target.value
+                    )
+                  }
+                  className="font-mono font-bold text-emerald-400 bg-secondary/40 text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Unidade de medida para metas não-financeiras */}
+            {editGoalType !== "financeiro" && (
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Unidade de Medida</Label>
+                <Input
+                  placeholder="Ex: itens, kits, peças, gramas, caixas"
+                  value={editGoalUnitName}
+                  onChange={(e) => setEditGoalUnitName(e.target.value)}
+                  className="text-xs bg-secondary/40"
+                />
+              </div>
+            )}
+
+            {/* Escopo da Meta */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Para Quem é a Meta?</Label>
+              <Select value={editGoalScope} onValueChange={(v: string) => setEditGoalScope(v as GoalTargetScope)}>
+                <SelectTrigger className="bg-secondary/40 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os Membros (Geral)</SelectItem>
+                  <SelectItem value="cargo">Por Cargo Hierárquico</SelectItem>
+                  <SelectItem value="membro">Membro Específico</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {editGoalScope === "cargo" && (
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Selecione o Cargo Alvo</Label>
+                <Select value={editGoalTargetRole} onValueChange={(v: AppLevel) => setEditGoalTargetRole(v)}>
+                  <SelectTrigger className="bg-secondary/40 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LEVELS.map((lvl) => (
+                      <SelectItem key={lvl} value={lvl}>
+                        {LEVEL_LABEL[lvl]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {editGoalScope === "membro" && (
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Selecione o Membro</Label>
+                <Select value={editGoalTargetUserId} onValueChange={setEditGoalTargetUserId}>
+                  <SelectTrigger className="bg-secondary/40 text-xs">
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-52">
+                    {members.map((m) => (
+                      <SelectItem key={m.user_id} value={m.user_id}>
+                        {m.nickname ? `${m.nickname} (${m.nome})` : m.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Período da Meta */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold">Período de Vigência</Label>
+                <button
+                  type="button"
+                  onClick={setEditThisWeekPreset}
+                  className="text-[0.68rem] text-primary hover:underline font-bold cursor-pointer"
+                >
+                  ⚡ Esta Semana (Seg a Dom)
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <span className="text-[10px] text-muted-foreground block mb-1">Início:</span>
+                  <Input
+                    type="date"
+                    value={editGoalStart}
+                    onChange={(e) => setEditGoalStart(e.target.value)}
+                    className="text-xs bg-secondary/40 font-mono"
+                  />
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground block mb-1">Término:</span>
+                  <Input
+                    type="date"
+                    value={editGoalEnd}
+                    onChange={(e) => setEditGoalEnd(e.target.value)}
+                    className="text-xs bg-secondary/40 font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Status Ativo da Meta */}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/30 border border-border/60">
+              <div className="space-y-0.5">
+                <Label className="text-xs font-bold text-foreground">Status da Meta</Label>
+                <p className="text-[0.7rem] text-muted-foreground">
+                  {editGoalIsActive
+                    ? "Meta ativa e disponível para entrega no painel."
+                    : "Meta encerrada / inativa (apenas consulta)."}
+                </p>
+              </div>
+              <Switch
+                checked={editGoalIsActive}
+                onCheckedChange={setEditGoalIsActive}
+              />
+            </div>
+
+            {/* Descrição e Instruções */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Instruções / Regras da Entrega</Label>
+              <Textarea
+                placeholder="Ex: Entregar até domingo às 23:59 para qualquer 01 ou Gerente em serviço com print do F8."
+                value={editGoalDesc}
+                onChange={(e) => setEditGoalDesc(e.target.value)}
+                className="text-xs bg-secondary/40"
+                rows={2}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setEditGoalModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={updateGoalMutation.isPending}
+              onClick={handleSaveEditGoal}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold gap-2 cursor-pointer"
+            >
+              {updateGoalMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Salvar Alterações
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════════════════════════════════════════════════════════════ */}
+      {/* MODAL 2.2: CONFIRMAÇÃO DE EXCLUSÃO DE META (GESTÃO)             */}
+      {/* ═══════════════════════════════════════════════════════════════ */}
+      <Dialog open={deleteGoalConfirmOpen} onOpenChange={setDeleteGoalConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-extrabold text-destructive">
+              <AlertTriangle className="h-5 w-5" /> Excluir Meta Semanal
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Tem certeza que deseja excluir permanentemente a meta{" "}
+              <strong className="text-foreground">"{goalToDelete?.title}"</strong>?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-xs text-destructive space-y-1.5">
+            <p className="font-bold">⚠️ Atenção:</p>
+            <p>
+              Esta ação removerá a meta das listas do sistema e do Firebase. Os comprovantes de entrega
+              já enviados pelos membros permanecerão guardados no histórico da família.
+            </p>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setDeleteGoalConfirmOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteGoalMutation.isPending}
+              onClick={handleConfirmDeleteGoal}
+              className="font-bold gap-2 cursor-pointer"
+            >
+              {deleteGoalMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Confirmar Exclusão
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════════════════════════════════════════════════════════════ */}
+      {/* MODAL 2.3: CONFIRMAÇÃO DE EXCLUSÃO DE COMPROVANTE              */}
+      {/* ═══════════════════════════════════════════════════════════════ */}
+      <Dialog open={deleteSubConfirmOpen} onOpenChange={setDeleteSubConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-extrabold text-destructive">
+              <Trash2 className="h-5 w-5" /> Excluir Comprovante de Entrega
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Deseja realmente apagar o lançamento de entrega de{" "}
+              <strong className="text-foreground">{subToDelete?.member_name}</strong> no valor de{" "}
+              <strong className="text-emerald-400 font-mono">
+                {subToDelete ? formatGoalValue(subToDelete.amount, "financeiro", subToDelete.unit_name) : ""}
+              </strong>?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-400 space-y-1">
+            <p className="font-bold">Informação:</p>
+            <p>
+              O valor ou quantidade desta entrega será removido dos saldos e do cálculo de cumprimento da meta semanal do integrante.
+            </p>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setDeleteSubConfirmOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteSubmissionMutation.isPending}
+              onClick={handleConfirmDeleteSub}
+              className="font-bold gap-2 cursor-pointer"
+            >
+              {deleteSubmissionMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Excluir Comprovante
             </Button>
           </DialogFooter>
         </DialogContent>
