@@ -297,6 +297,7 @@ export async function getProductRecipes(productId?: string): Promise<import("@/l
     product_id: row.product_id,
     raw_material_id: row.raw_material_id,
     quantity_required: Number(row.quantity_required || 0),
+    production_yield: Number(row.production_yield || 1),
     created_at: row.created_at,
     updated_at: row.updated_at,
     raw_material: row.raw_materials
@@ -692,7 +693,7 @@ export async function updateProductProductionSettings(
   if (settings.can_be_produced !== undefined) payload.can_be_produced = settings.can_be_produced;
   if (settings.can_be_sold !== undefined) payload.can_be_sold = settings.can_be_sold;
   if (settings.sale_available_quantity !== undefined) payload.sale_available_quantity = settings.sale_available_quantity;
-  if (settings.production_yield !== undefined) payload.production_yield = Math.max(0.001, Number(settings.production_yield));
+  if (settings.production_yield !== undefined) payload.production_yield = Math.max(1, Math.round(Number(settings.production_yield) || 1));
   if (settings.ativo !== undefined) payload.ativo = settings.ativo;
   if (settings.nome !== undefined) payload.nome = settings.nome.trim();
   if (settings.descricao !== undefined) payload.descricao = settings.descricao?.trim() || null;

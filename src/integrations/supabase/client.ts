@@ -143,7 +143,11 @@ function getRecordKey(table: string, item: any): string {
   if (table === 'member_follows' && item.follower_id && item.following_id) return `${item.follower_id}_${item.following_id}`;
   if (table === 'raw_materials' && item.id) return String(item.id);
   if (table === 'warehouse_stock' && item.product_id) return String(item.product_id);
-  if (table === 'product_recipes' && item.product_id) return String(item.product_id);
+  if (table === 'product_recipes') {
+    if (item.id) return String(item.id);
+    if (item.product_id && item.raw_material_id) return `${item.product_id}_${item.raw_material_id}`;
+    if (item.product_id) return String(item.product_id);
+  }
   if (table === 'xp_rules_config' && item.action_type) return String(item.action_type);
   return item.id ? String(item.id) : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `item_${Date.now()}`);
 }
@@ -839,10 +843,152 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
       }
 
       // G) Produções & Matérias-Primas
+      if (rpcName === 'save_product_recipe') {
+        const prodId = body.p_product_id || body.product_id;
+        const yieldVal = Math.max(1, Math.round(Number(body.p_production_yield ?? body.production_yield ?? 1)));
+        const rawItems = Array.isArray(body.p_items) ? body.p_items : Array.isArray(body.items) ? body.items : [];
+
+        if (prodId) {
+          // 1. Deletar receitas anteriores deste produto
+          const curRecs = await fetch(`${FIREBASE_RTDB_URL}/product_recipes.json`).then(r => r.json()).catch(() => null);
+          if (curRecs && typeof curRecs === 'object') {
+            for (const [k, v] of Object.entries(curRecs)) {
+              if (k === prodId || k.startsWith(`${prodId}_`) || (v && (v as any).product_id === prodId)) {
+                await fetch(`${FIREBASE_RTDB_URL}/product_recipes/${k}.json`, { method: 'DELETE' }).catch(() => {});
+              }
+            }
+          }
+
+          // 2. Gravar novos itens de insumo da receita
+          for (const item of rawItems) {
+            const rmId = item.raw_material_id;
+            const qtyReq = Math.max(1, Math.round(Number(item.quantity_required) || 1));
+            const recKey = `${prodId}_${rmId}`;
+            const recRecord = {
+              id: recKey,
+              product_id: prodId,
+              raw_material_id: rmId,
+              quantity_required: qtyReq,
+              production_yield: yieldVal,
+              created_at: now,
+              updated_at: now,
+            };
+            await fetch(`${FIREBASE_RTDB_URL}/product_recipes/${recKey}.json`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(recRecord),
+            }).catch(() => {});
+          }
+
+          // 3. Atualizar o produto com o rendimento e flag de produção
+          await fetch(`${FIREBASE_RTDB_URL}/products/${prodId}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              production_yield: yieldVal,
+              can_be_produced: true,
+              updated_at: now,
+            }),
+          }).catch(() => {});
+
+          notifyTableChange('product_recipes', 'UPDATE');
+          notifyTableChange('products', 'UPDATE');
+        }
+
+        return new Response(JSON.stringify({
+          success: true,
+          product_id: prodId,
+          production_yield: yieldVal,
+          items_count: rawItems.length,
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (rpcName === 'delete_raw_material_rpc') {
+        const rmId = body.p_raw_material_id || body.id;
+        if (rmId) {
+          await fetch(`${FIREBASE_RTDB_URL}/raw_materials/${rmId}.json`, { method: 'DELETE' }).catch(() => {});
+          const curRecs = await fetch(`${FIREBASE_RTDB_URL}/product_recipes.json`).then(r => r.json()).catch(() => null);
+          if (curRecs && typeof curRecs === 'object') {
+            for (const [k, v] of Object.entries(curRecs)) {
+              if (v && ((v as any).raw_material_id === rmId || (Array.isArray((v as any).items) && (v as any).items.some((it: any) => it.raw_material_id === rmId)))) {
+                await fetch(`${FIREBASE_RTDB_URL}/product_recipes/${k}.json`, { method: 'DELETE' }).catch(() => {});
+              }
+            }
+          }
+          notifyTableChange('raw_materials', 'DELETE');
+          notifyTableChange('product_recipes', 'DELETE');
+        }
+        return new Response(JSON.stringify({ success: true, action: 'deleted', message: 'Matéria-prima excluída com sucesso.' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (rpcName === 'adjust_raw_material_stock_rpc') {
+        const rmId = body.p_raw_material_id;
+        const delta = Math.round(Number(body.p_quantity_delta) || 0);
+        const reason = body.p_reason || 'Ajuste manual de estoque de matéria-prima';
+        let newBal = 0;
+        if (rmId) {
+          const curRm = await fetch(`${FIREBASE_RTDB_URL}/raw_materials/${rmId}.json`).then(r => r.json()).catch(() => null);
+          const prevBal = Number(curRm?.stock_quantity ?? curRm?.current_stock ?? 0);
+          newBal = Math.max(0, prevBal + delta);
+          await fetch(`${FIREBASE_RTDB_URL}/raw_materials/${rmId}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ stock_quantity: newBal, current_stock: newBal, updated_at: now }),
+          }).catch(() => {});
+
+          const movId = `rm_mov_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+          await fetch(`${FIREBASE_RTDB_URL}/raw_material_movements/${movId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: movId,
+              raw_material_id: rmId,
+              type: delta >= 0 ? 'IN' : 'OUT',
+              quantity: Math.abs(delta),
+              previous_balance: prevBal,
+              resulting_balance: newBal,
+              observation: reason,
+              created_at: now,
+            }),
+          }).catch(() => {});
+
+          notifyTableChange('raw_materials', 'UPDATE');
+          notifyTableChange('raw_material_movements', 'INSERT');
+        }
+        return new Response(JSON.stringify({ success: true, new_balance: newBal }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
       if (rpcName === 'execute_production_rpc') {
         const prodId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `prod_${Date.now()}`;
         const qty = Number(body.p_quantity) || 1;
         const productId = body.p_product_id;
+        const observation = body.p_observation || null;
+
+        let productName = 'Produto';
+        if (productId) {
+          const prodRes = await fetch(`${FIREBASE_RTDB_URL}/products/${productId}.json`).then(r => r.json()).catch(() => null);
+          if (prodRes?.nome) productName = prodRes.nome;
+        }
+
+        let activeUserId = 'dev-local-user';
+        if (typeof window !== 'undefined') {
+          try {
+            const u = localStorage.getItem('tw_auth_user');
+            if (u) {
+              const parsed = JSON.parse(u);
+              activeUserId = parsed.id || parsed.user_id || activeUserId;
+            }
+          } catch {}
+        }
 
         if (Array.isArray(body.p_raw_materials)) {
           for (const rm of body.p_raw_materials) {
@@ -850,33 +996,115 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
             const used = Number(rm.quantity_used) || 0;
             if (rmId && used > 0) {
               const curRm = await fetch(`${FIREBASE_RTDB_URL}/raw_materials/${rmId}.json`).then(r => r.json()).catch(() => null);
-              const newRmBal = Math.max(0, (Number(curRm?.current_stock) || 0) - used);
+              const prevBal = Number(curRm?.stock_quantity ?? curRm?.current_stock ?? 0);
+              const newBal = Math.max(0, prevBal - used);
               await fetch(`${FIREBASE_RTDB_URL}/raw_materials/${rmId}.json`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ current_stock: newRmBal, updated_at: now }),
+                body: JSON.stringify({ stock_quantity: newBal, current_stock: newBal, updated_at: now }),
+              }).catch(() => {});
+
+              const prmId = `${prodId}_${rmId}`;
+              await fetch(`${FIREBASE_RTDB_URL}/production_raw_materials/${prmId}.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  id: prmId,
+                  production_id: prodId,
+                  raw_material_id: rmId,
+                  quantity_used: used,
+                  created_at: now,
+                }),
+              }).catch(() => {});
+
+              const movId = `rm_mov_${Date.now()}_${rmId}`;
+              await fetch(`${FIREBASE_RTDB_URL}/raw_material_movements/${movId}.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  id: movId,
+                  raw_material_id: rmId,
+                  type: 'OUT',
+                  quantity: used,
+                  previous_balance: prevBal,
+                  resulting_balance: newBal,
+                  production_id: prodId,
+                  user_id: activeUserId,
+                  observation: `Consumo em ordem de fabricação de ${productName} (${qty} un)`,
+                  created_at: now,
+                }),
               }).catch(() => {});
             }
           }
         }
 
+        let warehouseBal = 0;
         if (productId) {
           const curStock = await fetch(`${FIREBASE_RTDB_URL}/warehouse_stock/${productId}.json`).then(r => r.json()).catch(() => null);
-          const warehouseBal = (Number(curStock?.quantity) || 0) + qty;
+          const prevStock = Number(curStock?.quantity || 0);
+          warehouseBal = prevStock + qty;
           await fetch(`${FIREBASE_RTDB_URL}/warehouse_stock/${productId}.json`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+              id: productId,
               product_id: productId,
               quantity: warehouseBal,
               reserved_quantity: curStock?.reserved_quantity || 0,
               updated_at: now,
             }),
           }).catch(() => {});
+
+          const whMovId = `wh_mov_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+          await fetch(`${FIREBASE_RTDB_URL}/warehouse_movements/${whMovId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: whMovId,
+              product_id: productId,
+              type: 'PRODUCTION_ENTRY',
+              quantity: qty,
+              previous_balance: prevStock,
+              resulting_balance: warehouseBal,
+              source: 'PRODUCTION',
+              destination: 'WAREHOUSE',
+              reference_id: prodId,
+              user_id: activeUserId,
+              observation: observation || `Fabricação concluída: +${qty} un`,
+              created_at: now,
+            }),
+          }).catch(() => {});
         }
+
+        await fetch(`${FIREBASE_RTDB_URL}/productions/${prodId}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: prodId,
+            product_id: productId,
+            quantity: qty,
+            user_id: activeUserId,
+            observation,
+            status: 'COMPLETED',
+            created_at: now,
+            updated_at: now,
+          }),
+        }).catch(() => {});
+
+        notifyTableChange('productions', 'INSERT');
+        notifyTableChange('production_raw_materials', 'INSERT');
         notifyTableChange('warehouse_stock', 'UPDATE');
         notifyTableChange('raw_materials', 'UPDATE');
-        return new Response(JSON.stringify({ success: true, id: prodId }), {
+        notifyTableChange('raw_material_movements', 'INSERT');
+        notifyTableChange('warehouse_movements', 'INSERT');
+
+        return new Response(JSON.stringify({
+          success: true,
+          production_id: prodId,
+          quantity: qty,
+          product_name: productName,
+          warehouse_balance: warehouseBal,
+        }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
@@ -884,18 +1112,73 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
 
       if (rpcName === 'pull_raw_material_from_bau_rpc') {
         const rmId = body.p_raw_material_id;
-        const qty = Number(body.p_quantity) || 0;
-        if (rmId && qty > 0) {
+        const bauId = body.p_bau_id;
+        const qty = Math.max(1, Math.round(Number(body.p_quantity) || 1));
+        const reason = body.p_reason || 'Puxado do Baú para Armazém da Fábrica';
+        let rawPrevious = 0;
+        let rawBalance = 0;
+        let bauPrevious = 0;
+        let bauBalance = 0;
+        let bauNome = 'Baú';
+
+        if (bauId) {
+          const bRes = await fetch(`${FIREBASE_RTDB_URL}/baus/${bauId}.json`).then(r => r.json()).catch(() => null);
+          if (bRes?.nome) bauNome = bRes.nome;
+        }
+
+        if (rmId) {
           const curRm = await fetch(`${FIREBASE_RTDB_URL}/raw_materials/${rmId}.json`).then(r => r.json()).catch(() => null);
-          const newBal = (Number(curRm?.current_stock) || 0) + qty;
+          rawPrevious = Number(curRm?.stock_quantity ?? curRm?.current_stock ?? 0);
+          rawBalance = rawPrevious + qty;
           await fetch(`${FIREBASE_RTDB_URL}/raw_materials/${rmId}.json`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ current_stock: newBal, updated_at: now }),
+            body: JSON.stringify({ stock_quantity: rawBalance, current_stock: rawBalance, updated_at: now }),
           }).catch(() => {});
+
+          if (curRm?.product_id && bauId) {
+            const pbKey = `${curRm.product_id}_${bauId}`;
+            const curPb = await fetch(`${FIREBASE_RTDB_URL}/product_baus/${pbKey}.json`).then(r => r.json()).catch(() => null);
+            bauPrevious = Number(curPb?.estoque_atual || 0);
+            bauBalance = Math.max(0, bauPrevious - qty);
+            await fetch(`${FIREBASE_RTDB_URL}/product_baus/${pbKey}.json`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ estoque_atual: bauBalance, updated_at: now }),
+            }).catch(() => {});
+            notifyTableChange('product_baus', 'UPDATE');
+          }
+
+          const movId = `rm_mov_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+          await fetch(`${FIREBASE_RTDB_URL}/raw_material_movements/${movId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: movId,
+              raw_material_id: rmId,
+              type: 'IN',
+              quantity: qty,
+              previous_balance: rawPrevious,
+              resulting_balance: rawBalance,
+              observation: reason,
+              created_at: now,
+            }),
+          }).catch(() => {});
+
           notifyTableChange('raw_materials', 'UPDATE');
+          notifyTableChange('raw_material_movements', 'INSERT');
         }
-        return new Response(JSON.stringify({ success: true }), {
+
+        return new Response(JSON.stringify({
+          success: true,
+          is_manual: false,
+          bau_nome: bauNome,
+          quantity: qty,
+          bau_previous: bauPrevious,
+          bau_balance: bauBalance,
+          raw_material_previous: rawPrevious,
+          raw_material_balance: rawBalance,
+        }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
@@ -903,38 +1186,382 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
 
       if (rpcName === 'transfer_raw_material_to_bau_rpc') {
         const rmId = body.p_raw_material_id;
-        const qty = Number(body.p_quantity) || 0;
-        if (rmId && qty > 0) {
+        const bauId = body.p_bau_id;
+        const qty = Math.max(1, Math.round(Number(body.p_quantity) || 1));
+        const reason = body.p_reason || 'Transferência de Matéria-Prima para Baú';
+        let rawBalance = 0;
+        let bauBalance = 0;
+        let bauNome = 'Baú';
+
+        if (bauId) {
+          const bRes = await fetch(`${FIREBASE_RTDB_URL}/baus/${bauId}.json`).then(r => r.json()).catch(() => null);
+          if (bRes?.nome) bauNome = bRes.nome;
+        }
+
+        if (rmId) {
           const curRm = await fetch(`${FIREBASE_RTDB_URL}/raw_materials/${rmId}.json`).then(r => r.json()).catch(() => null);
-          const newBal = Math.max(0, (Number(curRm?.current_stock) || 0) - qty);
+          const rawPrevious = Number(curRm?.stock_quantity ?? curRm?.current_stock ?? 0);
+          rawBalance = Math.max(0, rawPrevious - qty);
           await fetch(`${FIREBASE_RTDB_URL}/raw_materials/${rmId}.json`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ current_stock: newBal, updated_at: now }),
+            body: JSON.stringify({ stock_quantity: rawBalance, current_stock: rawBalance, updated_at: now }),
           }).catch(() => {});
+
+          if (curRm?.product_id && bauId) {
+            const pbKey = `${curRm.product_id}_${bauId}`;
+            const curPb = await fetch(`${FIREBASE_RTDB_URL}/product_baus/${pbKey}.json`).then(r => r.json()).catch(() => null);
+            const prevPb = Number(curPb?.estoque_atual || 0);
+            bauBalance = prevPb + qty;
+            await fetch(`${FIREBASE_RTDB_URL}/product_baus/${pbKey}.json`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ estoque_atual: bauBalance, updated_at: now }),
+            }).catch(() => {});
+            notifyTableChange('product_baus', 'UPDATE');
+          }
+
+          const movId = `rm_mov_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+          await fetch(`${FIREBASE_RTDB_URL}/raw_material_movements/${movId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: movId,
+              raw_material_id: rmId,
+              type: 'OUT',
+              quantity: qty,
+              previous_balance: rawPrevious,
+              resulting_balance: rawBalance,
+              observation: reason,
+              created_at: now,
+            }),
+          }).catch(() => {});
+
           notifyTableChange('raw_materials', 'UPDATE');
+          notifyTableChange('raw_material_movements', 'INSERT');
         }
-        return new Response(JSON.stringify({ success: true }), {
+
+        return new Response(JSON.stringify({
+          success: true,
+          bau_nome: bauNome,
+          quantity: qty,
+          raw_material_balance: rawBalance,
+          bau_balance: bauBalance,
+        }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
       }
 
-      if (rpcName === 'transfer_warehouse_to_storage_rpc' || rpcName === 'transfer_warehouse_to_sale_rpc') {
+      if (rpcName === 'transfer_warehouse_to_storage_rpc') {
         const productId = body.p_product_id;
         const qty = Number(body.p_quantity) || 0;
+        const bauId = body.p_bau_id || null;
         let newBal = 0;
         if (productId) {
           const curStock = await fetch(`${FIREBASE_RTDB_URL}/warehouse_stock/${productId}.json`).then(r => r.json()).catch(() => null);
-          newBal = Math.max(0, (Number(curStock?.quantity) || 0) - qty);
+          const prevBal = Number(curStock?.quantity || 0);
+          newBal = Math.max(0, prevBal - qty);
           await fetch(`${FIREBASE_RTDB_URL}/warehouse_stock/${productId}.json`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ quantity: newBal, updated_at: now }),
           }).catch(() => {});
+
+          if (bauId) {
+            const pbKey = `${productId}_${bauId}`;
+            const curPb = await fetch(`${FIREBASE_RTDB_URL}/product_baus/${pbKey}.json`).then(r => r.json()).catch(() => null);
+            const prevPb = Number(curPb?.estoque_atual || 0);
+            await fetch(`${FIREBASE_RTDB_URL}/product_baus/${pbKey}.json`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: pbKey,
+                product_id: productId,
+                bau_id: bauId,
+                estoque_atual: prevPb + qty,
+                updated_at: now,
+              }),
+            }).catch(() => {});
+            notifyTableChange('product_baus', 'UPDATE');
+          }
+
+          const whMovId = `wh_mov_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+          await fetch(`${FIREBASE_RTDB_URL}/warehouse_movements/${whMovId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: whMovId,
+              product_id: productId,
+              type: 'TRANSFER_STORAGE',
+              quantity: qty,
+              previous_balance: prevBal,
+              resulting_balance: newBal,
+              source: 'WAREHOUSE',
+              destination: 'BAU',
+              observation: body.p_observation || 'Transferência Armazém -> Baú',
+              created_at: now,
+            }),
+          }).catch(() => {});
+
           notifyTableChange('warehouse_stock', 'UPDATE');
+          notifyTableChange('warehouse_movements', 'INSERT');
         }
-        return new Response(JSON.stringify({ success: true, transferred: qty, warehouse_balance: newBal }), {
+        return new Response(JSON.stringify({ success: true, transferred: qty, warehouse_balance: newBal, destination: bauId || 'STORAGE' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (rpcName === 'transfer_warehouse_to_sale_rpc') {
+        const productId = body.p_product_id;
+        const qty = Number(body.p_quantity) || 0;
+        let newBal = 0;
+        let newSaleBal = 0;
+        if (productId) {
+          const curStock = await fetch(`${FIREBASE_RTDB_URL}/warehouse_stock/${productId}.json`).then(r => r.json()).catch(() => null);
+          const prevBal = Number(curStock?.quantity || 0);
+          newBal = Math.max(0, prevBal - qty);
+          await fetch(`${FIREBASE_RTDB_URL}/warehouse_stock/${productId}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quantity: newBal, updated_at: now }),
+          }).catch(() => {});
+
+          const curProd = await fetch(`${FIREBASE_RTDB_URL}/products/${productId}.json`).then(r => r.json()).catch(() => null);
+          const prevSale = Number(curProd?.sale_available_quantity || 0);
+          newSaleBal = prevSale + qty;
+          await fetch(`${FIREBASE_RTDB_URL}/products/${productId}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sale_available_quantity: newSaleBal, updated_at: now }),
+          }).catch(() => {});
+
+          const whMovId = `wh_mov_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+          await fetch(`${FIREBASE_RTDB_URL}/warehouse_movements/${whMovId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: whMovId,
+              product_id: productId,
+              type: 'TRANSFER_SALE',
+              quantity: qty,
+              previous_balance: prevBal,
+              resulting_balance: newBal,
+              source: 'WAREHOUSE',
+              destination: 'SALE',
+              observation: body.p_observation || 'Transferência Armazém -> Balcão de Venda',
+              created_at: now,
+            }),
+          }).catch(() => {});
+
+          notifyTableChange('warehouse_stock', 'UPDATE');
+          notifyTableChange('products', 'UPDATE');
+          notifyTableChange('warehouse_movements', 'INSERT');
+        }
+        return new Response(JSON.stringify({ success: true, transferred: qty, warehouse_balance: newBal, sale_available_balance: newSaleBal }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (rpcName === 'adjust_warehouse_stock_rpc') {
+        const productId = body.p_product_id;
+        const newQty = Math.max(0, Math.round(Number(body.p_new_quantity) || 0));
+        const reason = body.p_reason || 'Ajuste manual de estoque no armazém';
+        let prevQty = 0;
+        if (productId) {
+          const curStock = await fetch(`${FIREBASE_RTDB_URL}/warehouse_stock/${productId}.json`).then(r => r.json()).catch(() => null);
+          prevQty = Number(curStock?.quantity || 0);
+          await fetch(`${FIREBASE_RTDB_URL}/warehouse_stock/${productId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: productId,
+              product_id: productId,
+              quantity: newQty,
+              reserved_quantity: curStock?.reserved_quantity || 0,
+              updated_at: now,
+            }),
+          }).catch(() => {});
+
+          const whMovId = `wh_mov_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+          await fetch(`${FIREBASE_RTDB_URL}/warehouse_movements/${whMovId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: whMovId,
+              product_id: productId,
+              type: newQty >= prevQty ? 'ADJUST_UP' : 'ADJUST_DOWN',
+              quantity: Math.abs(newQty - prevQty),
+              previous_balance: prevQty,
+              resulting_balance: newQty,
+              source: 'MANUAL',
+              destination: 'WAREHOUSE',
+              observation: reason,
+              created_at: now,
+            }),
+          }).catch(() => {});
+
+          notifyTableChange('warehouse_stock', 'UPDATE');
+          notifyTableChange('warehouse_movements', 'INSERT');
+        }
+        return new Response(JSON.stringify({ success: true, previous: prevQty, new_balance: newQty }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (rpcName === 'manage_production_stock_rpc') {
+        const productId = body.p_product_id;
+        const action = body.p_action;
+        const origin = body.p_origin;
+        const dest = body.p_destination;
+        const origBauId = body.p_origin_bau_id;
+        const destBauId = body.p_destination_bau_id;
+        const qty = Number(body.p_quantity) || 0;
+
+        let whBal = 0;
+        let saleBal = 0;
+        let chestOrigBal = 0;
+        let chestDestBal = 0;
+
+        if (productId) {
+          const curWh = await fetch(`${FIREBASE_RTDB_URL}/warehouse_stock/${productId}.json`).then(r => r.json()).catch(() => null);
+          whBal = Number(curWh?.quantity || 0);
+
+          const curProd = await fetch(`${FIREBASE_RTDB_URL}/products/${productId}.json`).then(r => r.json()).catch(() => null);
+          saleBal = Number(curProd?.sale_available_quantity || 0);
+
+          if (origBauId) {
+            const curOrigPb = await fetch(`${FIREBASE_RTDB_URL}/product_baus/${productId}_${origBauId}.json`).then(r => r.json()).catch(() => null);
+            chestOrigBal = Number(curOrigPb?.estoque_atual || 0);
+          }
+          if (destBauId) {
+            const curDestPb = await fetch(`${FIREBASE_RTDB_URL}/product_baus/${productId}_${destBauId}.json`).then(r => r.json()).catch(() => null);
+            chestDestBal = Number(curDestPb?.estoque_atual || 0);
+          }
+
+          if (action === 'ADJUST') {
+            if (origin === 'WAREHOUSE') {
+              whBal = Math.max(0, qty);
+              await fetch(`${FIREBASE_RTDB_URL}/warehouse_stock/${productId}.json`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ quantity: whBal, updated_at: now }),
+              }).catch(() => {});
+            } else if (origin === 'SALE') {
+              saleBal = Math.max(0, qty);
+              await fetch(`${FIREBASE_RTDB_URL}/products/${productId}.json`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sale_available_quantity: saleBal, updated_at: now }),
+              }).catch(() => {});
+            } else if (origin === 'BAU' && origBauId) {
+              chestOrigBal = Math.max(0, qty);
+              await fetch(`${FIREBASE_RTDB_URL}/product_baus/${productId}_${origBauId}.json`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ estoque_atual: chestOrigBal, updated_at: now }),
+              }).catch(() => {});
+            }
+          } else if (action === 'REMOVE') {
+            if (origin === 'WAREHOUSE') {
+              whBal = Math.max(0, whBal - qty);
+              await fetch(`${FIREBASE_RTDB_URL}/warehouse_stock/${productId}.json`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ quantity: whBal, updated_at: now }),
+              }).catch(() => {});
+            } else if (origin === 'SALE') {
+              saleBal = Math.max(0, saleBal - qty);
+              await fetch(`${FIREBASE_RTDB_URL}/products/${productId}.json`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sale_available_quantity: saleBal, updated_at: now }),
+              }).catch(() => {});
+            } else if (origin === 'BAU' && origBauId) {
+              chestOrigBal = Math.max(0, chestOrigBal - qty);
+              await fetch(`${FIREBASE_RTDB_URL}/product_baus/${productId}_${origBauId}.json`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ estoque_atual: chestOrigBal, updated_at: now }),
+              }).catch(() => {});
+            }
+          } else if (action === 'TRANSFER') {
+            if (origin === 'WAREHOUSE') {
+              whBal = Math.max(0, whBal - qty);
+              await fetch(`${FIREBASE_RTDB_URL}/warehouse_stock/${productId}.json`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ quantity: whBal, updated_at: now }),
+              }).catch(() => {});
+            } else if (origin === 'SALE') {
+              saleBal = Math.max(0, saleBal - qty);
+              await fetch(`${FIREBASE_RTDB_URL}/products/${productId}.json`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sale_available_quantity: saleBal, updated_at: now }),
+              }).catch(() => {});
+            } else if (origin === 'BAU' && origBauId) {
+              chestOrigBal = Math.max(0, chestOrigBal - qty);
+              await fetch(`${FIREBASE_RTDB_URL}/product_baus/${productId}_${origBauId}.json`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ estoque_atual: chestOrigBal, updated_at: now }),
+              }).catch(() => {});
+            }
+
+            if (dest === 'WAREHOUSE') {
+              whBal = whBal + qty;
+              await fetch(`${FIREBASE_RTDB_URL}/warehouse_stock/${productId}.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  id: productId,
+                  product_id: productId,
+                  quantity: whBal,
+                  reserved_quantity: curWh?.reserved_quantity || 0,
+                  updated_at: now,
+                }),
+              }).catch(() => {});
+            } else if (dest === 'SALE') {
+              saleBal = saleBal + qty;
+              await fetch(`${FIREBASE_RTDB_URL}/products/${productId}.json`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sale_available_quantity: saleBal, updated_at: now }),
+              }).catch(() => {});
+            } else if (dest === 'BAU' && destBauId) {
+              chestDestBal = chestDestBal + qty;
+              await fetch(`${FIREBASE_RTDB_URL}/product_baus/${productId}_${destBauId}.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  id: `${productId}_${destBauId}`,
+                  product_id: productId,
+                  bau_id: destBauId,
+                  estoque_atual: chestDestBal,
+                  updated_at: now,
+                }),
+              }).catch(() => {});
+            }
+          }
+
+          notifyTableChange('warehouse_stock', 'UPDATE');
+          notifyTableChange('products', 'UPDATE');
+          notifyTableChange('product_baus', 'UPDATE');
+        }
+
+        return new Response(JSON.stringify({
+          success: true,
+          product_id: productId,
+          action,
+          warehouse_balance: whBal,
+          sale_balance: saleBal,
+          chest_orig_balance: chestOrigBal,
+          chest_dest_balance: chestDestBal,
+        }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
@@ -1114,7 +1741,10 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
             for (const [k, v] of Object.entries(allRes)) {
               if (v && typeof v === 'object' && !(v as any)._schema_info) {
                 const matches = filters.every((f) => {
-                  if (f.op === 'eq') return String((v as any)[f.field]) === String(f.val);
+                  if (f.op === 'eq') {
+                    const itemVal = (v as any)[f.field] !== undefined ? (v as any)[f.field] : (f.field === 'id' ? k : undefined);
+                    return String(itemVal) === String(f.val);
+                  }
                   return true;
                 });
                 if (matches) {
@@ -1145,7 +1775,10 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
           for (const [k, v] of Object.entries(allRes)) {
             if (v && typeof v === 'object' && !(v as any)._schema_info) {
               const matches = filters.every((f) => {
-                if (f.op === 'eq') return String((v as any)[f.field]) === String(f.val);
+                if (f.op === 'eq') {
+                  const itemVal = (v as any)[f.field] !== undefined ? (v as any)[f.field] : (f.field === 'id' ? k : undefined);
+                  return String(itemVal) === String(f.val);
+                }
                 return true;
               });
               if (matches) {
@@ -1166,6 +1799,107 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
       let items: any[] = [];
       if (rtdbRes && typeof rtdbRes === 'object') {
         items = Object.values(rtdbRes).filter((item: any) => item && !item._schema_info);
+      }
+
+      // Resoluções de relacionamentos e joins do sistema de produção
+      if (table === 'product_recipes') {
+        const expanded: any[] = [];
+        for (const item of items) {
+          if (Array.isArray(item.items)) {
+            for (const sub of item.items) {
+              expanded.push({
+                id: `${item.product_id || item.id}_${sub.raw_material_id}`,
+                product_id: item.product_id || item.id,
+                raw_material_id: sub.raw_material_id,
+                quantity_required: Number(sub.quantity_required) || 1,
+                production_yield: Number(item.production_yield || 1),
+                created_at: item.created_at || new Date().toISOString(),
+                updated_at: item.updated_at || new Date().toISOString(),
+              });
+            }
+          } else {
+            expanded.push(item);
+          }
+        }
+        items = expanded;
+
+        const matRes = await fetch(`${FIREBASE_RTDB_URL}/raw_materials.json`).then(r => r.json()).catch(() => null);
+        const matMap: Record<string, any> = matRes && typeof matRes === 'object' ? matRes : {};
+        items = items.map((rec) => {
+          const rm = matMap[rec.raw_material_id] || Object.values(matMap).find((m: any) => m && m.id === rec.raw_material_id);
+          return {
+            ...rec,
+            raw_materials: rm
+              ? {
+                  id: rm.id,
+                  name: rm.name,
+                  unit: rm.unit || 'un',
+                  stock_quantity: Number(rm.stock_quantity ?? rm.current_stock ?? 0),
+                  image_url: rm.image_url || null,
+                }
+              : null,
+          };
+        });
+      } else if (table === 'warehouse_stock') {
+        const prodRes = await fetch(`${FIREBASE_RTDB_URL}/products.json`).then(r => r.json()).catch(() => null);
+        const prodMap: Record<string, any> = prodRes && typeof prodRes === 'object' ? prodRes : {};
+        items = items.map((ws) => {
+          const p = prodMap[ws.product_id] || Object.values(prodMap).find((prod: any) => prod && prod.id === ws.product_id);
+          return {
+            ...ws,
+            products: p || null,
+          };
+        });
+      } else if (table === 'productions') {
+        const prodRes = await fetch(`${FIREBASE_RTDB_URL}/products.json`).then(r => r.json()).catch(() => null);
+        const prmRes = await fetch(`${FIREBASE_RTDB_URL}/production_raw_materials.json`).then(r => r.json()).catch(() => null);
+        const rmRes = await fetch(`${FIREBASE_RTDB_URL}/raw_materials.json`).then(r => r.json()).catch(() => null);
+
+        const prodMap: Record<string, any> = prodRes && typeof prodRes === 'object' ? prodRes : {};
+        const prmList: any[] = prmRes && typeof prmRes === 'object' ? Object.values(prmRes) : [];
+        const rmMap: Record<string, any> = rmRes && typeof rmRes === 'object' ? rmRes : {};
+
+        items = items.map((prod) => {
+          const p = prodMap[prod.product_id] || Object.values(prodMap).find((x: any) => x && x.id === prod.product_id);
+          const rawMaterialsUsed = prmList
+            .filter((prm: any) => prm && prm.production_id === prod.id)
+            .map((prm: any) => {
+              const rm = rmMap[prm.raw_material_id] || Object.values(rmMap).find((x: any) => x && x.id === prm.raw_material_id);
+              return {
+                id: prm.id,
+                raw_material_id: prm.raw_material_id,
+                quantity_used: Number(prm.quantity_used || 0),
+                created_at: prm.created_at,
+                raw_materials: rm ? { id: rm.id, name: rm.name, unit: rm.unit || 'un' } : null,
+              };
+            });
+
+          return {
+            ...prod,
+            products: p || null,
+            production_raw_materials: rawMaterialsUsed,
+          };
+        });
+      } else if (table === 'raw_material_movements') {
+        const rmRes = await fetch(`${FIREBASE_RTDB_URL}/raw_materials.json`).then(r => r.json()).catch(() => null);
+        const rmMap: Record<string, any> = rmRes && typeof rmRes === 'object' ? rmRes : {};
+        items = items.map((mov) => {
+          const rm = rmMap[mov.raw_material_id] || Object.values(rmMap).find((x: any) => x && x.id === mov.raw_material_id);
+          return {
+            ...mov,
+            raw_materials: rm ? { id: rm.id, name: rm.name, unit: rm.unit || 'un' } : null,
+          };
+        });
+      } else if (table === 'warehouse_movements') {
+        const prodRes = await fetch(`${FIREBASE_RTDB_URL}/products.json`).then(r => r.json()).catch(() => null);
+        const prodMap: Record<string, any> = prodRes && typeof prodRes === 'object' ? prodRes : {};
+        items = items.map((mov) => {
+          const p = prodMap[mov.product_id] || Object.values(prodMap).find((x: any) => x && x.id === mov.product_id);
+          return {
+            ...mov,
+            products: p ? { id: p.id, nome: p.nome, unidade: p.unidade || 'un', imagem_url: p.imagem_url || null } : null,
+          };
+        });
       }
 
       // Filtragem Regular

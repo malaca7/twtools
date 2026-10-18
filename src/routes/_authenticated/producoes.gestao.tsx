@@ -433,7 +433,8 @@ export function GestaoProducaoPage() {
     setProdCanProduce(prod.can_be_produced === true);
     setProdCanSell(prod.can_be_sold === true);
     setProdIsActive(prod.ativo !== false);
-    setProdYield(String(prod.production_yield != null && Number(prod.production_yield) > 0 ? prod.production_yield : 1));
+    const prodY = prod.production_yield != null && Number(prod.production_yield) > 0 ? Number(prod.production_yield) : 1;
+    setProdYield(String(prodY));
     setProdUnitPrice(String(prod.preco_sugerido ?? 0));
     setIsLoadingRecipe(true);
     try {
@@ -446,6 +447,10 @@ export function GestaoProducaoPage() {
             quantity_required: String(e.quantity_required),
           }))
         );
+        const recYield = (existing[0] as any)?.production_yield;
+        if (recYield && Number(recYield) > 0 && prodY <= 1) {
+          setProdYield(String(Number(recYield)));
+        }
       } else {
         setRecipeItems([]);
       }
@@ -508,6 +513,8 @@ export function GestaoProducaoPage() {
       void queryClient.invalidateQueries({ queryKey: ["products"] });
       void queryClient.invalidateQueries({ queryKey: ["product_recipes"] });
       void queryClient.invalidateQueries({ queryKey: ["warehouse_stock"] });
+      void queryClient.refetchQueries({ queryKey: ["products"] });
+      void queryClient.refetchQueries({ queryKey: ["product_recipes"] });
       setEditingProduct(null);
     },
     onError: (err: any) => {
