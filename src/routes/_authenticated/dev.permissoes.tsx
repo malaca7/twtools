@@ -257,12 +257,12 @@ function DevPermissoesContent() {
 
   // Gestão de membros com Tag Dev
   const [searchDevMember, setSearchDevMember] = useState("");
-  const [filterDevOnly, setFilterDevOnly] = useState<"all" | "dev_only">("all");
+  const [filterDevOnly, setFilterDevOnly] = useState<"all" | "dev_only" | "non_dev">("all");
   const [isDevMembersOpen, setIsDevMembersOpen] = useState(false);
 
   // Gestão de membros com Tag CEO
   const [searchMember, setSearchMember] = useState("");
-  const [filterCeoOnly, setFilterCeoOnly] = useState<"all" | "ceo_only">("all");
+  const [filterCeoOnly, setFilterCeoOnly] = useState<"all" | "ceo_only" | "non_ceo">("all");
   const [isCeoMembersOpen, setIsCeoMembersOpen] = useState(false);
   const [togglingMemberId, setTogglingMemberId] = useState<string | null>(null);
 
@@ -758,6 +758,11 @@ function DevPermissoesContent() {
       return;
     }
 
+    if (!targetUserId) {
+      toast.error("ID de usuário inválido.");
+      return;
+    }
+
     const nextStatus = !currentStatus;
     setTogglingMemberId(targetUserId);
 
@@ -765,7 +770,8 @@ function DevPermissoesContent() {
     queryClient.setQueryData<any[]>(["members"], (old) => {
       if (!Array.isArray(old)) return old;
       return old.map((m) => {
-        if (m.user_id === targetUserId || m.id === targetUserId) {
+        const mId = m.user_id || m.id;
+        if (mId === targetUserId || m.user_id === targetUserId || m.id === targetUserId) {
           return {
             ...m,
             is_developer: nextStatus,
@@ -798,7 +804,8 @@ function DevPermissoesContent() {
       queryClient.setQueryData<any[]>(["members"], (old) => {
         if (!Array.isArray(old)) return old;
         return old.map((m) => {
-          if (m.user_id === targetUserId || m.id === targetUserId) {
+          const mId = m.user_id || m.id;
+          if (mId === targetUserId || m.user_id === targetUserId || m.id === targetUserId) {
             return {
               ...m,
               is_developer: currentStatus,
@@ -820,6 +827,11 @@ function DevPermissoesContent() {
       return;
     }
 
+    if (!targetUserId) {
+      toast.error("ID de usuário inválido.");
+      return;
+    }
+
     const nextStatus = !currentStatus;
     setTogglingMemberId(targetUserId);
 
@@ -827,7 +839,8 @@ function DevPermissoesContent() {
     queryClient.setQueryData<any[]>(["members"], (old) => {
       if (!Array.isArray(old)) return old;
       return old.map((m) => {
-        if (m.user_id === targetUserId || m.id === targetUserId) {
+        const mId = m.user_id || m.id;
+        if (mId === targetUserId || m.user_id === targetUserId || m.id === targetUserId) {
           return {
             ...m,
             is_ceo: nextStatus,
@@ -849,6 +862,7 @@ function DevPermissoesContent() {
         queryClient.invalidateQueries({ queryKey: ["members"] }),
         queryClient.invalidateQueries({ queryKey: ["member_tags"] }),
         queryClient.invalidateQueries({ queryKey: ["member_tag_assignments"] }),
+        queryClient.invalidateQueries({ queryKey: ["role_permissions"] }),
         queryClient.invalidateQueries({ queryKey: ["auth_session"] }),
         queryClient.invalidateQueries({ queryKey: ["auth"] }),
       ]);
@@ -864,7 +878,8 @@ function DevPermissoesContent() {
       queryClient.setQueryData<any[]>(["members"], (old) => {
         if (!Array.isArray(old)) return old;
         return old.map((m) => {
-          if (m.user_id === targetUserId || m.id === targetUserId) {
+          const mId = m.user_id || m.id;
+          if (mId === targetUserId || m.user_id === targetUserId || m.id === targetUserId) {
             return {
               ...m,
               is_ceo: currentStatus,
@@ -892,6 +907,7 @@ function DevPermissoesContent() {
     return members.filter((m) => {
       const isDev = Boolean(m.is_developer || m.nivel === "desenvolvedor");
       if (filterDevOnly === "dev_only" && !isDev) return false;
+      if (filterDevOnly === "non_dev" && isDev) return false;
 
       if (!searchDevMember.trim()) return true;
       const q = searchDevMember.toLowerCase();
@@ -912,6 +928,7 @@ function DevPermissoesContent() {
     return members.filter((m) => {
       const isCeo = Boolean(m.is_ceo || m.custom_theme?.is_ceo);
       if (filterCeoOnly === "ceo_only" && !isCeo) return false;
+      if (filterCeoOnly === "non_ceo" && isCeo) return false;
 
       if (!searchMember.trim()) return true;
       const q = searchMember.toLowerCase();
@@ -1820,6 +1837,18 @@ function DevPermissoesContent() {
                           <DevIcon className="h-3.5 w-3.5" />
                           Devs ({activeDevsCount})
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => setFilterDevOnly("non_dev")}
+                          className={cn(
+                            "px-2.5 py-1 text-[11px] font-bold rounded-md transition-all cursor-pointer",
+                            filterDevOnly === "non_dev"
+                              ? "bg-background text-foreground shadow-xs"
+                              : "text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          Outros ({Math.max(0, members.length - activeDevsCount)})
+                        </button>
                       </div>
 
                       <Button
@@ -1852,13 +1881,14 @@ function DevPermissoesContent() {
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[380px] overflow-y-auto pr-1">
                       {filteredDevMembers.map((member) => {
+                        const memberId = member.user_id || member.id;
                         const isDev = Boolean(member.is_developer || member.nivel === "desenvolvedor");
                         const isCeo = Boolean(member.is_ceo || member.custom_theme?.is_ceo);
-                        const isToggling = togglingMemberId === member.user_id;
+                        const isToggling = togglingMemberId === memberId || togglingMemberId === member.user_id;
 
                         return (
                           <div
-                            key={member.user_id}
+                            key={memberId}
                             className={cn(
                               "flex items-center justify-between p-3 rounded-xl border transition-all",
                               !isDev && "bg-secondary/20 border-border/60 hover:bg-secondary/40"
@@ -1921,11 +1951,11 @@ function DevPermissoesContent() {
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: devStyle.primaryHex }} />
                               )}
                               <Switch
-                                id={`dev-toggle-${member.user_id}`}
+                                id={`dev-toggle-${memberId}`}
                                 checked={isDev}
                                 disabled={isToggling}
                                 onCheckedChange={() =>
-                                  handleToggleDevTag(member.user_id, isDev, member.nickname || member.nome)
+                                  handleToggleDevTag(memberId, isDev, member.nickname || member.nome)
                                 }
                               />
                             </div>
@@ -2392,6 +2422,18 @@ function DevPermissoesContent() {
                           <CeoIcon className="h-3.5 w-3.5" />
                           CEOs ({activeCeosCount})
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => setFilterCeoOnly("non_ceo")}
+                          className={cn(
+                            "px-2.5 py-1 text-[11px] font-bold rounded-md transition-all cursor-pointer",
+                            filterCeoOnly === "non_ceo"
+                              ? "bg-background text-foreground shadow-xs"
+                              : "text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          Outros ({Math.max(0, members.length - activeCeosCount)})
+                        </button>
                       </div>
 
                       <Button
@@ -2424,22 +2466,25 @@ function DevPermissoesContent() {
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[380px] overflow-y-auto pr-1">
                       {filteredMembers.map((member) => {
+                        const memberId = member.user_id || member.id;
                         const isCeo = Boolean(member.is_ceo || member.custom_theme?.is_ceo);
                         const isDev = Boolean(member.is_developer || member.nivel === "desenvolvedor");
-                        const isToggling = togglingMemberId === member.user_id;
+                        const isToggling = togglingMemberId === memberId || togglingMemberId === member.user_id;
 
                         return (
                           <div
-                            key={member.user_id}
+                            key={memberId}
                             className={cn(
-                              "flex items-center justify-between p-3 rounded-xl border transition-all",
-                              !isCeo && "bg-secondary/20 border-border/60 hover:bg-secondary/40"
+                              "flex items-center justify-between p-3 rounded-xl border transition-all duration-200",
+                              !isCeo && "bg-secondary/20 border-border/60 hover:bg-secondary/40",
+                              isCeo && "shadow-xs"
                             )}
                             style={
                               isCeo
                                 ? {
-                                    backgroundColor: `${ceoStyle.primaryHex}12`,
-                                    borderColor: `${ceoStyle.primaryHex}40`,
+                                    backgroundColor: `${ceoStyle.primaryHex}15`,
+                                    borderColor: `${ceoStyle.primaryHex}50`,
+                                    boxShadow: `0 0 16px ${ceoStyle.primaryHex}10`,
                                   }
                                 : undefined
                             }
@@ -2449,14 +2494,14 @@ function DevPermissoesContent() {
                                 src={member.avatar_url || member.discord_avatar_url || "/placeholder-avatar.png"}
                                 alt={member.nome}
                                 className={cn(
-                                  "h-9 w-9 rounded-full object-cover border shrink-0",
+                                  "h-9 w-9 rounded-full object-cover border shrink-0 transition-transform",
                                   !isCeo && "border-border"
                                 )}
                                 style={
                                   isCeo
                                     ? {
                                         borderColor: ceoStyle.primaryHex,
-                                        boxShadow: `0 0 0 2px ${ceoStyle.primaryHex}35`,
+                                        boxShadow: `0 0 0 2px ${ceoStyle.primaryHex}40`,
                                       }
                                     : undefined
                                 }
@@ -2472,13 +2517,26 @@ function DevPermissoesContent() {
                                   {isCeo && <CeoBadge size="xs" />}
                                   {isDev && <DevBadge size="xs" />}
                                 </div>
-                                <div className="flex items-center gap-1.5 mt-0.5">
+                                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                   <Badge
                                     variant="outline"
                                     className={cn("text-[9px] py-0 px-1.5 font-medium", levelBadgeClass(member.nivel))}
                                   >
                                     {getLevelLabel(member.nivel)}
                                   </Badge>
+                                  {isCeo && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[9px] font-semibold py-0 px-1.5"
+                                      style={{
+                                        borderColor: `${ceoStyle.primaryHex}60`,
+                                        backgroundColor: `${ceoStyle.primaryHex}20`,
+                                        color: ceoStyle.primaryHex,
+                                      }}
+                                    >
+                                      CEO Ativo
+                                    </Badge>
+                                  )}
                                   {member.game_id && (
                                     <span className="text-[9px] font-mono text-muted-foreground">
                                       ID: {member.game_id}
@@ -2489,17 +2547,22 @@ function DevPermissoesContent() {
                             </div>
 
                             <div className="flex items-center gap-2 shrink-0 ml-2">
-                              {isToggling && (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: ceoStyle.primaryHex }} />
+                              {isToggling ? (
+                                <div className="flex items-center gap-1.5 py-1 px-2 rounded-md bg-background/60 border border-border/50 text-[10px] text-muted-foreground">
+                                  <Loader2 className="h-3 w-3 animate-spin shrink-0" style={{ color: ceoStyle.primaryHex }} />
+                                  <span className="hidden sm:inline">Salvando...</span>
+                                </div>
+                              ) : (
+                                <Switch
+                                  id={`ceo-toggle-${memberId}`}
+                                  checked={isCeo}
+                                  disabled={isToggling}
+                                  aria-label={`Alternar Tag CEO para ${member.nickname || member.nome}`}
+                                  onCheckedChange={() =>
+                                    handleToggleCeoTag(memberId, isCeo, member.nickname || member.nome)
+                                  }
+                                />
                               )}
-                              <Switch
-                                id={`ceo-toggle-${member.user_id}`}
-                                checked={isCeo}
-                                disabled={isToggling}
-                                onCheckedChange={() =>
-                                  handleToggleCeoTag(member.user_id, isCeo, member.nickname || member.nome)
-                                }
-                              />
                             </div>
                           </div>
                         );

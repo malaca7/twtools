@@ -1735,19 +1735,46 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
         } catch {}
 
         if (body) {
+          const checkRecordMatches = (v: any, k: string) => {
+            if (filters.length === 0 && orFilters.length === 0) {
+              return false; // Nunca atualizar tabela inteira sem filtros
+            }
+
+            if (filters.length > 0) {
+              const andMatch = filters.every((f) => {
+                const itemVal = (v as any)[f.field] !== undefined ? (v as any)[f.field] : (f.field === 'id' ? k : undefined);
+                if (f.op === 'eq') return String(itemVal) === String(f.val);
+                if (f.op === 'neq') return String(itemVal) !== String(f.val);
+                if (f.op === 'gte') return Number(itemVal) >= Number(f.val);
+                if (f.op === 'lte') return Number(itemVal) <= Number(f.val);
+                if (f.op === 'gt') return Number(itemVal) > Number(f.val);
+                if (f.op === 'lt') return Number(itemVal) < Number(f.val);
+                if (f.op === 'ilike') return String(itemVal || '').toLowerCase().includes(f.val.toLowerCase());
+                return true;
+              });
+              if (!andMatch) return false;
+            }
+
+            if (orFilters.length > 0) {
+              const orMatch = orFilters.some((f) => {
+                const itemVal = (v as any)[f.field] !== undefined ? (v as any)[f.field] : (f.field === 'id' ? k : undefined);
+                if (f.op === 'eq') return String(itemVal) === String(f.val);
+                if (f.op === 'neq') return String(itemVal) !== String(f.val);
+                if (f.op === 'ilike') return String(itemVal || '').toLowerCase().includes(f.val.toLowerCase());
+                return false;
+              });
+              if (!orMatch) return false;
+            }
+
+            return true;
+          };
+
           // Busca todos os registros existentes para encontrar as chaves exatas do Firebase RTDB
           const allRes = await fetch(`${FIREBASE_RTDB_URL}/${table}.json`).then(r => r.json()).catch(() => null);
           if (allRes && typeof allRes === 'object') {
             for (const [k, v] of Object.entries(allRes)) {
               if (v && typeof v === 'object' && !(v as any)._schema_info) {
-                const matches = filters.every((f) => {
-                  if (f.op === 'eq') {
-                    const itemVal = (v as any)[f.field] !== undefined ? (v as any)[f.field] : (f.field === 'id' ? k : undefined);
-                    return String(itemVal) === String(f.val);
-                  }
-                  return true;
-                });
-                if (matches) {
+                if (checkRecordMatches(v, k)) {
                   await fetch(`${FIREBASE_RTDB_URL}/${table}/${k}.json`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
@@ -1770,18 +1797,45 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
 
       // C) DELETE
       if (method === 'DELETE') {
+        const checkRecordMatches = (v: any, k: string) => {
+          if (filters.length === 0 && orFilters.length === 0) {
+            return false; // Nunca deletar tabela inteira sem filtros
+          }
+
+          if (filters.length > 0) {
+            const andMatch = filters.every((f) => {
+              const itemVal = (v as any)[f.field] !== undefined ? (v as any)[f.field] : (f.field === 'id' ? k : undefined);
+              if (f.op === 'eq') return String(itemVal) === String(f.val);
+              if (f.op === 'neq') return String(itemVal) !== String(f.val);
+              if (f.op === 'gte') return Number(itemVal) >= Number(f.val);
+              if (f.op === 'lte') return Number(itemVal) <= Number(f.val);
+              if (f.op === 'gt') return Number(itemVal) > Number(f.val);
+              if (f.op === 'lt') return Number(itemVal) < Number(f.val);
+              if (f.op === 'ilike') return String(itemVal || '').toLowerCase().includes(f.val.toLowerCase());
+              return true;
+            });
+            if (!andMatch) return false;
+          }
+
+          if (orFilters.length > 0) {
+            const orMatch = orFilters.some((f) => {
+              const itemVal = (v as any)[f.field] !== undefined ? (v as any)[f.field] : (f.field === 'id' ? k : undefined);
+              if (f.op === 'eq') return String(itemVal) === String(f.val);
+              if (f.op === 'neq') return String(itemVal) !== String(f.val);
+              if (f.op === 'ilike') return String(itemVal || '').toLowerCase().includes(f.val.toLowerCase());
+              return false;
+            });
+            if (!orMatch) return false;
+          }
+
+          return true;
+        };
+
         const allRes = await fetch(`${FIREBASE_RTDB_URL}/${table}.json`).then(r => r.json()).catch(() => null);
         if (allRes && typeof allRes === 'object') {
           for (const [k, v] of Object.entries(allRes)) {
             if (v && typeof v === 'object' && !(v as any)._schema_info) {
-              const matches = filters.every((f) => {
-                if (f.op === 'eq') {
-                  const itemVal = (v as any)[f.field] !== undefined ? (v as any)[f.field] : (f.field === 'id' ? k : undefined);
-                  return String(itemVal) === String(f.val);
-                }
-                return true;
-              });
-              if (matches) {
+              if (checkRecordMatches(v, k)) {
                 await fetch(`${FIREBASE_RTDB_URL}/${table}/${k}.json`, { method: 'DELETE' }).catch(() => {});
               }
             }

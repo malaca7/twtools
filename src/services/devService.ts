@@ -1139,12 +1139,17 @@ export async function toggleMemberCeoTag(
   let existingTheme: any = {};
 
   // 1. Atualiza no Firebase RTDB (profiles)
+  let matchedProfileKey: string | null = null;
+  let matchedProfileVal: any = null;
+
   try {
     const { rtdb } = await import("@/integrations/firebase/rtdb");
     const fbProfiles = await rtdb.get<Record<string, any>>("profiles");
     if (fbProfiles && typeof fbProfiles === "object") {
       for (const [k, v] of Object.entries(fbProfiles)) {
         if (v && (v.user_id === targetUserId || v.id === targetUserId || k === targetUserId)) {
+          matchedProfileKey = k;
+          matchedProfileVal = v;
           targetName = v.nickname || v.nome || targetName;
           existingTheme = v.custom_theme || {};
           const updatedTheme = { ...existingTheme, is_ceo: enable };
@@ -1153,6 +1158,7 @@ export async function toggleMemberCeoTag(
             custom_theme: updatedTheme,
             updated_at: now,
           });
+          break; // Garante que atualiza apenas o registro específico encontrado
         }
       }
     }
@@ -1160,39 +1166,46 @@ export async function toggleMemberCeoTag(
     console.warn("Aviso ao atualizar profiles no RTDB:", err);
   }
 
-  // 2. Atualiza no Supabase (profiles)
+  // 2. Atualiza no Supabase (profiles) de forma estritamente direcionada
   try {
+    const filterUid = matchedProfileVal?.user_id || targetUserId;
+    const filterId = matchedProfileVal?.id || targetUserId;
+
     const { data: targetProfile } = await (supabase.from("profiles" as any))
-      .select("user_id, nome, nickname, custom_theme")
-      .or(`user_id.eq.${targetUserId},id.eq.${targetUserId}`)
+      .select("id, user_id, nome, nickname, custom_theme")
+      .or(`user_id.eq.${filterUid},id.eq.${filterId}`)
       .maybeSingle();
 
     if (targetProfile) {
       targetName = targetProfile.nickname || targetProfile.nome || targetName;
       existingTheme = targetProfile.custom_theme || existingTheme;
-    }
-    const updatedTheme = { ...existingTheme, is_ceo: enable };
+      const updatedTheme = { ...existingTheme, is_ceo: enable };
 
-    await (supabase.from("profiles" as any))
-      .update({
-        is_ceo: enable,
-        custom_theme: updatedTheme,
-        updated_at: now,
-      })
-      .or(`user_id.eq.${targetUserId},id.eq.${targetUserId}`);
+      const colToMatch = targetProfile.user_id ? "user_id" : "id";
+      const valToMatch = targetProfile.user_id || targetProfile.id;
+
+      await (supabase.from("profiles" as any))
+        .update({
+          is_ceo: enable,
+          custom_theme: updatedTheme,
+          updated_at: now,
+        })
+        .eq(colToMatch, valToMatch);
+    }
   } catch (err) {
     console.warn("Aviso ao atualizar profiles no Supabase:", err);
   }
 
   // 3. Sincroniza em member_tag_assignments (tag_id: 'ceo')
+  const resolvedTargetId = matchedProfileVal?.user_id || matchedProfileKey || targetUserId;
   try {
     const { rtdb } = await import("@/integrations/firebase/rtdb");
-    const assignmentKey = `${targetUserId}_ceo`;
+    const assignmentKey = `${resolvedTargetId}_ceo`;
     if (enable) {
       const assignmentData = {
         id: assignmentKey,
-        member_id: targetUserId,
-        user_id: targetUserId,
+        member_id: resolvedTargetId,
+        user_id: resolvedTargetId,
         tag_id: "ceo",
         assigned_by: user?.id || null,
         created_at: now,
@@ -1206,12 +1219,12 @@ export async function toggleMemberCeoTag(
       try {
         await supabase.from("member_tag_assignments" as any)
           .delete()
-          .or(`id.eq.${assignmentKey},and(member_id.eq.${targetUserId},tag_id.eq.ceo),and(user_id.eq.${targetUserId},tag_id.eq.ceo)`);
+          .eq("id", assignmentKey);
       } catch {}
     }
     // Sincroniza cargo no Discord se bot configurado
     const { triggerAutoDiscordTagSync } = await import("@/services/memberTagsService");
-    void triggerAutoDiscordTagSync(targetUserId, "ceo", enable ? "add" : "remove");
+    void triggerAutoDiscordTagSync(resolvedTargetId, "ceo", enable ? "add" : "remove");
   } catch (err) {
     console.warn("Aviso ao sincronizar member_tag_assignments (ceo):", err);
   }
@@ -1221,9 +1234,13 @@ export async function toggleMemberCeoTag(
     const currentConfig = await getCeoConfiguration(user, profile, level);
     const activeSet = new Set(currentConfig.activeCeoUserIds || []);
     if (enable) {
-      activeSet.add(targetUserId);
+      activeSet.add(resolvedTargetId);
+      if (targetUserId) activeSet.add(targetUserId);
     } else {
+      activeSet.delete(resolvedTargetId);
       activeSet.delete(targetUserId);
+      if (matchedProfileVal?.id) activeSet.delete(matchedProfileVal.id);
+      if (matchedProfileVal?.user_id) activeSet.delete(matchedProfileVal.user_id);
     }
     await saveCeoConfiguration(
       {
@@ -1310,6 +1327,8 @@ export async function toggleMemberDevTag(
 
   const now = new Date().toISOString();
   let targetName = targetUserId;
+  let matchedDevKey: string | null = null;
+  let matchedDevProfile: any = null;
 
   // 1. Atualiza no Firebase RTDB (profiles)
   try {
@@ -1318,11 +1337,14 @@ export async function toggleMemberDevTag(
     if (fbProfiles && typeof fbProfiles === "object") {
       for (const [k, v] of Object.entries(fbProfiles)) {
         if (v && (v.user_id === targetUserId || v.id === targetUserId || k === targetUserId)) {
+          matchedDevKey = k;
+          matchedDevProfile = v;
           targetName = v.nickname || v.nome || targetName;
           await rtdb.update(`profiles/${k}`, {
             is_developer: enable,
             updated_at: now,
           });
+          break; // Garante que atualiza apenas o registro alvo
         }
       }
     }
@@ -1330,36 +1352,42 @@ export async function toggleMemberDevTag(
     console.warn("Aviso ao atualizar profiles no RTDB:", err);
   }
 
-  // 2. Atualiza no Supabase (profiles)
+  // 2. Atualiza no Supabase (profiles) de forma estritamente direcionada
   try {
+    const filterUid = matchedDevProfile?.user_id || targetUserId;
+    const filterId = matchedDevProfile?.id || targetUserId;
+
     const { data: targetProfile } = await (supabase.from("profiles" as any))
-      .select("user_id, nome, nickname, is_developer")
-      .or(`user_id.eq.${targetUserId},id.eq.${targetUserId}`)
+      .select("id, user_id, nome, nickname, is_developer")
+      .or(`user_id.eq.${filterUid},id.eq.${filterId}`)
       .maybeSingle();
 
     if (targetProfile) {
       targetName = targetProfile.nickname || targetProfile.nome || targetName;
-    }
+      const colToMatch = targetProfile.user_id ? "user_id" : "id";
+      const valToMatch = targetProfile.user_id || targetProfile.id;
 
-    await (supabase.from("profiles" as any))
-      .update({
-        is_developer: enable,
-        updated_at: now,
-      })
-      .or(`user_id.eq.${targetUserId},id.eq.${targetUserId}`);
+      await (supabase.from("profiles" as any))
+        .update({
+          is_developer: enable,
+          updated_at: now,
+        })
+        .eq(colToMatch, valToMatch);
+    }
   } catch (err) {
     console.warn("Aviso ao atualizar profiles no Supabase:", err);
   }
 
   // 3. Sincroniza em member_tag_assignments (tag_id: 'dev')
+  const resolvedTargetId = matchedDevProfile?.user_id || matchedDevKey || targetUserId;
   try {
     const { rtdb } = await import("@/integrations/firebase/rtdb");
-    const assignmentKey = `${targetUserId}_dev`;
+    const assignmentKey = `${resolvedTargetId}_dev`;
     if (enable) {
       const assignmentData = {
         id: assignmentKey,
-        member_id: targetUserId,
-        user_id: targetUserId,
+        member_id: resolvedTargetId,
+        user_id: resolvedTargetId,
         tag_id: "dev",
         assigned_by: user?.id || null,
         created_at: now,
@@ -1373,12 +1401,12 @@ export async function toggleMemberDevTag(
       try {
         await supabase.from("member_tag_assignments" as any)
           .delete()
-          .or(`id.eq.${assignmentKey},and(member_id.eq.${targetUserId},tag_id.eq.dev),and(user_id.eq.${targetUserId},tag_id.eq.dev)`);
+          .eq("id", assignmentKey);
       } catch {}
     }
     // Sincroniza cargo no Discord se bot configurado
     const { triggerAutoDiscordTagSync } = await import("@/services/memberTagsService");
-    void triggerAutoDiscordTagSync(targetUserId, "dev", enable ? "add" : "remove");
+    void triggerAutoDiscordTagSync(resolvedTargetId, "dev", enable ? "add" : "remove");
   } catch (err) {
     console.warn("Aviso ao sincronizar member_tag_assignments (dev):", err);
   }
