@@ -80,10 +80,10 @@ function AuthCallbackPage() {
             );
 
             const isDev = Boolean(
-              matchedProfile.is_developer === true || discordUser.id === "722320491767136346"
+              matchedProfile.is_developer === true || (matchedProfile.is_developer === undefined && discordUser.id === "722320491767136346")
             );
             const isCeo = Boolean(
-              matchedProfile.is_ceo === true || discordUser.id === "722320491767136346"
+              matchedProfile.is_ceo === true || matchedProfile.custom_theme?.is_ceo === true
             );
             const userLevel = userRole?.nivel || (isDev || isCeo ? "01" : "novato");
 

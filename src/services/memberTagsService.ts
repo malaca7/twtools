@@ -371,7 +371,7 @@ export async function deleteMemberTag(tagId: string): Promise<void> {
 /**
  * Sincronização automática em background com o Discord ao alterar tags de membros
  */
-async function triggerAutoDiscordTagSync(
+export async function triggerAutoDiscordTagSync(
   memberId: string,
   tagId: string,
   action: "add" | "remove"

@@ -758,14 +758,31 @@ function DevPermissoesContent() {
       return;
     }
 
+    const nextStatus = !currentStatus;
     setTogglingMemberId(targetUserId);
+
+    // 1. Atualização otimista imediata na lista de membros em cache
+    queryClient.setQueryData<any[]>(["members"], (old) => {
+      if (!Array.isArray(old)) return old;
+      return old.map((m) => {
+        if (m.user_id === targetUserId || m.id === targetUserId) {
+          return {
+            ...m,
+            is_developer: nextStatus,
+          };
+        }
+        return m;
+      });
+    });
+
     try {
-      const nextStatus = !currentStatus;
       await toggleMemberDevTag(targetUserId, nextStatus, user, profile, level);
 
       // Invalidação das queries
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["members"] }),
+        queryClient.invalidateQueries({ queryKey: ["member_tags"] }),
+        queryClient.invalidateQueries({ queryKey: ["member_tag_assignments"] }),
         queryClient.invalidateQueries({ queryKey: ["auth_session"] }),
         queryClient.invalidateQueries({ queryKey: ["auth"] }),
       ]);
@@ -777,6 +794,19 @@ function DevPermissoesContent() {
         { icon: nextStatus ? "💻" : "🛡️" }
       );
     } catch (err: any) {
+      // Reverter atualização otimista em caso de erro
+      queryClient.setQueryData<any[]>(["members"], (old) => {
+        if (!Array.isArray(old)) return old;
+        return old.map((m) => {
+          if (m.user_id === targetUserId || m.id === targetUserId) {
+            return {
+              ...m,
+              is_developer: currentStatus,
+            };
+          }
+          return m;
+        });
+      });
       toast.error(err?.message || "Falha ao alterar Tag Dev do membro.");
     } finally {
       setTogglingMemberId(null);
@@ -790,14 +820,35 @@ function DevPermissoesContent() {
       return;
     }
 
+    const nextStatus = !currentStatus;
     setTogglingMemberId(targetUserId);
+
+    // 1. Atualização otimista imediata na lista de membros em cache
+    queryClient.setQueryData<any[]>(["members"], (old) => {
+      if (!Array.isArray(old)) return old;
+      return old.map((m) => {
+        if (m.user_id === targetUserId || m.id === targetUserId) {
+          return {
+            ...m,
+            is_ceo: nextStatus,
+            custom_theme: {
+              ...(m.custom_theme || {}),
+              is_ceo: nextStatus,
+            },
+          };
+        }
+        return m;
+      });
+    });
+
     try {
-      const nextStatus = !currentStatus;
       await toggleMemberCeoTag(targetUserId, nextStatus, user, profile, level);
 
       // Invalidação das queries
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["members"] }),
+        queryClient.invalidateQueries({ queryKey: ["member_tags"] }),
+        queryClient.invalidateQueries({ queryKey: ["member_tag_assignments"] }),
         queryClient.invalidateQueries({ queryKey: ["auth_session"] }),
         queryClient.invalidateQueries({ queryKey: ["auth"] }),
       ]);
@@ -809,6 +860,23 @@ function DevPermissoesContent() {
         { icon: nextStatus ? "👑" : "🛡️" }
       );
     } catch (err: any) {
+      // Reverter atualização otimista em caso de erro
+      queryClient.setQueryData<any[]>(["members"], (old) => {
+        if (!Array.isArray(old)) return old;
+        return old.map((m) => {
+          if (m.user_id === targetUserId || m.id === targetUserId) {
+            return {
+              ...m,
+              is_ceo: currentStatus,
+              custom_theme: {
+                ...(m.custom_theme || {}),
+                is_ceo: currentStatus,
+              },
+            };
+          }
+          return m;
+        });
+      });
       toast.error(err?.message || "Falha ao alterar Tag CEO do membro.");
     } finally {
       setTogglingMemberId(null);
@@ -1849,17 +1917,17 @@ function DevPermissoesContent() {
                             </div>
 
                             <div className="flex items-center gap-2 shrink-0 ml-2">
-                              {isToggling ? (
-                                <Loader2 className="h-4 w-4 animate-spin" style={{ color: devStyle.primaryHex }} />
-                              ) : (
-                                <Switch
-                                  id={`dev-toggle-${member.user_id}`}
-                                  checked={isDev}
-                                  onCheckedChange={() =>
-                                    handleToggleDevTag(member.user_id, isDev, member.nickname || member.nome)
-                                  }
-                                />
+                              {isToggling && (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: devStyle.primaryHex }} />
                               )}
+                              <Switch
+                                id={`dev-toggle-${member.user_id}`}
+                                checked={isDev}
+                                disabled={isToggling}
+                                onCheckedChange={() =>
+                                  handleToggleDevTag(member.user_id, isDev, member.nickname || member.nome)
+                                }
+                              />
                             </div>
                           </div>
                         );
@@ -2421,17 +2489,17 @@ function DevPermissoesContent() {
                             </div>
 
                             <div className="flex items-center gap-2 shrink-0 ml-2">
-                              {isToggling ? (
-                                <Loader2 className="h-4 w-4 animate-spin" style={{ color: ceoStyle.primaryHex }} />
-                              ) : (
-                                <Switch
-                                  id={`ceo-toggle-${member.user_id}`}
-                                  checked={isCeo}
-                                  onCheckedChange={() =>
-                                    handleToggleCeoTag(member.user_id, isCeo, member.nickname || member.nome)
-                                  }
-                                />
+                              {isToggling && (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: ceoStyle.primaryHex }} />
                               )}
+                              <Switch
+                                id={`ceo-toggle-${member.user_id}`}
+                                checked={isCeo}
+                                disabled={isToggling}
+                                onCheckedChange={() =>
+                                  handleToggleCeoTag(member.user_id, isCeo, member.nickname || member.nome)
+                                }
+                              />
                             </div>
                           </div>
                         );

@@ -1134,36 +1134,89 @@ export async function toggleMemberCeoTag(
     throw new Error("ID do usuário alvo inválido.");
   }
 
-  // 1. Busca o perfil atual do membro
-  const { data: targetProfile, error: fetchErr } = await (supabase.from("profiles" as any))
-    .select("user_id, nome, nickname, custom_theme")
-    .eq("user_id", targetUserId)
-    .maybeSingle();
+  const now = new Date().toISOString();
+  let targetName = targetUserId;
+  let existingTheme: any = {};
 
-  if (fetchErr) {
-    throw new Error(`Falha ao buscar perfil do membro: ${fetchErr.message}`);
+  // 1. Atualiza no Firebase RTDB (profiles)
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    const fbProfiles = await rtdb.get<Record<string, any>>("profiles");
+    if (fbProfiles && typeof fbProfiles === "object") {
+      for (const [k, v] of Object.entries(fbProfiles)) {
+        if (v && (v.user_id === targetUserId || v.id === targetUserId || k === targetUserId)) {
+          targetName = v.nickname || v.nome || targetName;
+          existingTheme = v.custom_theme || {};
+          const updatedTheme = { ...existingTheme, is_ceo: enable };
+          await rtdb.update(`profiles/${k}`, {
+            is_ceo: enable,
+            custom_theme: updatedTheme,
+            updated_at: now,
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Aviso ao atualizar profiles no RTDB:", err);
   }
 
-  const existingTheme = (targetProfile as any)?.custom_theme || {};
-  const updatedTheme = {
-    ...existingTheme,
-    is_ceo: enable,
-  };
+  // 2. Atualiza no Supabase (profiles)
+  try {
+    const { data: targetProfile } = await (supabase.from("profiles" as any))
+      .select("user_id, nome, nickname, custom_theme")
+      .or(`user_id.eq.${targetUserId},id.eq.${targetUserId}`)
+      .maybeSingle();
 
-  // 2. Atualiza no perfil do membro (profiles.is_ceo e profiles.custom_theme)
-  const { error: updateErr } = await (supabase.from("profiles" as any))
-    .update({
-      is_ceo: enable,
-      custom_theme: updatedTheme,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("user_id", targetUserId);
+    if (targetProfile) {
+      targetName = targetProfile.nickname || targetProfile.nome || targetName;
+      existingTheme = targetProfile.custom_theme || existingTheme;
+    }
+    const updatedTheme = { ...existingTheme, is_ceo: enable };
 
-  if (updateErr) {
-    throw new Error(`Falha ao atualizar status de CEO: ${updateErr.message}`);
+    await (supabase.from("profiles" as any))
+      .update({
+        is_ceo: enable,
+        custom_theme: updatedTheme,
+        updated_at: now,
+      })
+      .or(`user_id.eq.${targetUserId},id.eq.${targetUserId}`);
+  } catch (err) {
+    console.warn("Aviso ao atualizar profiles no Supabase:", err);
   }
 
-  // 3. Atualiza a lista de IDs de CEO na configuração central
+  // 3. Sincroniza em member_tag_assignments (tag_id: 'ceo')
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    const assignmentKey = `${targetUserId}_ceo`;
+    if (enable) {
+      const assignmentData = {
+        id: assignmentKey,
+        member_id: targetUserId,
+        user_id: targetUserId,
+        tag_id: "ceo",
+        assigned_by: user?.id || null,
+        created_at: now,
+      };
+      await rtdb.set(`member_tag_assignments/${assignmentKey}`, assignmentData);
+      try {
+        await supabase.from("member_tag_assignments" as any).upsert(assignmentData, { onConflict: "id" });
+      } catch {}
+    } else {
+      await rtdb.remove(`member_tag_assignments/${assignmentKey}`);
+      try {
+        await supabase.from("member_tag_assignments" as any)
+          .delete()
+          .or(`id.eq.${assignmentKey},and(member_id.eq.${targetUserId},tag_id.eq.ceo),and(user_id.eq.${targetUserId},tag_id.eq.ceo)`);
+      } catch {}
+    }
+    // Sincroniza cargo no Discord se bot configurado
+    const { triggerAutoDiscordTagSync } = await import("@/services/memberTagsService");
+    void triggerAutoDiscordTagSync(targetUserId, "ceo", enable ? "add" : "remove");
+  } catch (err) {
+    console.warn("Aviso ao sincronizar member_tag_assignments (ceo):", err);
+  }
+
+  // 4. Atualiza a lista de IDs de CEO na configuração central (system_ceo_config)
   try {
     const currentConfig = await getCeoConfiguration(user, profile, level);
     const activeSet = new Set(currentConfig.activeCeoUserIds || []);
@@ -1176,7 +1229,7 @@ export async function toggleMemberCeoTag(
       {
         ...currentConfig,
         activeCeoUserIds: Array.from(activeSet),
-        updatedAt: new Date().toISOString(),
+        updatedAt: now,
       },
       user,
       profile,
@@ -1186,12 +1239,32 @@ export async function toggleMemberCeoTag(
     console.warn("Falha ao sincronizar activeCeoUserIds:", err);
   }
 
-  // 4. Registra no log de auditoria
+  // 5. Se o alvo for o usuário logado atualmente, atualiza cache de sessão local
+  if (typeof window !== "undefined") {
+    const isSelf = targetUserId === user?.id || targetUserId === profile?.user_id || targetUserId === profile?.id;
+    if (isSelf) {
+      try {
+        const devRaw = localStorage.getItem("tw_dev_impersonate");
+        if (devRaw) {
+          const devObj = JSON.parse(devRaw);
+          devObj.is_ceo = enable;
+          if (devObj.custom_theme) devObj.custom_theme.is_ceo = enable;
+          localStorage.setItem("tw_dev_impersonate", JSON.stringify(devObj));
+        }
+      } catch {}
+      window.dispatchEvent(new CustomEvent("tw_auth_reload", { detail: { userId: targetUserId } }));
+    }
+    window.dispatchEvent(new Event("tw_permissions_synced"));
+    window.dispatchEvent(new Event("tw_ceo_config_updated"));
+    window.dispatchEvent(new Event("tw_tags_updated"));
+    window.dispatchEvent(new Event("tw_member_tags_updated"));
+    window.dispatchEvent(new Event("storage"));
+  }
+
+  // 6. Registra no log de auditoria
   try {
     const { logAuditAction } = await import("@/lib/app-api");
-    const targetName = (targetProfile as any)?.nickname || (targetProfile as any)?.nome || targetUserId;
     const actorName = profile?.nickname || profile?.nome || "Desenvolvedor";
-
     await logAuditAction(
       enable ? "conceder_tag_ceo" : "revogar_tag_ceo",
       "membros",
@@ -1200,7 +1273,7 @@ export async function toggleMemberCeoTag(
         alvo_nome: targetName,
         executado_por: actorName,
         novo_status: enable ? "CEO Ativado" : "CEO Desativado",
-        timestamp: new Date().toISOString(),
+        timestamp: now,
       }
     );
   } catch (auditErr) {
@@ -1210,6 +1283,9 @@ export async function toggleMemberCeoTag(
   void broadcastPermissionsRealtimeUpdate({
     type: "profiles",
     userId: targetUserId,
+  });
+  void broadcastPermissionsRealtimeUpdate({
+    type: "ceo_config",
   });
 
   return { success: true, is_ceo: enable };
@@ -1232,34 +1308,106 @@ export async function toggleMemberDevTag(
     throw new Error("ID do usuário alvo inválido.");
   }
 
-  // 1. Busca o perfil atual do membro
-  const { data: targetProfile, error: fetchErr } = await (supabase.from("profiles" as any))
-    .select("user_id, nome, nickname, is_developer")
-    .eq("user_id", targetUserId)
-    .maybeSingle();
+  const now = new Date().toISOString();
+  let targetName = targetUserId;
 
-  if (fetchErr) {
-    throw new Error(`Falha ao buscar perfil do membro: ${fetchErr.message}`);
+  // 1. Atualiza no Firebase RTDB (profiles)
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    const fbProfiles = await rtdb.get<Record<string, any>>("profiles");
+    if (fbProfiles && typeof fbProfiles === "object") {
+      for (const [k, v] of Object.entries(fbProfiles)) {
+        if (v && (v.user_id === targetUserId || v.id === targetUserId || k === targetUserId)) {
+          targetName = v.nickname || v.nome || targetName;
+          await rtdb.update(`profiles/${k}`, {
+            is_developer: enable,
+            updated_at: now,
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Aviso ao atualizar profiles no RTDB:", err);
   }
 
-  // 2. Atualiza no perfil do membro (profiles.is_developer)
-  const { error: updateErr } = await (supabase.from("profiles" as any))
-    .update({
-      is_developer: enable,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("user_id", targetUserId);
+  // 2. Atualiza no Supabase (profiles)
+  try {
+    const { data: targetProfile } = await (supabase.from("profiles" as any))
+      .select("user_id, nome, nickname, is_developer")
+      .or(`user_id.eq.${targetUserId},id.eq.${targetUserId}`)
+      .maybeSingle();
 
-  if (updateErr) {
-    throw new Error(`Falha ao atualizar status de Desenvolvedor: ${updateErr.message}`);
+    if (targetProfile) {
+      targetName = targetProfile.nickname || targetProfile.nome || targetName;
+    }
+
+    await (supabase.from("profiles" as any))
+      .update({
+        is_developer: enable,
+        updated_at: now,
+      })
+      .or(`user_id.eq.${targetUserId},id.eq.${targetUserId}`);
+  } catch (err) {
+    console.warn("Aviso ao atualizar profiles no Supabase:", err);
   }
 
-  // 3. Registra no log de auditoria
+  // 3. Sincroniza em member_tag_assignments (tag_id: 'dev')
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    const assignmentKey = `${targetUserId}_dev`;
+    if (enable) {
+      const assignmentData = {
+        id: assignmentKey,
+        member_id: targetUserId,
+        user_id: targetUserId,
+        tag_id: "dev",
+        assigned_by: user?.id || null,
+        created_at: now,
+      };
+      await rtdb.set(`member_tag_assignments/${assignmentKey}`, assignmentData);
+      try {
+        await supabase.from("member_tag_assignments" as any).upsert(assignmentData, { onConflict: "id" });
+      } catch {}
+    } else {
+      await rtdb.remove(`member_tag_assignments/${assignmentKey}`);
+      try {
+        await supabase.from("member_tag_assignments" as any)
+          .delete()
+          .or(`id.eq.${assignmentKey},and(member_id.eq.${targetUserId},tag_id.eq.dev),and(user_id.eq.${targetUserId},tag_id.eq.dev)`);
+      } catch {}
+    }
+    // Sincroniza cargo no Discord se bot configurado
+    const { triggerAutoDiscordTagSync } = await import("@/services/memberTagsService");
+    void triggerAutoDiscordTagSync(targetUserId, "dev", enable ? "add" : "remove");
+  } catch (err) {
+    console.warn("Aviso ao sincronizar member_tag_assignments (dev):", err);
+  }
+
+  // 4. Se o alvo for o usuário logado atualmente, atualiza cache de sessão local
+  if (typeof window !== "undefined") {
+    const isSelf = targetUserId === user?.id || targetUserId === profile?.user_id || targetUserId === profile?.id;
+    if (isSelf) {
+      try {
+        const devRaw = localStorage.getItem("tw_dev_impersonate");
+        if (devRaw) {
+          const devObj = JSON.parse(devRaw);
+          devObj.is_developer = enable;
+          localStorage.setItem("tw_dev_impersonate", JSON.stringify(devObj));
+        }
+      } catch {}
+      window.dispatchEvent(new CustomEvent("tw_auth_reload", { detail: { userId: targetUserId } }));
+    }
+    window.dispatchEvent(new Event("tw_permissions_synced"));
+    window.dispatchEvent(new Event("tw_dev_config_updated"));
+    window.dispatchEvent(new Event("tw_tags_updated"));
+    window.dispatchEvent(new Event("tw_member_tags_updated"));
+    window.dispatchEvent(new Event("storage"));
+  }
+
+  // 5. Registra no log de auditoria
   try {
     const { logAuditAction } = await import("@/lib/app-api");
-    const targetName = (targetProfile as any)?.nickname || (targetProfile as any)?.nome || targetUserId;
     const actorName = profile?.nickname || profile?.nome || "Desenvolvedor";
-
     await logAuditAction(
       enable ? "conceder_tag_dev" : "revogar_tag_dev",
       "membros",
@@ -1268,7 +1416,7 @@ export async function toggleMemberDevTag(
         alvo_nome: targetName,
         executado_por: actorName,
         novo_status: enable ? "Dev Ativado" : "Dev Desativado",
-        timestamp: new Date().toISOString(),
+        timestamp: now,
       }
     );
   } catch (auditErr) {
