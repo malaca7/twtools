@@ -15,6 +15,7 @@ import { fetchRemoteDevMenuConfig } from "@/hooks/useDevMenuConfig";
 import { fetchRemotePlatformSettings, getPlatformSettings } from "@/hooks/usePlatformSettings";
 import { playGamerSuccessSound } from "@/lib/sound-effects";
 import { getCeoTagPermissions, getCeoConfiguration } from "@/services/devService";
+import { CLIENT_INSTANCE_ID } from "@/integrations/supabase/client";
 
 export function useRealtimeSync() {
   const queryClient = useQueryClient();
@@ -23,6 +24,15 @@ export function useRealtimeSync() {
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const unsubRtdbPulseRef = useRef<(() => void) | null>(null);
+  const unsubRtdbEventsRef = useRef<(() => void) | null>(null);
+  const unsubRtdbCeoConfigRef = useRef<(() => void) | null>(null);
+  const unsubRtdbPurgeRef = useRef<(() => void) | null>(null);
+  const unsubRtdbDevConfigRef = useRef<(() => void) | null>(null);
+  const unsubRtdbAnnouncementsRef = useRef<(() => void) | null>(null);
+  const unsubRtdbScalesRef = useRef<(() => void) | null>(null);
+  const unsubRtdbWeeklyGoalsRef = useRef<(() => void) | null>(null);
+  const unsubRtdbProductionsRef = useRef<(() => void) | null>(null);
+  const unsubRtdbWarehouseStockRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -283,6 +293,48 @@ export function useRealtimeSync() {
           break;
         }
 
+        case "action_scales":
+        case "action_scale_members": {
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_action_scales_updated", { detail: payload }));
+          }
+          break;
+        }
+
+        case "productions":
+        case "production_items":
+        case "production_records": {
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_productions_updated", { detail: payload }));
+          }
+          break;
+        }
+
+        case "platform_settings": {
+          void fetchRemotePlatformSettings();
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_platform_settings_updated", { detail: payload }));
+          }
+          break;
+        }
+
+        case "sales":
+        case "customers":
+        case "customer_transactions": {
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_sales_updated", { detail: payload }));
+          }
+          break;
+        }
+
+        case "verification_requests":
+        case "verification_badge_config": {
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_verification_updated", { detail: payload }));
+          }
+          break;
+        }
+
         default:
           break;
       }
@@ -301,6 +353,90 @@ export function useRealtimeSync() {
     let appEventsBroadcastChannel: any = null;
 
     const setupChannels = () => {
+      // 4.0 Barramento Global de Eventos em Tempo Real via Firebase RTDB (Funciona entre todos os computadores/dispositivos)
+      try {
+        if (unsubRtdbEventsRef.current) {
+          unsubRtdbEventsRef.current();
+          unsubRtdbEventsRef.current = null;
+        }
+        unsubRtdbEventsRef.current = rtdb.subscribe("system_realtime_events/latest", (eventData: any) => {
+          if (!eventData || !eventData.timestamp) return;
+          // Ignora se o evento partiu desta exata instância do navegador (já tratado localmente)
+          if (eventData.originId === CLIENT_INSTANCE_ID) return;
+          // Ignora dados residuais muito antigos (> 60 segundos)
+          if (Date.now() - Number(eventData.timestamp) > 60000) return;
+
+          if (eventData.type === "cdc" && eventData.table) {
+            handleTableChange(eventData.table, {
+              eventType: eventData.eventType || "UPDATE",
+              new: eventData.record,
+              old: eventData.record,
+            });
+          } else if (eventData.keys && Array.isArray(eventData.keys)) {
+            triggerInvalidations(eventData.keys);
+            broadcastCrossTab(eventData.keys);
+          }
+        });
+      } catch {}
+
+      // 4.0.1 Subscrições Dedicadas do RTDB para Alta Reatividade em Nós Críticos
+      try {
+        if (unsubRtdbCeoConfigRef.current) unsubRtdbCeoConfigRef.current();
+        unsubRtdbCeoConfigRef.current = rtdb.subscribe("role_permissions/system_ceo_config", () => {
+          void getCeoConfiguration();
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_ceo_config_updated"));
+          }
+          triggerInvalidations(["role_permissions"]);
+        });
+
+        if (unsubRtdbPurgeRef.current) unsubRtdbPurgeRef.current();
+        unsubRtdbPurgeRef.current = rtdb.subscribe("role_permissions/system_force_cache_purge", (val: any) => {
+          if (val?.timestamp && Date.now() - Number(val.timestamp) < 30000) {
+            void queryClient.refetchQueries({ type: "active" });
+          }
+        });
+
+        if (unsubRtdbDevConfigRef.current) unsubRtdbDevConfigRef.current();
+        unsubRtdbDevConfigRef.current = rtdb.subscribe("role_permissions/system_dev_config", () => {
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_dev_config_updated"));
+            window.dispatchEvent(new CustomEvent("tw_permissions_synced", { detail: { level: "desenvolvedor" } }));
+          }
+          triggerInvalidations(["role_permissions"]);
+        });
+
+        if (unsubRtdbAnnouncementsRef.current) unsubRtdbAnnouncementsRef.current();
+        unsubRtdbAnnouncementsRef.current = rtdb.subscribe("announcements", () => {
+          triggerInvalidations(["announcements", "announcement_reads"]);
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_announcements_updated"));
+          }
+        });
+
+        if (unsubRtdbScalesRef.current) unsubRtdbScalesRef.current();
+        unsubRtdbScalesRef.current = rtdb.subscribe("action_scales", () => {
+          triggerInvalidations(["action_scales", "action_scale_members"]);
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_action_scales_updated"));
+          }
+        });
+
+        if (unsubRtdbProductionsRef.current) unsubRtdbProductionsRef.current();
+        unsubRtdbProductionsRef.current = rtdb.subscribe("productions", () => {
+          triggerInvalidations(["productions", "production_items", "production_records"]);
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_productions_updated"));
+          }
+        });
+
+        if (unsubRtdbWarehouseStockRef.current) unsubRtdbWarehouseStockRef.current();
+        unsubRtdbWarehouseStockRef.current = rtdb.subscribe("warehouse_stock", () => {
+          const stockKeys = ["movements", "product_baus", "baus", "products", "dashboard_metrics"];
+          triggerInvalidations(stockKeys);
+        });
+      } catch {}
+
       // 4.1 Canal CDC Global em todas as tabelas públicas com REPLICA IDENTITY FULL
       const uniqueChannelId = `tw_global_cdc_${Math.random().toString(36).substring(2, 9)}`;
       globalCdcChannel = supabase
@@ -534,6 +670,15 @@ export function useRealtimeSync() {
       if (bc) bc.close();
       if (permBc) permBc.close();
       if (unsubRtdbPulseRef.current) unsubRtdbPulseRef.current();
+      if (unsubRtdbEventsRef.current) unsubRtdbEventsRef.current();
+      if (unsubRtdbCeoConfigRef.current) unsubRtdbCeoConfigRef.current();
+      if (unsubRtdbPurgeRef.current) unsubRtdbPurgeRef.current();
+      if (unsubRtdbDevConfigRef.current) unsubRtdbDevConfigRef.current();
+      if (unsubRtdbAnnouncementsRef.current) unsubRtdbAnnouncementsRef.current();
+      if (unsubRtdbScalesRef.current) unsubRtdbScalesRef.current();
+      if (unsubRtdbWeeklyGoalsRef.current) unsubRtdbWeeklyGoalsRef.current();
+      if (unsubRtdbProductionsRef.current) unsubRtdbProductionsRef.current();
+      if (unsubRtdbWarehouseStockRef.current) unsubRtdbWarehouseStockRef.current();
       cleanupChannels();
     };
   }, [queryClient]);

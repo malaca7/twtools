@@ -19,18 +19,22 @@ import type { Permission } from "@/lib/permissions";
 import { useAuth } from "@/hooks/useAuth";
 
 export function useMemberTags() {
+  const queryClient = useQueryClient();
+
   return useQuery({
     queryKey: ["member_tags"],
     queryFn: getMemberTags,
-    staleTime: 30000,
+    staleTime: 2000,
   });
 }
 
 export function useMemberTagAssignments() {
+  const queryClient = useQueryClient();
+
   return useQuery({
     queryKey: ["member_tag_assignments"],
     queryFn: getMemberTagAssignments,
-    staleTime: 30000,
+    staleTime: 2000,
   });
 }
 

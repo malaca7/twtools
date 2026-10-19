@@ -175,10 +175,15 @@ export const TABLE_QUERY_KEYS: Record<string, string[]> = {
   member_tag_assignments: ["member_tags", "member_tag_assignments", "members", "auth", "auth_session"],
   signup_requests: ["pending_signup_requests", "members", "auth"],
 
-  // Comunicação, Avisos, Metas e Moderação
+  // Comunicação, Avisos, Metas, Ausências e Moderação
   announcements: ["announcements", "announcement_reads", "dashboard_metrics"],
   announcement_reads: ["announcement_reads", "announcements"],
   goals: ["goals", "weekly_goals", "goal_submissions"],
+  weekly_goals: ["weekly_goals", "goals", "goal_submissions"],
+  goal_submissions: ["goal_submissions", "weekly_goals", "goals"],
+  absences: ["absences", "members"],
+  member_warnings: ["member_warnings", "members"],
+  notifications: ["notifications"],
   tickets: ["tickets", "ticket_messages", "ticket_members"],
   ticket_messages: ["ticket_messages", "tickets"],
   ticket_members: ["ticket_members", "tickets"],
@@ -205,6 +210,15 @@ export const TABLE_QUERY_KEYS: Record<string, string[]> = {
   profile_post_likes: ["profile_posts", "profile_stats"],
   profile_post_bookmarks: ["profile_posts", "profile_bookmarks"],
   member_follows: ["profile_followers", "profile_following", "profile_stats"],
+
+  // Escalas Operacionais
+  action_scales: ["action_scales", "action_scale_members", "action_scales_history"],
+  action_scale_members: ["action_scales", "action_scale_members", "action_scales_history"],
+
+  // Configurações e Verificações
+  platform_settings: ["platform_settings"],
+  verification_requests: ["verification_requests", "profiles", "members"],
+  verification_badge_config: ["verification_badge_config", "profiles"],
 
   // Auditoria
   audit_logs: ["audit_logs"],

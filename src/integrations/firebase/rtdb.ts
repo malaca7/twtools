@@ -241,6 +241,7 @@ export const rtdb = {
   async set<T = any>(path: string, data: T): Promise<void> {
     const nodeRef = ref(db, path);
     await set(nodeRef, data);
+    this.triggerRealtimeNotification(path, 'UPDATE', data);
   },
 
   /**
@@ -249,6 +250,7 @@ export const rtdb = {
   async update(path: string, data: Record<string, any>): Promise<void> {
     const nodeRef = ref(db, path);
     await update(nodeRef, data);
+    this.triggerRealtimeNotification(path, 'UPDATE', data);
   },
 
   /**
@@ -257,6 +259,7 @@ export const rtdb = {
   async remove(path: string): Promise<void> {
     const nodeRef = ref(db, path);
     await remove(nodeRef);
+    this.triggerRealtimeNotification(path, 'DELETE', null);
   },
 
   /**
@@ -269,6 +272,35 @@ export const rtdb = {
     };
     onValue(nodeRef, listener);
     return () => off(nodeRef, 'value', listener);
+  },
+
+  /**
+   * Dispara a propagação do evento em tempo real para toda a rede
+   */
+  triggerRealtimeNotification(path: string, eventType: string, data?: any) {
+    const clean = path.replace(/^\/+/, '');
+    const root = clean.split('/')[0];
+    if (!root || root.startsWith('system_') || root.startsWith('_')) return;
+    try {
+      import('@/integrations/supabase/client')
+        .then(({ notifyTableChange }) => {
+          notifyTableChange(root, eventType, data);
+        })
+        .catch(() => {});
+    } catch {}
+  },
+
+  /**
+   * Notifica manualmente a alteração em uma tabela
+   */
+  notifyRealtimeChange(table: string, eventType: string = 'UPDATE', data?: any) {
+    try {
+      import('@/integrations/supabase/client')
+        .then(({ notifyTableChange }) => {
+          notifyTableChange(table, eventType, data);
+        })
+        .catch(() => {});
+    } catch {}
   },
 
   /**

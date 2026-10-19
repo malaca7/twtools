@@ -108,7 +108,6 @@ export function useMembers() {
   return useQuery({
     queryKey: ["members"],
     queryFn: async (): Promise<Member[]> => getMembers(),
-    staleTime: 60000,
   });
 }
 
@@ -143,7 +142,6 @@ export function usePendingSignupRequests(enabled = true) {
     enabled,
     queryKey: ["pending_signup_requests"],
     queryFn: async (): Promise<PendingSignupRequest[]> => getPendingSignupRequests(enabled),
-    staleTime: 60000,
   });
 }
 

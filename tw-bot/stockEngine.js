@@ -863,6 +863,15 @@ async function processStockMessage(message, config, allBaus, broadcastChannel = 
         author_name: finalAuthorName,
         items_count: parsedItems.length,
       });
+
+      await firebaseRtdb.set('system_realtime_events/latest', {
+        type: 'cdc',
+        table: 'stock_movements',
+        eventType: 'INSERT',
+        keys: ['movements', 'product_baus', 'baus', 'products', 'dashboard_metrics', 'discord_stock_logs'],
+        originId: 'tw_bot_discord',
+        timestamp: Date.now(),
+      });
     } catch {}
 
     // Emitir também broadcast via Supabase Realtime (se cliente disponível)

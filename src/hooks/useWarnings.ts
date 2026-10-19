@@ -49,7 +49,7 @@ export function useWarnings() {
   return useQuery({
     queryKey: WARNINGS_QUERY_KEY,
     queryFn: getWarnings,
-    staleTime: 1000 * 30, // 30 segundos
+    staleTime: 2000,
     refetchOnWindowFocus: true,
   });
 }

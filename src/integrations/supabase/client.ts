@@ -13,8 +13,13 @@ const FIREBASE_RTDB_URL =
   'https://rfdrive-fd805-default-rtdb.firebaseio.com';
 
 // ============================================================================
-// REALTIME CHANNEL BRIDGE (BroadcastChannel + Firebase RTDB table sync)
+// REALTIME CHANNEL BRIDGE (Firebase RTDB WebSocket Network + BroadcastChannel)
 // ============================================================================
+export const CLIENT_INSTANCE_ID =
+  typeof window !== 'undefined'
+    ? `tw_cli_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+    : 'tw_srv_instance';
+
 type RealtimeListener = {
   type: string;
   filter?: any;
@@ -44,25 +49,25 @@ class FirebaseRealtimeChannel {
     const filter = typeof filterOrCb === 'object' ? filterOrCb : undefined;
     this.listeners.push({ type, filter, callback: cb });
 
-    // Se for postgres_changes para uma tabela, escuta alterações no Firebase RTDB
-    if (type === 'postgres_changes' && filter?.table && typeof window !== 'undefined') {
-      const table = filter.table;
+    // Se for postgres_changes para uma tabela, escuta alterações localmente no mesmo navegador
+    if (type === 'postgres_changes' && typeof window !== 'undefined') {
+      const table = filter?.table;
       try {
-        // Polling leve / escuta no endpoint da tabela via BroadcastChannel
         const onTableChange = (ev: MessageEvent) => {
-          if (ev.data && ev.data.table === table) {
+          if (!table || (ev.data && ev.data.table === table)) {
             try {
               cb({
-                eventType: ev.data.eventType || '*',
-                schema: filter.schema || 'public',
-                table,
-                new: ev.data.new,
-                old: ev.data.old || null,
+                eventType: ev.data?.eventType || '*',
+                schema: filter?.schema || 'public',
+                table: ev.data?.table || table,
+                new: ev.data?.new,
+                old: ev.data?.old || null,
               });
             } catch {}
           }
         };
-        const tableBc = new BroadcastChannel(`tw_table_${table}`);
+        const tableChannelName = table ? `tw_table_${table}` : 'tw_global_realtime_sync';
+        const tableBc = new BroadcastChannel(tableChannelName);
         tableBc.onmessage = onTableChange;
         this.rtdbUnsubs.push(() => {
           try { tableBc.close(); } catch {}
@@ -74,6 +79,51 @@ class FirebaseRealtimeChannel {
   }
 
   subscribe(callback?: (status: string) => void) {
+    if (typeof window !== 'undefined') {
+      // 1. Escuta broadcasts remotos deste tópico via WebSocket do Firebase RTDB
+      import('@/integrations/firebase/rtdb').then(({ rtdb }) => {
+        try {
+          const unsubTopic = rtdb.subscribe(`system_realtime_events/broadcasts/${this.topic}`, (remoteMsg) => {
+            if (!remoteMsg || !remoteMsg.timestamp) return;
+            if (remoteMsg.originId === CLIENT_INSTANCE_ID) return; // ignora mensagens geradas pela própria aba
+            if (Date.now() - remoteMsg.timestamp > 45000) return; // ignora mensagens defasadas
+            this.dispatchLocal(remoteMsg);
+          });
+          this.rtdbUnsubs.push(unsubTopic);
+        } catch {}
+
+        // 2. Se houver listeners de postgres_changes neste canal, escuta o feed de mutações em tempo real do RTDB
+        const hasPostgresListener = this.listeners.some((l) => l.type === 'postgres_changes');
+        if (hasPostgresListener) {
+          try {
+            const unsubCdc = rtdb.subscribe('system_realtime_events/latest', (eventData) => {
+              if (!eventData || !eventData.table || !eventData.timestamp) return;
+              if (eventData.originId === CLIENT_INSTANCE_ID) return;
+              if (Date.now() - eventData.timestamp > 45000) return;
+
+              for (const l of this.listeners) {
+                if (l.type === 'postgres_changes') {
+                  const targetTable = l.filter?.table;
+                  if (!targetTable || targetTable === eventData.table) {
+                    try {
+                      l.callback({
+                        eventType: eventData.eventType || '*',
+                        schema: l.filter?.schema || 'public',
+                        table: eventData.table,
+                        new: eventData.new,
+                        old: null,
+                      });
+                    } catch {}
+                  }
+                }
+              }
+            });
+            this.rtdbUnsubs.push(unsubCdc);
+          } catch {}
+        }
+      }).catch(() => {});
+    }
+
     if (callback) {
       setTimeout(() => callback('SUBSCRIBED'), 10);
     }
@@ -90,10 +140,26 @@ class FirebaseRealtimeChannel {
   }
 
   send(payload: any) {
+    const fullPayload = {
+      ...payload,
+      originId: CLIENT_INSTANCE_ID,
+      timestamp: Date.now(),
+    };
+
     if (this.bc) {
-      try { this.bc.postMessage(payload); } catch {}
+      try { this.bc.postMessage(fullPayload); } catch {}
     }
-    this.dispatchLocal(payload);
+    this.dispatchLocal(fullPayload);
+
+    // Envia o broadcast pela rede via Firebase RTDB para todos os outros usuários conectados
+    try {
+      fetch(`${FIREBASE_RTDB_URL}/system_realtime_events/broadcasts/${this.topic}.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fullPayload),
+      }).catch(() => {});
+    } catch {}
+
     return Promise.resolve('ok');
   }
 
@@ -101,7 +167,7 @@ class FirebaseRealtimeChannel {
     for (const l of this.listeners) {
       try {
         if (payload?.type === 'broadcast' && l.type === 'broadcast') {
-          if (!l.filter?.event || l.filter.event === payload.event) {
+          if (!l.filter?.event || l.filter.event === payload.event || l.filter.event === '*') {
             l.callback({ event: payload.event, payload: payload.payload });
           }
         } else if (l.type === payload?.type || l.type === 'broadcast') {
@@ -112,14 +178,45 @@ class FirebaseRealtimeChannel {
   }
 }
 
+/**
+ * Notifica imediatamente alterações de dados em tempo real para:
+ * 1. Abas locais no mesmo navegador via BroadcastChannel (0ms)
+ * 2. Todos os outros usuários/membros conectados na rede via Firebase Realtime Database (<50ms)
+ */
 export function notifyTableChange(table: string, eventType: string, newRecord?: any) {
+  const timestamp = Date.now();
+  const eventPayload = {
+    id: `evt_${timestamp}_${Math.random().toString(36).substring(2, 7)}`,
+    table,
+    eventType: eventType || 'UPDATE',
+    new: newRecord || null,
+    originId: CLIENT_INSTANCE_ID,
+    timestamp,
+  };
+
+  // 1. Notificação local entre abas (0ms)
   if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
     try {
       const tableBc = new BroadcastChannel(`tw_table_${table}`);
-      tableBc.postMessage({ table, eventType, new: newRecord });
+      tableBc.postMessage(eventPayload);
       tableBc.close();
     } catch {}
+
+    try {
+      const globalBc = new BroadcastChannel('tw_global_realtime_sync');
+      globalBc.postMessage({ keys: [table], timestamp });
+      globalBc.close();
+    } catch {}
   }
+
+  // 2. Propagação global instantânea via Firebase Realtime Database
+  try {
+    fetch(`${FIREBASE_RTDB_URL}/system_realtime_events/latest.json`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(eventPayload),
+    }).catch(() => {});
+  } catch {}
 }
 
 // ============================================================================
