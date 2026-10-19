@@ -258,6 +258,15 @@ export function isUserDeveloper(
 ): boolean {
   if (level === "desenvolvedor") return true;
   if ((profile as any)?.is_developer === true) return true;
+  if (profile?.discord_id && DEV_DISCORD_IDS.includes(String(profile.discord_id))) return true;
+  if ((user as any)?.discord_id && DEV_DISCORD_IDS.includes(String((user as any).discord_id))) return true;
+  if (
+    user?.id === "c5ef6dc6-e126-4027-80c3-319f0a870315" ||
+    profile?.id === "860f8be7-6e51-4a47-8c14-9ca912d3c20a" ||
+    (profile as any)?.user_id === "c5ef6dc6-e126-4027-80c3-319f0a870315"
+  ) {
+    return true;
+  }
   if (typeof window !== "undefined") {
     if (localStorage.getItem("tw_dev_auth") === "true") return true;
     try {

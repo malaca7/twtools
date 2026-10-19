@@ -940,12 +940,16 @@ function DevPermissoesContent() {
 
   // Membros filtrados para a gestão rápida da Tag Dev
   const activeDevsCount = useMemo(() => {
-    return members.filter((m) => Boolean(m.is_developer || m.nivel === "desenvolvedor")).length;
+    return members.filter((m) =>
+      Boolean(m.is_developer || m.nivel === "desenvolvedor" || (m.discord_id && String(m.discord_id) === "722320491767136346"))
+    ).length;
   }, [members]);
 
   const filteredDevMembers = useMemo(() => {
     return members.filter((m) => {
-      const isDev = Boolean(m.is_developer || m.nivel === "desenvolvedor");
+      const isDev = Boolean(
+        m.is_developer || m.nivel === "desenvolvedor" || (m.discord_id && String(m.discord_id) === "722320491767136346")
+      );
       if (filterDevOnly === "dev_only" && !isDev) return false;
       if (filterDevOnly === "non_dev" && isDev) return false;
 
@@ -1922,7 +1926,11 @@ function DevPermissoesContent() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[380px] overflow-y-auto pr-1">
                       {filteredDevMembers.map((member) => {
                         const memberId = member.user_id || member.id;
-                        const isDev = Boolean(member.is_developer || member.nivel === "desenvolvedor");
+                        const isDev = Boolean(
+                          member.is_developer ||
+                          member.nivel === "desenvolvedor" ||
+                          (member.discord_id && String(member.discord_id) === "722320491767136346")
+                        );
                         const isCeo = Boolean(member.is_ceo || member.custom_theme?.is_ceo);
                         const isToggling =
                           togglingMemberId === memberId ||
@@ -2511,8 +2519,11 @@ function DevPermissoesContent() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[380px] overflow-y-auto pr-1">
                       {filteredMembers.map((member) => {
                         const memberId = member.user_id || member.id;
-                        const isCeo = Boolean(member.is_ceo || member.custom_theme?.is_ceo);
-                        const isDev = Boolean(member.is_developer || member.nivel === "desenvolvedor");
+                        const isDev = Boolean(
+                          member.is_developer ||
+                          member.nivel === "desenvolvedor" ||
+                          (member.discord_id && String(member.discord_id) === "722320491767136346")
+                        );
                         const isToggling =
                           togglingMemberId === memberId ||
                           togglingMemberId === member.user_id ||

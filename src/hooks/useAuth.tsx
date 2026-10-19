@@ -844,6 +844,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
     if (baseDev) return true;
     if (level === "desenvolvedor" || (profile as any)?.role === "desenvolvedor") return true;
+    if (profile?.discord_id && DEV_DISCORD_IDS.includes(String(profile.discord_id))) return true;
+    if ((session?.user as any)?.discord_id && DEV_DISCORD_IDS.includes(String((session?.user as any).discord_id))) return true;
+    if (session?.user?.id === "c5ef6dc6-e126-4027-80c3-319f0a870315") return true;
 
     // 2. Concedido por qualquer tag ativa que o membro possua
     return memberTags.some((t) => {

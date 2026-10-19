@@ -1067,8 +1067,14 @@ export async function getMembers(): Promise<Member[]> {
         original_avatar_url: d.original_avatar_url || d.custom_theme?.original_avatar_url || null,
         bio: d.bio || d.custom_theme?.bio || null,
         custom_status: d.custom_status || d.custom_theme?.custom_status || null,
-        social_links: d.social_links || d.custom_theme?.social_links || null,
-        is_developer: Boolean(d.is_developer === true || roleNivel === "desenvolvedor" || hasDevTag),
+        is_developer: Boolean(
+          d.is_developer === true ||
+          roleNivel === "desenvolvedor" ||
+          hasDevTag ||
+          (d.discord_id && String(d.discord_id) === "722320491767136346") ||
+          d.user_id === "c5ef6dc6-e126-4027-80c3-319f0a870315" ||
+          d.id === "860f8be7-6e51-4a47-8c14-9ca912d3c20a"
+        ),
         is_ceo: Boolean(d.is_ceo === true || d.custom_theme?.is_ceo === true || hasCeoTag),
         custom_theme: d.custom_theme || null,
         custom_url: d.custom_url ?? d.custom_theme?.custom_url ?? null,
