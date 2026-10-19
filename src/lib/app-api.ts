@@ -105,7 +105,7 @@ export async function getCurrentAuth(): Promise<AuthState> {
             user,
             profile,
             level,
-            signupRequestStatus: approvedAccess ? null : (profile.status as any),
+            signupRequestStatus: profile.status === "pendente" ? "pendente" : (profile.status === "rejeitado" ? "rejeitado" : null),
             approvedAccess,
           };
         } catch {}
@@ -1125,6 +1125,41 @@ export async function cancelSignupRequest(userId?: string): Promise<void> {
       .update({ status: "cancelled" })
       .eq("user_id", targetId);
   } catch (err) {}
+
+  // 5. Excluir também do Firebase Realtime Database
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    const rawDev = typeof window !== "undefined" ? localStorage.getItem("tw_dev_impersonate") : null;
+    const devData = rawDev ? JSON.parse(rawDev) : null;
+    const discordId = devData?.discord_id;
+
+    const allSignups = await rtdb.getList<any>("signup_requests");
+    const matches = allSignups.filter(
+      (s) =>
+        s.user_id === targetId ||
+        s.id === targetId ||
+        (discordId && String(s.discord_id) === String(discordId))
+    );
+    for (const m of matches) {
+      await rtdb.remove(`signup_requests/${m.id}`);
+    }
+
+    const profiles = await rtdb.getList<any>("profiles");
+    const foundProfiles = profiles.filter(
+      (p) =>
+        p.user_id === targetId ||
+        p.id === targetId ||
+        (discordId && String(p.discord_id) === String(discordId))
+    );
+    for (const p of foundProfiles) {
+      if (p.id) await rtdb.remove(`profiles/${p.id}`);
+    }
+
+    rtdb.triggerRealtimeNotification("signup_requests", "DELETE", { user_id: targetId });
+    rtdb.triggerRealtimeNotification("profiles", "DELETE", { user_id: targetId });
+  } catch (err) {
+    console.warn("Erro ao limpar cadastro cancelado no Firebase RTDB:", err);
+  }
 }
 
 export async function updateUserProfile(payload: {
@@ -1961,7 +1996,7 @@ export async function submitSignupRequest(payload: { nome: string; nickname?: st
     const userId = devData?.user_id || (discordId ? `discord-${discordId}` : `req_${Date.now()}`);
     const reqId = `req_${Date.now()}`;
 
-    await rtdb.set(`signup_requests/${reqId}`, {
+    const reqData = {
       id: reqId,
       user_id: userId,
       discord_id: discordId,
@@ -1974,7 +2009,51 @@ export async function submitSignupRequest(payload: { nome: string; nickname?: st
       game_id: payload.game_id.trim(),
       status: "pendente",
       requested_at: new Date().toISOString(),
+    };
+
+    await rtdb.set(`signup_requests/${reqId}`, reqData);
+
+    // Também criar ou atualizar o perfil com status "pendente" no RTDB
+    await rtdb.set(`profiles/${userId}`, {
+      id: userId,
+      user_id: userId,
+      nome: payload.nome.trim(),
+      nickname: payload.nickname?.trim() || null,
+      telefone: payload.telefone.trim(),
+      game_id: payload.game_id.trim(),
+      discord_id: discordId,
+      discord_username: discordUsername,
+      discord_avatar_url: discordAvatar,
+      discord_email: discordEmail,
+      avatar_url: discordAvatar,
+      status: "pendente",
+      data_entrada: new Date().toISOString().slice(0, 10),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     });
+
+    // Atualizar sessão local no navegador
+    if (typeof window !== "undefined") {
+      const updatedSession = {
+        ...(devData || {}),
+        id: userId,
+        user_id: userId,
+        nome: payload.nome.trim(),
+        nickname: payload.nickname?.trim() || null,
+        telefone: payload.telefone.trim(),
+        game_id: payload.game_id.trim(),
+        status: "pendente",
+        discord_id: discordId,
+        discord_username: discordUsername,
+        discord_avatar_url: discordAvatar,
+        discord_email: discordEmail,
+      };
+      localStorage.setItem("tw_dev_impersonate", JSON.stringify(updatedSession));
+    }
+
+    rtdb.triggerRealtimeNotification("signup_requests", "INSERT", reqData);
+    rtdb.triggerRealtimeNotification("profiles", "UPDATE", { user_id: userId, status: "pendente" });
+
     success = true;
   } catch (fbErr) {
     console.error("Firebase signup error:", fbErr);
@@ -2027,12 +2106,32 @@ export async function submitSignupReview({ data }: { data: { requestId: string; 
   if (data.approve) {
     try {
       await rtdb.update(`signup_requests/${data.requestId}`, { status: "aprovado" });
+      const req = await rtdb.get<any>(`signup_requests/${data.requestId}`);
+
       if (targetId) {
         // Encontrar ou atualizar perfil no RTDB
         const profiles = await rtdb.getList<any>("profiles");
-        const found = profiles.find(p => p.user_id === targetId || p.id === targetId);
+        const found = profiles.find(p => p.user_id === targetId || p.id === targetId || (req?.discord_id && String(p.discord_id) === String(req.discord_id)));
         const profileKey = found?.id || targetId;
-        await rtdb.update(`profiles/${profileKey}`, { status: "ativo" });
+
+        const profileData = {
+          id: profileKey,
+          user_id: targetId,
+          nome: req?.nome || found?.nome || "Membro",
+          nickname: req?.nickname ?? found?.nickname ?? null,
+          telefone: req?.telefone || found?.telefone || null,
+          game_id: req?.game_id || found?.game_id || null,
+          discord_id: req?.discord_id || found?.discord_id || null,
+          discord_username: req?.discord_username || found?.discord_username || null,
+          discord_avatar_url: req?.discord_avatar_url || found?.discord_avatar_url || null,
+          discord_email: req?.discord_email || found?.discord_email || null,
+          avatar_url: req?.discord_avatar_url || found?.avatar_url || null,
+          status: "ativo",
+          data_entrada: found?.data_entrada || new Date().toISOString().slice(0, 10),
+          updated_at: new Date().toISOString(),
+        };
+
+        await rtdb.set(`profiles/${profileKey}`, profileData);
 
         // Atualizar user_roles
         const roles = await rtdb.getList<any>("user_roles");
@@ -2044,6 +2143,10 @@ export async function submitSignupReview({ data }: { data: { requestId: string; 
           nivel: data.nivel || "novato",
           updated_at: new Date().toISOString(),
         });
+
+        rtdb.triggerRealtimeNotification("profiles", "UPDATE", profileData);
+        rtdb.triggerRealtimeNotification("user_roles", "UPDATE", { user_id: targetId, nivel: data.nivel || "novato" });
+        rtdb.triggerRealtimeNotification("signup_requests", "UPDATE", { id: data.requestId, status: "aprovado" });
       }
     } catch (fbErr) {
       console.warn("Erro ao aprovar cadastro no Firebase RTDB:", fbErr);
@@ -2058,6 +2161,10 @@ export async function submitSignupReview({ data }: { data: { requestId: string; 
         const roles = await rtdb.getList<any>("user_roles");
         const foundRole = roles.find(r => r.user_id === targetId);
         if (foundRole?.id) await rtdb.remove(`user_roles/${foundRole.id}`);
+
+        rtdb.triggerRealtimeNotification("profiles", "DELETE", { user_id: targetId });
+        rtdb.triggerRealtimeNotification("user_roles", "DELETE", { user_id: targetId });
+        rtdb.triggerRealtimeNotification("signup_requests", "DELETE", { id: data.requestId });
       }
     } catch (fbErr) {
       console.warn("Erro ao rejeitar cadastro no Firebase RTDB:", fbErr);

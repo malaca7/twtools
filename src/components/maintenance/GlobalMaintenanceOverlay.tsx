@@ -19,9 +19,12 @@ import {
   CheckCircle2,
   Tag,
   Users,
+  LogOut,
+  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Brand } from "@/components/Brand";
 import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 import { useAuth } from "@/hooks/useAuth";
@@ -29,9 +32,17 @@ import { DevMaintenanceManagerModal } from "./DevMaintenanceManagerModal";
 import { LEVEL_LABEL, type AppLevel } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
+function DiscordIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 127.14 96.36" fill="currentColor" {...props}>
+      <path d="M107.7,8.07A105.15,105.15,0,0,0,77.26,0a77.19,77.19,0,0,0-3.3,6.83A96.67,96.67,0,0,0,53.22,6.83,77.19,77.19,0,0,0,49.88,0,105.15,105.15,0,0,0,19.44,8.07C3.66,31.58-1.86,54.65,1,77.53A105.73,105.73,0,0,0,32,96.36a77.7,77.7,0,0,0,6.63-10.85,68.43,68.43,0,0,1-10.5-5c.88-.65,1.72-1.34,2.51-2a75.58,75.58,0,0,0,93,0c.79.71,1.63,1.4,2.51,2a68.43,68.43,0,0,1-10.5,5,77.7,77.7,0,0,0,6.63,10.85,105.73,105.73,0,0,0,31.6-18.83C129,54.65,122.64,31.58,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53S36.18,40.36,42.45,40.36,53.83,46,53.83,53,48.72,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.24,60,73.24,53S78.41,40.36,84.69,40.36,96.07,46,96.07,53,91,65.69,84.69,65.69Z" />
+    </svg>
+  );
+}
+
 export function GlobalMaintenanceOverlay() {
   const { settings, finishMaintenance, extendMaintenance } = usePlatformSettings();
-  const { isDevUser, profile, user, level, memberTags } = useAuth();
+  const { isDevUser, profile, user, level, memberTags, signOut } = useAuth();
 
   const authorName = profile?.nome || profile?.nickname || "Desenvolvedor";
 
@@ -214,6 +225,46 @@ export function GlobalMaintenanceOverlay() {
       toast.success("Modo de manutenção finalizado com sucesso!", { icon: "✅" });
     } catch (err: any) {
       toast.error("Erro ao finalizar: " + (err?.message || "Erro"));
+    }
+  };
+
+  const [loggingOut, setLoggingOut] = useState<boolean>(false);
+
+  const handleSignOut = async () => {
+    setLoggingOut(true);
+    try {
+      await signOut();
+      toast.success("Você foi desconectado com sucesso.");
+    } catch (err: any) {
+      toast.error("Erro ao desconectar: " + (err?.message || "Erro desconhecido"));
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
+  const handleDiscordLogin = () => {
+    try {
+      const origin = typeof window !== "undefined" && window.location.origin
+        ? window.location.origin
+        : "https://twin.malaca.com.br";
+
+      let cleanOrigin = origin.startsWith("http://") || origin.startsWith("https://")
+        ? origin
+        : `https://${origin}`;
+
+      if (cleanOrigin.includes("twin.malaca.com.br")) {
+        cleanOrigin = cleanOrigin.replace(/^http:\/\//, "https://");
+      }
+
+      const redirectTarget = `${cleanOrigin}/auth/callback`;
+      const clientId = "1536184283197079622";
+      const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(
+        redirectTarget
+      )}&response_type=token&scope=identify%20email`;
+
+      window.location.href = discordAuthUrl;
+    } catch (err: any) {
+      toast.error("Erro ao iniciar login: " + (err?.message || "Erro desconhecido"));
     }
   };
 
@@ -463,6 +514,62 @@ export function GlobalMaintenanceOverlay() {
             )}
           </div>
 
+          {/* CONTROLE DE SESSÃO / LOGIN & LOGOUT NA MANUTENÇÃO */}
+          {user ? (
+            <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
+              <div className="flex items-center gap-3 min-w-0 w-full sm:w-auto">
+                <Avatar className="h-9 w-9 border border-white/15 shrink-0">
+                  <AvatarImage src={profile?.avatar_url || profile?.discord_avatar_url || undefined} alt={profile?.nome || "Membro"} />
+                  <AvatarFallback className="bg-zinc-800 text-zinc-300 text-xs font-bold font-mono">
+                    {(profile?.nickname || profile?.nome || "M").slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 truncate">
+                  <div className="text-xs font-bold text-white truncate flex items-center gap-1.5">
+                    <span>{profile?.nickname || profile?.nome || "Membro Autenticado"}</span>
+                    {isDevUser && (
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-amber-400/50 text-amber-300 bg-amber-500/10">
+                        Dev
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-zinc-400 font-mono">
+                    {level ? LEVEL_LABEL[level] || level : "Membro"}
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleSignOut}
+                disabled={loggingOut}
+                className="w-full sm:w-auto h-8 text-xs font-bold border-rose-500/30 text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 gap-1.5 cursor-pointer rounded-xl shrink-0 transition-colors"
+              >
+                <LogOut className={cn("w-3.5 h-3.5", loggingOut && "animate-spin")} />
+                <span>{loggingOut ? "Desconectando..." : "Desconectar"}</span>
+              </Button>
+            </div>
+          ) : (
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 text-center space-y-3">
+              <div className="text-xs font-bold text-zinc-200">
+                Acesso para Membros e Equipe Técnica
+              </div>
+              <p className="text-[11px] text-zinc-400 max-w-sm mx-auto leading-relaxed">
+                Faça login com sua conta do Discord para verificar sua liberação de acesso ou entrar como desenvolvedor.
+              </p>
+              <Button
+                type="button"
+                onClick={handleDiscordLogin}
+                className="w-full sm:w-auto h-10 px-6 text-xs font-bold bg-[#5865F2] hover:bg-[#4752C4] text-white rounded-xl shadow-lg shadow-[#5865F2]/25 flex items-center justify-center gap-2.5 mx-auto cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <DiscordIcon className="w-4 h-4" />
+                <span>Entrar com Discord</span>
+              </Button>
+            </div>
+          )}
+
           {/* PAINEL EXCLUSIVO PARA QUEM POSSUI TAG DEV */}
           {isDevUser ? (
             <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/40 text-left space-y-3 pt-3.5">
@@ -521,20 +628,6 @@ export function GlobalMaintenanceOverlay() {
                   Finalizar Agora
                 </Button>
               </div>
-            </div>
-          ) : !user ? (
-            /* Link discreto para Devs deslogados */
-            <div className="pt-2 text-[11px] text-zinc-500">
-              <span>É da equipe de desenvolvimento? </span>
-              <button
-                type="button"
-                onClick={() => {
-                  window.location.href = "/";
-                }}
-                className="text-amber-400 hover:text-amber-300 hover:underline font-bold inline-flex items-center gap-1 cursor-pointer"
-              >
-                Fazer login técnico <ChevronRight className="w-3 h-3" />
-              </button>
             </div>
           ) : null}
         </div>

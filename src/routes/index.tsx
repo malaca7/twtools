@@ -100,60 +100,48 @@ function AuthPage() {
   useEffect(() => {
     if (!session?.user?.id || !isPendingApproval) return;
 
-    const channel = supabase
-      .channel(`pending-user-${session.user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "signup_requests",
-          filter: `user_id=eq.${session.user.id}`,
-        },
-        async (payload) => {
-          const status = (payload.new as any)?.status;
-          if (status === "aprovado") {
-            toast.success("Seu cadastro foi aprovado pela liderança! Entrando no painel...");
-            await refresh();
-            void navigate({ to: "/dashboard", replace: true });
+    let active = true;
+
+    // Checagem reativa periódica no Firebase Realtime Database
+    const checkFirebaseApproval = async () => {
+      try {
+        const { rtdb } = await import("@/integrations/firebase/rtdb");
+        const profiles = await rtdb.getList<any>("profiles");
+        const currentUid = session.user.id;
+        const currentDiscordId = profile?.discord_id;
+
+        const matched = profiles.find(
+          (p) =>
+            (currentUid && (p.user_id === currentUid || p.id === currentUid)) ||
+            (currentDiscordId && String(p.discord_id) === String(currentDiscordId))
+        );
+
+        if (matched && matched.status === "ativo" && active) {
+          // Atualiza sessão no localStorage
+          const raw = localStorage.getItem("tw_dev_impersonate");
+          if (raw) {
+            try {
+              const d = JSON.parse(raw);
+              d.status = "ativo";
+              d.nivel = d.nivel || "novato";
+              localStorage.setItem("tw_dev_impersonate", JSON.stringify(d));
+            } catch {}
           }
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "user_roles",
-          filter: `user_id=eq.${session.user.id}`,
-        },
-        async () => {
           toast.success("Seu cadastro foi aprovado pela liderança! Entrando no painel...");
           await refresh();
           void navigate({ to: "/dashboard", replace: true });
         }
-      )
-      .subscribe();
+      } catch {}
+    };
 
-    const interval = setInterval(async () => {
-      const { data: userRole } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
-
-      if (userRole) {
-        toast.success("Seu cadastro foi aprovado pela liderança! Entrando no painel...");
-        await refresh();
-        void navigate({ to: "/dashboard", replace: true });
-      }
-    }, 60000);
+    void checkFirebaseApproval();
+    const interval = setInterval(checkFirebaseApproval, 3500);
 
     return () => {
-      void supabase.removeChannel(channel);
+      active = false;
       clearInterval(interval);
     };
-  }, [session?.user?.id, isPendingApproval, refresh, navigate]);
+  }, [session?.user?.id, profile?.discord_id, isPendingApproval, refresh, navigate]);
 
   const handleDiscordLogin = async () => {
     setLoading(true);

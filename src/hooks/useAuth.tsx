@@ -203,8 +203,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               is_verified: Boolean(dev.is_verified === true),
             },
             level: dev.nivel || "novato",
-            signupRequestStatus: null,
-            approvedAccess: true,
+            signupRequestStatus: dev.status === "pendente" ? "pendente" : (dev.status === "rejeitado" ? "rejeitado" : null),
+            approvedAccess: dev.status === "ativo",
           };
 
           if (dev.custom_theme && typeof document !== "undefined") {

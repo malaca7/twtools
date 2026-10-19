@@ -64,6 +64,9 @@ function AuthCallbackPage() {
             ? `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png?size=512`
             : "https://cdn.discordapp.com/embed/avatars/0.png";
 
+          // 1.1 Verificar se é desenvolvedor master pelo Discord ID
+          const isHardcodedDev = String(discordUser.id) === "722320491767136346";
+
           // Buscar perfil correspondente no Firebase Realtime Database
           const profiles = await rtdb.getList<any>("profiles");
           const matchedProfile = profiles.find(
@@ -72,39 +75,47 @@ function AuthCallbackPage() {
               (discordUser.email && p.discord_email === discordUser.email)
           );
 
-          if (matchedProfile && matchedProfile.status === "ativo") {
+          // Buscar solicitações de cadastro no Firebase Realtime Database
+          const signups = await rtdb.getList<any>("signup_requests");
+          const pendingSignup = signups.find(
+            (s) =>
+              String(s.discord_id) === String(discordUser.id) ||
+              (discordUser.email && s.discord_email === discordUser.email)
+          );
+
+          if (isHardcodedDev || (matchedProfile && matchedProfile.status === "ativo")) {
             // Buscar cargo do membro no Firebase RTDB
             const userRoles = await rtdb.getList<any>("user_roles");
             const userRole = userRoles.find(
-              (r) => r.user_id === matchedProfile.user_id || r.user_id === matchedProfile.id
+              (r) => r.user_id === matchedProfile?.user_id || r.user_id === matchedProfile?.id || (isHardcodedDev && r.user_id === "c5ef6dc6-e126-4027-80c3-319f0a870315")
             );
 
             const isDev = Boolean(
-              matchedProfile.is_developer === true || (matchedProfile.is_developer === undefined && discordUser.id === "722320491767136346")
+              isHardcodedDev || matchedProfile?.is_developer === true
             );
             const isCeo = Boolean(
-              matchedProfile.is_ceo === true || matchedProfile.custom_theme?.is_ceo === true
+              isHardcodedDev || matchedProfile?.is_ceo === true || matchedProfile?.custom_theme?.is_ceo === true
             );
-            const userLevel = userRole?.nivel || (isDev || isCeo ? "01" : "novato");
+            const userLevel = isDev ? "desenvolvedor" : (userRole?.nivel || (isCeo ? "01" : "novato"));
 
             const sessionData = {
-              id: matchedProfile.id,
-              user_id: matchedProfile.user_id || matchedProfile.id,
-              nome: matchedProfile.nome,
-              nickname: matchedProfile.nickname,
-              telefone: matchedProfile.telefone,
-              game_id: matchedProfile.game_id,
-              avatar_url: matchedProfile.avatar_url || discordAvatar,
+              id: matchedProfile?.id || (isHardcodedDev ? "860f8be7-6e51-4a47-8c14-9ca912d3c20a" : `discord-${discordUser.id}`),
+              user_id: matchedProfile?.user_id || matchedProfile?.id || (isHardcodedDev ? "c5ef6dc6-e126-4027-80c3-319f0a870315" : `discord-${discordUser.id}`),
+              nome: matchedProfile?.nome || discordUser.global_name || discordUser.username,
+              nickname: matchedProfile?.nickname || null,
+              telefone: matchedProfile?.telefone || null,
+              game_id: matchedProfile?.game_id || (isHardcodedDev ? "5669" : null),
+              avatar_url: matchedProfile?.avatar_url || discordAvatar,
               discord_id: discordUser.id,
               discord_username: discordUser.username,
               discord_avatar_url: discordAvatar,
-              discord_email: discordUser.email || matchedProfile.discord_email,
+              discord_email: discordUser.email || matchedProfile?.discord_email,
               is_developer: isDev,
               is_ceo: isCeo,
               nivel: userLevel,
-              status: matchedProfile.status,
-              is_verified: Boolean(matchedProfile.is_verified),
-              custom_theme: matchedProfile.custom_theme || null,
+              status: "ativo",
+              is_verified: Boolean(matchedProfile?.is_verified ?? isHardcodedDev),
+              custom_theme: matchedProfile?.custom_theme || null,
             };
 
             // Salvar sessão no localStorage
@@ -114,11 +125,11 @@ function AuthCallbackPage() {
             sessionStorage.setItem("tw_session_start", String(Date.now()));
 
             await refresh();
-            toast.success(`Bem-vindo de volta, ${matchedProfile.nickname || matchedProfile.nome}!`);
-            navigate({ to: "/dashboard", replace: true });
+            toast.success(`Bem-vindo de volta, ${matchedProfile?.nickname || sessionData.nome}!`);
+            navigate({ to: isDev ? "/dev" : "/dashboard", replace: true });
             return;
-          } else {
-            // Membro novo ou cadastro pendente de aprovação
+          } else if (matchedProfile?.status === "pendente" || pendingSignup?.status === "pendente") {
+            // Cadastro já enviado aguardando liderança
             localStorage.setItem(
               "tw_pending_discord_user",
               JSON.stringify({
@@ -129,8 +140,43 @@ function AuthCallbackPage() {
               })
             );
 
-            // Criar sessão temporária para permitir cadastro na tela inicial
-            const tempSession = {
+            const pendingSession = {
+              id: matchedProfile?.id || `discord-${discordUser.id}`,
+              user_id: matchedProfile?.user_id || `discord-${discordUser.id}`,
+              nome: pendingSignup?.nome || matchedProfile?.nome || discordUser.global_name || discordUser.username,
+              nickname: pendingSignup?.nickname || matchedProfile?.nickname || null,
+              telefone: pendingSignup?.telefone || matchedProfile?.telefone || null,
+              game_id: pendingSignup?.game_id || matchedProfile?.game_id || null,
+              avatar_url: discordAvatar,
+              discord_id: discordUser.id,
+              discord_username: discordUser.username,
+              discord_avatar_url: discordAvatar,
+              discord_email: discordUser.email,
+              is_developer: false,
+              is_ceo: false,
+              nivel: "novato",
+              status: "pendente",
+              is_verified: false,
+            };
+            localStorage.setItem("tw_dev_impersonate", JSON.stringify(pendingSession));
+
+            await refresh();
+            toast.info("Solicitação em análise pela liderança.");
+            navigate({ to: "/", replace: true });
+            return;
+          } else {
+            // Membro novo sem cadastro prévio
+            localStorage.setItem(
+              "tw_pending_discord_user",
+              JSON.stringify({
+                id: discordUser.id,
+                username: discordUser.username,
+                avatar: discordAvatar,
+                email: discordUser.email,
+              })
+            );
+
+            const newSession = {
               id: `discord-${discordUser.id}`,
               user_id: `discord-${discordUser.id}`,
               nome: discordUser.global_name || discordUser.username,
@@ -142,16 +188,16 @@ function AuthCallbackPage() {
               discord_username: discordUser.username,
               discord_avatar_url: discordAvatar,
               discord_email: discordUser.email,
-              is_developer: discordUser.id === "722320491767136346",
-              is_ceo: discordUser.id === "722320491767136346",
+              is_developer: false,
+              is_ceo: false,
               nivel: "novato",
-              status: "pendente",
+              status: "novo",
               is_verified: false,
             };
-            localStorage.setItem("tw_dev_impersonate", JSON.stringify(tempSession));
+            localStorage.setItem("tw_dev_impersonate", JSON.stringify(newSession));
 
             await refresh();
-            toast.info("Conta do Discord vinculada! Preencha seus dados para solicitar acesso.");
+            toast.info("Conta do Discord vinculada! Preencha seus dados para solicitar cadastro.");
             navigate({ to: "/", replace: true });
             return;
           }
