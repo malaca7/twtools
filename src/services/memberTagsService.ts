@@ -354,9 +354,36 @@ export async function updateTagPermissionsAndRules(
 }
 
 /**
- * Remove uma tag
+ * Alterna rapidamente se a tag é Tag de Sistema (visível no perfil do membro) ou Interna
+ */
+export async function toggleMemberTagSystem(tagId: string, isSystem: boolean): Promise<void> {
+  const { error } = await supabase
+    .from("member_tags" as any)
+    .update({
+      is_system: isSystem,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", tagId);
+
+  if (error) {
+    console.error("Erro ao alternar status de tag de sistema:", error);
+    throw new Error(error.message || "Erro ao atualizar status da tag");
+  }
+}
+
+/**
+ * Remove uma tag (com limpeza segura de vínculos)
  */
 export async function deleteMemberTag(tagId: string): Promise<void> {
+  // 1. Limpa vínculos da tag com membros
+  try {
+    await supabase
+      .from("member_tag_assignments" as any)
+      .delete()
+      .eq("tag_id", tagId);
+  } catch {}
+
+  // 2. Exclui a tag
   const { error } = await supabase
     .from("member_tags" as any)
     .delete()

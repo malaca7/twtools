@@ -6,6 +6,7 @@ import {
   getMemberTagAssignments,
   saveMemberTag,
   deleteMemberTag,
+  toggleMemberTagSystem,
   updateTagPermissionsAndRules,
   toggleMemberTagAssignment,
   setMemberTags,
@@ -249,9 +250,26 @@ export function useMemberTagMutations() {
     },
   });
 
+  const toggleSystemTagMutation = useMutation({
+    mutationFn: ({ tagId, isSystem }: { tagId: string; isSystem: boolean }) =>
+      toggleMemberTagSystem(tagId, isSystem),
+    onSuccess: (_, variables) => {
+      toast.success(
+        variables.isSystem
+          ? "Tag definida como Tag de Sistema (visível no perfil do membro)!"
+          : "Tag alterada para Interna / Regras!"
+      );
+      invalidate();
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Erro ao alterar status de tag de sistema.");
+    },
+  });
+
   return {
     saveTagMutation,
     deleteTagMutation,
+    toggleSystemTagMutation,
     updatePermissionsAndRulesMutation,
     toggleAssignmentMutation,
     setMemberTagsMutation,

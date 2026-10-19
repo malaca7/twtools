@@ -221,6 +221,7 @@ export function CeoGerenciarTagsPage() {
   const {
     saveTagMutation,
     deleteTagMutation,
+    toggleSystemTagMutation,
     toggleAssignmentMutation,
     setTagMembersMutation,
     updatePermissionsAndRulesMutation,
@@ -1269,61 +1270,73 @@ export function CeoGerenciarTagsPage() {
 
       {/* MÉTRICAS EM DESTAQUE */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="surface-card border-border/70 shadow-sm">
-          <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
-            <span className="text-xs font-semibold text-muted-foreground">Total de Tags</span>
-            <TagIcon className="h-4 w-4 text-primary" />
+        <Card className="surface-card border border-primary/20 shadow-lg relative overflow-hidden group hover:border-primary/50 transition-all duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-60 pointer-events-none" />
+          <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0 relative z-10">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total de Tags</span>
+            <div className="p-2 rounded-xl bg-primary/15 text-primary border border-primary/30 shadow-xs group-hover:scale-105 transition-transform">
+              <TagIcon className="h-4 w-4" />
+            </div>
           </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <div className="text-2xl font-bold tracking-tight text-foreground">{metrics.totalTags}</div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Cadastradas no sistema</p>
+          <CardContent className="p-4 pt-0 relative z-10">
+            <div className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground font-mono">{metrics.totalTags}</div>
+            <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">Cadastradas na plataforma</p>
           </CardContent>
         </Card>
 
-        <Card className="surface-card border-border/70 shadow-sm">
-          <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
-            <span className="text-xs font-semibold text-muted-foreground">Membros com Tag</span>
-            <Users className="h-4 w-4 text-sky-400" />
+        <Card className="surface-card border border-sky-500/20 shadow-lg relative overflow-hidden group hover:border-sky-500/50 transition-all duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-sky-500/10 via-transparent to-transparent opacity-60 pointer-events-none" />
+          <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0 relative z-10">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Membros com Tag</span>
+            <div className="p-2 rounded-xl bg-sky-500/15 text-sky-400 border border-sky-500/30 shadow-xs group-hover:scale-105 transition-transform">
+              <Users className="h-4 w-4" />
+            </div>
           </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <div className="text-2xl font-bold tracking-tight text-foreground">{metrics.totalAssignedMembers}</div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Com atribuição ativa</p>
+          <CardContent className="p-4 pt-0 relative z-10">
+            <div className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground font-mono">{metrics.totalAssignedMembers}</div>
+            <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">Com atribuição ativa</p>
           </CardContent>
         </Card>
 
-        <Card className="surface-card border-border/70 shadow-sm">
-          <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
-            <span className="text-xs font-semibold text-muted-foreground">Tags Ativas</span>
-            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+        <Card className="surface-card border border-emerald-500/20 shadow-lg relative overflow-hidden group hover:border-emerald-500/50 transition-all duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent opacity-60 pointer-events-none" />
+          <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0 relative z-10">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Tags Ativas</span>
+            <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-xs group-hover:scale-105 transition-transform">
+              <CheckCircle2 className="h-4 w-4" />
+            </div>
           </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <div className="text-2xl font-bold tracking-tight text-foreground">{metrics.activeTags}</div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Operacionais na plataforma</p>
+          <CardContent className="p-4 pt-0 relative z-10">
+            <div className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground font-mono">{metrics.activeTags}</div>
+            <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">Operacionais no sistema</p>
           </CardContent>
         </Card>
 
-        <Card className="surface-card border-border/70 shadow-sm">
-          <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
-            <span className="text-xs font-semibold text-muted-foreground">Tags com Bloqueio</span>
-            <ShieldAlert className="h-4 w-4 text-rose-400" />
+        <Card className="surface-card border border-rose-500/20 shadow-lg relative overflow-hidden group hover:border-rose-500/50 transition-all duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-rose-500/10 via-transparent to-transparent opacity-60 pointer-events-none" />
+          <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0 relative z-10">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Tags Bloqueadoras</span>
+            <div className="p-2 rounded-xl bg-rose-500/15 text-rose-400 border border-rose-500/30 shadow-xs group-hover:scale-105 transition-transform">
+              <ShieldAlert className="h-4 w-4" />
+            </div>
           </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <div className="text-2xl font-bold tracking-tight text-foreground">{metrics.blockingTags}</div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Restringem operações</p>
+          <CardContent className="p-4 pt-0 relative z-10">
+            <div className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground font-mono">{metrics.blockingTags}</div>
+            <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">Restringem operações</p>
           </CardContent>
         </Card>
       </div>
 
       {/* FILTROS E BUSCA */}
-      <Card className="surface-card border-border/70 shadow-sm">
-        <CardContent className="p-4 flex flex-col md:flex-row gap-3 items-center justify-between">
-          <div className="relative w-full md:w-80">
+      <Card className="surface-card border-border/80 shadow-md">
+        <CardContent className="p-3.5 sm:p-4 flex flex-col md:flex-row gap-3 items-center justify-between">
+          <div className="relative w-full md:w-84">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               value={tagSearch}
               onChange={(e) => setTagSearch(e.target.value)}
-              placeholder="Buscar por nome, slug ou descrição..."
-              className="pl-9 h-9 text-xs rounded-xl bg-background/50 border-border/60"
+              placeholder="Buscar por nome, slug (@tag) ou regra..."
+              className="pl-9 h-9 text-xs rounded-xl bg-background/60 border-border/70 focus-visible:ring-primary/40"
             />
           </div>
 
@@ -1333,7 +1346,7 @@ export function CeoGerenciarTagsPage() {
               variant={tagFilter === "all" ? "default" : "outline"}
               size="sm"
               onClick={() => setTagFilter("all")}
-              className="h-8 text-xs rounded-xl"
+              className="h-8 text-xs rounded-xl font-bold cursor-pointer"
             >
               Todas ({tags.length})
             </Button>
@@ -1342,16 +1355,26 @@ export function CeoGerenciarTagsPage() {
               variant={tagFilter === "active" ? "default" : "outline"}
               size="sm"
               onClick={() => setTagFilter("active")}
-              className="h-8 text-xs rounded-xl"
+              className="h-8 text-xs rounded-xl font-bold cursor-pointer"
             >
-              Ativas
+              Ativas ({metrics.activeTags})
+            </Button>
+            <Button
+              type="button"
+              variant={tagFilter === "system" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setTagFilter("system")}
+              className="h-8 text-xs rounded-xl font-bold gap-1 cursor-pointer border-amber-500/30 text-amber-300"
+            >
+              <Sparkles className="h-3 w-3 text-amber-400" />
+              <span>Sistema ({tags.filter((t) => t.is_system).length})</span>
             </Button>
             <Button
               type="button"
               variant={tagFilter === "sales" ? "default" : "outline"}
               size="sm"
               onClick={() => setTagFilter("sales")}
-              className="h-8 text-xs rounded-xl gap-1"
+              className="h-8 text-xs rounded-xl font-bold gap-1 cursor-pointer"
             >
               <ShoppingCart className="h-3 w-3 text-emerald-400" />
               <span>Vendas</span>
@@ -1361,7 +1384,7 @@ export function CeoGerenciarTagsPage() {
               variant={tagFilter === "productions" ? "default" : "outline"}
               size="sm"
               onClick={() => setTagFilter("productions")}
-              className="h-8 text-xs rounded-xl gap-1"
+              className="h-8 text-xs rounded-xl font-bold gap-1 cursor-pointer"
             >
               <Factory className="h-3 w-3 text-amber-400" />
               <span>Produção</span>
@@ -1371,7 +1394,7 @@ export function CeoGerenciarTagsPage() {
               variant={tagFilter === "blocking" ? "default" : "outline"}
               size="sm"
               onClick={() => setTagFilter("blocking")}
-              className="h-8 text-xs rounded-xl gap-1"
+              className="h-8 text-xs rounded-xl font-bold gap-1 cursor-pointer border-rose-500/30 text-rose-400"
             >
               <ShieldAlert className="h-3 w-3 text-rose-400" />
               <span>Bloqueadoras</span>
@@ -1381,25 +1404,16 @@ export function CeoGerenciarTagsPage() {
               variant={tagFilter === "discord" ? "default" : "outline"}
               size="sm"
               onClick={() => setTagFilter("discord")}
-              className="h-8 text-xs rounded-xl gap-1.5 border-indigo-500/30 text-indigo-300"
+              className="h-8 text-xs rounded-xl font-bold gap-1.5 border-indigo-500/30 text-indigo-300 cursor-pointer"
             >
               <DiscordIconSvg className="h-3.5 w-3.5 text-[#5865F2]" />
-              <span>Discord</span>
-            </Button>
-            <Button
-              type="button"
-              variant={tagFilter === "system" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setTagFilter("system")}
-              className="h-8 text-xs rounded-xl"
-            >
-              Sistema
+              <span>Discord ({tags.filter((t) => t.discord_role_id).length})</span>
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* GRID DE TAGS */}
+      {/* GRID DE TAGS COM DESIGN PREMIUM */}
       {loadingTags ? (
         <TableSkeleton rows={4} />
       ) : filteredTags.length === 0 ? (
@@ -1413,7 +1427,7 @@ export function CeoGerenciarTagsPage() {
           icon={<TagIcon className="h-10 w-10 text-muted-foreground" />}
           action={
             canCreateTag ? (
-              <Button onClick={handleOpenCreateModal} size="sm" className="rounded-xl gap-2 text-xs">
+              <Button onClick={handleOpenCreateModal} size="sm" className="rounded-xl gap-2 text-xs font-bold cursor-pointer">
                 <Plus className="h-4 w-4" />
                 <span>Criar Primeira Tag</span>
               </Button>
@@ -1439,13 +1453,18 @@ export function CeoGerenciarTagsPage() {
             );
             const isDiscordLinked = Boolean(tag.discord_role_id);
             const currentTagIndex = tags.findIndex((t) => t.id === tag.id);
+            const tagColor = tag.color || "#10b981";
 
             return (
               <Card
                 key={tag.id}
+                style={{
+                  borderLeftColor: tagColor,
+                  borderLeftWidth: "4px",
+                }}
                 className={cn(
-                  "surface-card border transition-all duration-200 hover:shadow-md flex flex-col justify-between overflow-hidden",
-                  !tag.is_active ? "opacity-60 bg-muted/20 border-dashed" : "border-border/70"
+                  "surface-card border transition-all duration-300 hover:shadow-xl flex flex-col justify-between overflow-hidden relative group",
+                  !tag.is_active ? "opacity-60 bg-muted/20 border-dashed" : "border-border/80 hover:border-border"
                 )}
               >
                 <div>
@@ -1456,7 +1475,7 @@ export function CeoGerenciarTagsPage() {
                           tag={tag}
                           size="md"
                           showIcon
-                          className="shadow-sm font-semibold"
+                          className="shadow-sm font-bold text-xs"
                         />
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -1470,7 +1489,7 @@ export function CeoGerenciarTagsPage() {
                                   ? "bg-indigo-500/15 text-indigo-400 border-indigo-500/35"
                                   : "bg-muted/40 text-muted-foreground border-border/60"
                               )}
-                              title={`Posição hierárquica #${currentTagIndex + 1}. A tag no topo tem o nível mais alto no sistema.`}
+                              title={`Posição hierárquica #${currentTagIndex + 1}. A tag no topo tem a maior prioridade.`}
                             >
                               {currentTagIndex === 0 ? (
                                 <>
@@ -1481,7 +1500,7 @@ export function CeoGerenciarTagsPage() {
                                 <span>#{currentTagIndex + 1}</span>
                               )}
                             </Badge>
-                            <p className="text-[10px] font-mono text-muted-foreground truncate">
+                            <p className="text-[10px] font-mono text-muted-foreground truncate font-semibold">
                               @{tag.id}
                             </p>
                           </div>
@@ -1497,7 +1516,7 @@ export function CeoGerenciarTagsPage() {
                               size="icon"
                               disabled={currentTagIndex <= 0 || updateTagsOrderMutation.isPending}
                               onClick={() => handleMoveTagUp(tag.id)}
-                              className="h-6 w-6 rounded-md hover:bg-primary/20 hover:text-primary disabled:opacity-30 disabled:pointer-events-none"
+                              className="h-6 w-6 rounded-md hover:bg-primary/20 hover:text-primary disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
                               title={currentTagIndex <= 0 ? "Tag já é nível #1 (topo)" : `Subir nível (mover para #${currentTagIndex})`}
                             >
                               <ArrowUp className="h-3 w-3" />
@@ -1508,7 +1527,7 @@ export function CeoGerenciarTagsPage() {
                               size="icon"
                               disabled={currentTagIndex >= tags.length - 1 || updateTagsOrderMutation.isPending}
                               onClick={() => handleMoveTagDown(tag.id)}
-                              className="h-6 w-6 rounded-md hover:bg-primary/20 hover:text-primary disabled:opacity-30 disabled:pointer-events-none"
+                              className="h-6 w-6 rounded-md hover:bg-primary/20 hover:text-primary disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
                               title={currentTagIndex >= tags.length - 1 ? "Tag já está no último nível" : `Descer nível (mover para #${currentTagIndex + 2})`}
                             >
                               <ArrowDown className="h-3 w-3" />
@@ -1526,22 +1545,40 @@ export function CeoGerenciarTagsPage() {
                             <span className="truncate max-w-[90px]">{tag.discord_role_name || "Discord"}</span>
                           </Badge>
                         )}
-                        {tag.is_system ? (
-                          <Badge variant="outline" className="text-[9px] px-2 py-0.5 border-amber-500/40 text-amber-300 bg-amber-500/10 font-bold flex items-center gap-1">
-                            <Sparkles className="h-2.5 w-2.5 text-amber-400" />
-                            Visível no Membro
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-[9px] px-1.5 py-0.5 border-border/60 text-muted-foreground bg-secondary/30">
-                            Interna / Regras
-                          </Badge>
-                        )}
                         {!tag.is_active && (
-                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-rose-500/30 text-rose-400 bg-rose-500/10">
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-rose-500/30 text-rose-400 bg-rose-500/10 font-bold">
                             Inativa
                           </Badge>
                         )}
                       </div>
+                    </div>
+
+                    {/* TOGGLE INTERATIVO DE TAG DE SISTEMA */}
+                    <div className="flex items-center justify-between p-2 rounded-xl bg-secondary/35 border border-border/60 text-xs mt-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Sparkles className={cn("h-3.5 w-3.5 shrink-0 transition-colors", tag.is_system ? "text-amber-400" : "text-muted-foreground")} />
+                        <div className="min-w-0">
+                          <span className="text-[11px] font-bold block truncate text-foreground">
+                            {tag.is_system ? "Tag de Sistema" : "Tag Interna / Regras"}
+                          </span>
+                          <span className="text-[9.5px] text-muted-foreground block truncate">
+                            {tag.is_system ? "Visível publicamente no perfil" : "Privada para regras e permissões"}
+                          </span>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={Boolean(tag.is_system)}
+                        disabled={toggleSystemTagMutation.isPending || !canEditTag}
+                        onCheckedChange={(checked) => {
+                          if (!canEditTag) {
+                            toast.error("Você não possui permissão para alterar configurações de tags.");
+                            return;
+                          }
+                          void toggleSystemTagMutation.mutateAsync({ tagId: tag.id, isSystem: checked });
+                        }}
+                        className="data-[state=checked]:bg-amber-500 scale-75 cursor-pointer shrink-0"
+                        title={tag.is_system ? "Desativar Tag de Sistema" : "Ativar Tag de Sistema"}
+                      />
                     </div>
 
                     {tag.description && (
@@ -1642,39 +1679,41 @@ export function CeoGerenciarTagsPage() {
                     </div>
                   </CardHeader>
 
-                  <CardContent className="p-4 pt-3 space-y-3">
-                    <div className="flex items-center justify-between text-xs text-muted-foreground border-b border-border/30 pb-2">
-                      <span className="flex items-center gap-1.5">
-                        <Users className="h-3.5 w-3.5 text-primary" />
-                        <span>Membros com esta tag:</span>
-                      </span>
-                      <span className="font-bold text-foreground font-mono">
-                        {assignedCount}
-                      </span>
-                    </div>
+                  <CardContent className="p-4 pt-3 space-y-2.5">
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="flex items-center justify-between p-2 rounded-xl bg-secondary/25 border border-border/40">
+                        <span className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
+                          <Users className="h-3.5 w-3.5 text-sky-400" />
+                          <span>Membros:</span>
+                        </span>
+                        <span className="font-extrabold text-foreground font-mono text-xs">
+                          {assignedCount}
+                        </span>
+                      </div>
 
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1.5">
-                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-                        <span>Permissões concedidas:</span>
-                      </span>
-                      <span className="font-bold text-foreground font-mono">
-                        {permsCount} ativas
-                      </span>
+                      <div className="flex items-center justify-between p-2 rounded-xl bg-secondary/25 border border-border/40">
+                        <span className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
+                          <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+                          <span>Permissões:</span>
+                        </span>
+                        <span className="font-extrabold text-foreground font-mono text-xs">
+                          {permsCount}
+                        </span>
+                      </div>
                     </div>
                   </CardContent>
                 </div>
 
-                {(canManagePerms || canManageRules || canAssignTag || canEditTag || canDiscordConfig || (!tag.is_system && canDeleteTag)) && (
-                  <div className="p-3 border-t border-border/50 bg-secondary/10 flex items-center justify-between gap-1.5 flex-wrap">
-                    <div className="flex items-center gap-1 flex-wrap">
+                {(canManagePerms || canManageRules || canAssignTag || canEditTag || canDiscordConfig || canDeleteTag) && (
+                  <div className="p-3 border-t border-border/50 bg-secondary/15 flex items-center justify-between gap-1.5 flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       {(canManagePerms || canManageRules) && (
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           onClick={() => handleOpenPermsModal(tag)}
-                          className="h-8 text-xs font-semibold rounded-xl gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+                          className="h-8 text-xs font-semibold rounded-xl gap-1.5 border-primary/30 text-primary hover:bg-primary/10 cursor-pointer"
                         >
                           <ShieldCheck className="h-3.5 w-3.5" />
                           <span>Permissões</span>
@@ -1686,7 +1725,7 @@ export function CeoGerenciarTagsPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleOpenAssignMembersModal(tag)}
-                          className="h-8 text-xs font-medium rounded-xl gap-1 text-muted-foreground hover:text-foreground"
+                          className="h-8 text-xs font-medium rounded-xl gap-1 text-muted-foreground hover:text-foreground cursor-pointer"
                           title="Vincular Membros"
                         >
                           <Users className="h-3.5 w-3.5" />
@@ -1700,7 +1739,7 @@ export function CeoGerenciarTagsPage() {
                           size="sm"
                           onClick={() => handleOpenDiscordModal(tag)}
                           className={cn(
-                            "h-8 text-xs font-semibold rounded-xl gap-1.5 transition-all",
+                            "h-8 text-xs font-semibold rounded-xl gap-1.5 transition-all cursor-pointer",
                             isDiscordLinked
                               ? "border-[#5865F2]/40 text-indigo-300 bg-[#5865F2]/10 hover:bg-[#5865F2]/20"
                               : "text-muted-foreground hover:text-indigo-400 hover:bg-[#5865F2]/10"
@@ -1713,30 +1752,33 @@ export function CeoGerenciarTagsPage() {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-0.5">
+                    <div className="flex items-center gap-1">
                       {canEditTag && (
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
                           onClick={() => handleOpenEditModal(tag)}
-                          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+                          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground cursor-pointer"
                           title="Editar Tag"
                         >
                           <Edit2 className="h-3.5 w-3.5" />
                         </Button>
                       )}
-                      {!tag.is_system && canDeleteTag && (
+                      {canDeleteTag && (
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
                           onClick={() => {
-                            if (confirm(`Deseja realmente apagar a tag "${tag.name}"? Ela será desvinculada de todos os membros.`)) {
+                            const confirmMsg = tag.is_system
+                              ? `ATENÇÃO: A tag "${tag.name}" está definida como Tag de Sistema.\n\nDeseja realmente excluí-la? Ela será desvinculada de todos os membros e removida do sistema.`
+                              : `Deseja realmente apagar a tag "${tag.name}"? Ela será desvinculada de todos os membros.`;
+                            if (confirm(confirmMsg)) {
                               void deleteTagMutation.mutateAsync(tag.id);
                             }
                           }}
-                          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10"
+                          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer"
                           title="Excluir Tag"
                         >
                           <Trash2 className="h-3.5 w-3.5" />

@@ -493,6 +493,48 @@ function DynamicSidebarNavigation() {
       (pathname.startsWith("/ceo") || panelMode === "ceo")
   );
 
+  const activePanelStyle = useMemo(() => {
+    if (isDevArea) return devStyle;
+    if (isCeoArea) return ceoStyle;
+    return memberStyle;
+  }, [isDevArea, isCeoArea, devStyle, ceoStyle, memberStyle]);
+
+  // Aplica as cores oficiais e identidade visual do painel ativo em todas as telas
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const root = document.documentElement;
+    const panelKey = isDevArea ? "dev" : isCeoArea ? "ceo" : "member";
+    root.setAttribute("data-active-panel", panelKey);
+    root.setAttribute("data-panel-color", activePanelStyle.key);
+
+    const userThemeRaw = localStorage.getItem("tw_user_theme");
+    let hasCustomPrimary = false;
+    if (userThemeRaw) {
+      try {
+        const parsed = JSON.parse(userThemeRaw);
+        if (parsed.customPrimaryColor) hasCustomPrimary = true;
+      } catch {}
+    }
+
+    if (isDevArea || isCeoArea || !hasCustomPrimary) {
+      const solidColor = activePanelStyle.primaryHex;
+      const gradient = activePanelStyle.gradientHex || solidColor;
+
+      root.style.setProperty("--primary", solidColor);
+      root.style.setProperty("--ring", solidColor);
+      root.style.setProperty("--sidebar-primary", solidColor);
+      root.style.setProperty("--sidebar-ring", solidColor);
+      root.style.setProperty("--color-primary", solidColor);
+      root.style.setProperty("--custom-accent", solidColor);
+      root.style.setProperty("--glow-color", activePanelStyle.glowHex || solidColor);
+      root.style.setProperty("--gradient-brand", gradient);
+      root.style.setProperty("--gradient-primary", gradient);
+      root.style.setProperty("--accent", `color-mix(in srgb, ${solidColor} 18%, transparent)`);
+      root.style.setProperty("--sidebar-accent", `color-mix(in srgb, ${solidColor} 14%, transparent)`);
+      root.style.setProperty("--shadow-glow", `0 0 20px -2px color-mix(in srgb, ${solidColor} 40%, transparent)`);
+    }
+  }, [isDevArea, isCeoArea, activePanelStyle]);
+
   const grouped = useMemo(() => {
     // -------------------------------------------------------------------------
     // BASE DE MENUS DA PLATAFORMA / ADMIN (Configuração de Menu Lateral Global)

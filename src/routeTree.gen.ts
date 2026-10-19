@@ -113,6 +113,7 @@ import { Route as AuthenticatedDevProducoesArmazemRouteImport } from './routes/_
 import { Route as AuthenticatedDevProducoesGestaoRouteImport } from './routes/_authenticated/dev.producoes.gestao'
 import { Route as AuthenticatedDevProducoesMateriasPrimasRouteImport } from './routes/_authenticated/dev.producoes.materias-primas'
 import { Route as AuthenticatedDevProducoesProduzirRouteImport } from './routes/_authenticated/dev.producoes.produzir'
+import { Route as AuthenticatedDevConfiguracaoTabSubtabRouteImport } from './routes/_authenticated/dev.configuracao.$tab.$subtab'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -690,6 +691,12 @@ const AuthenticatedDevProducoesProduzirRoute =
     path: '/dev/producoes/produzir',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedDevConfiguracaoTabSubtabRoute =
+  AuthenticatedDevConfiguracaoTabSubtabRouteImport.update({
+    id: '/$subtab',
+    path: '/$subtab',
+    getParentRoute: () => AuthenticatedDevConfiguracaoTabRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -787,7 +794,7 @@ export interface FileRoutesByFullPath {
   '/ceo/producoes/produzir': typeof AuthenticatedCeoProducoesProduzirRoute
   '/dev/$page/$tab': typeof AuthenticatedDevPageTabRoute
   '/dev/bot/$tab': typeof AuthenticatedDevBotTabRoute
-  '/dev/configuracao/$tab': typeof AuthenticatedDevConfiguracaoTabRoute
+  '/dev/configuracao/$tab': typeof AuthenticatedDevConfiguracaoTabRouteWithChildren
   '/dev/estoque/$tab': typeof AuthenticatedDevEstoqueTabRoute
   '/dev/producoes/armazem': typeof AuthenticatedDevProducoesArmazemRoute
   '/dev/producoes/gestao': typeof AuthenticatedDevProducoesGestaoRoute
@@ -795,6 +802,7 @@ export interface FileRoutesByFullPath {
   '/dev/producoes/produzir': typeof AuthenticatedDevProducoesProduzirRoute
   '/ceo/producoes/': typeof AuthenticatedCeoProducoesIndexRoute
   '/dev/producoes/': typeof AuthenticatedDevProducoesIndexRoute
+  '/dev/configuracao/$tab/$subtab': typeof AuthenticatedDevConfiguracaoTabSubtabRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -892,7 +900,7 @@ export interface FileRoutesByTo {
   '/ceo/producoes/produzir': typeof AuthenticatedCeoProducoesProduzirRoute
   '/dev/$page/$tab': typeof AuthenticatedDevPageTabRoute
   '/dev/bot/$tab': typeof AuthenticatedDevBotTabRoute
-  '/dev/configuracao/$tab': typeof AuthenticatedDevConfiguracaoTabRoute
+  '/dev/configuracao/$tab': typeof AuthenticatedDevConfiguracaoTabRouteWithChildren
   '/dev/estoque/$tab': typeof AuthenticatedDevEstoqueTabRoute
   '/dev/producoes/armazem': typeof AuthenticatedDevProducoesArmazemRoute
   '/dev/producoes/gestao': typeof AuthenticatedDevProducoesGestaoRoute
@@ -900,6 +908,7 @@ export interface FileRoutesByTo {
   '/dev/producoes/produzir': typeof AuthenticatedDevProducoesProduzirRoute
   '/ceo/producoes': typeof AuthenticatedCeoProducoesIndexRoute
   '/dev/producoes': typeof AuthenticatedDevProducoesIndexRoute
+  '/dev/configuracao/$tab/$subtab': typeof AuthenticatedDevConfiguracaoTabSubtabRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -999,7 +1008,7 @@ export interface FileRoutesById {
   '/_authenticated/ceo/producoes/produzir': typeof AuthenticatedCeoProducoesProduzirRoute
   '/_authenticated/dev/$page/$tab': typeof AuthenticatedDevPageTabRoute
   '/_authenticated/dev/bot/$tab': typeof AuthenticatedDevBotTabRoute
-  '/_authenticated/dev/configuracao/$tab': typeof AuthenticatedDevConfiguracaoTabRoute
+  '/_authenticated/dev/configuracao/$tab': typeof AuthenticatedDevConfiguracaoTabRouteWithChildren
   '/_authenticated/dev/estoque/$tab': typeof AuthenticatedDevEstoqueTabRoute
   '/_authenticated/dev/producoes/armazem': typeof AuthenticatedDevProducoesArmazemRoute
   '/_authenticated/dev/producoes/gestao': typeof AuthenticatedDevProducoesGestaoRoute
@@ -1007,6 +1016,7 @@ export interface FileRoutesById {
   '/_authenticated/dev/producoes/produzir': typeof AuthenticatedDevProducoesProduzirRoute
   '/_authenticated/ceo/producoes/': typeof AuthenticatedCeoProducoesIndexRoute
   '/_authenticated/dev/producoes/': typeof AuthenticatedDevProducoesIndexRoute
+  '/_authenticated/dev/configuracao/$tab/$subtab': typeof AuthenticatedDevConfiguracaoTabSubtabRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -1114,6 +1124,7 @@ export interface FileRouteTypes {
     | '/dev/producoes/produzir'
     | '/ceo/producoes/'
     | '/dev/producoes/'
+    | '/dev/configuracao/$tab/$subtab'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -1219,6 +1230,7 @@ export interface FileRouteTypes {
     | '/dev/producoes/produzir'
     | '/ceo/producoes'
     | '/dev/producoes'
+    | '/dev/configuracao/$tab/$subtab'
   id:
     | '__root__'
     | '/'
@@ -1325,6 +1337,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dev/producoes/produzir'
     | '/_authenticated/ceo/producoes/'
     | '/_authenticated/dev/producoes/'
+    | '/_authenticated/dev/configuracao/$tab/$subtab'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -2067,6 +2080,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDevProducoesProduzirRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/dev/configuracao/$tab/$subtab': {
+      id: '/_authenticated/dev/configuracao/$tab/$subtab'
+      path: '/$subtab'
+      fullPath: '/dev/configuracao/$tab/$subtab'
+      preLoaderRoute: typeof AuthenticatedDevConfiguracaoTabSubtabRouteImport
+      parentRoute: typeof AuthenticatedDevConfiguracaoTabRoute
+    }
   }
 }
 
@@ -2288,13 +2308,29 @@ const AuthenticatedDevBotRouteChildren: AuthenticatedDevBotRouteChildren = {
 const AuthenticatedDevBotRouteWithChildren =
   AuthenticatedDevBotRoute._addFileChildren(AuthenticatedDevBotRouteChildren)
 
+interface AuthenticatedDevConfiguracaoTabRouteChildren {
+  AuthenticatedDevConfiguracaoTabSubtabRoute: typeof AuthenticatedDevConfiguracaoTabSubtabRoute
+}
+
+const AuthenticatedDevConfiguracaoTabRouteChildren: AuthenticatedDevConfiguracaoTabRouteChildren =
+  {
+    AuthenticatedDevConfiguracaoTabSubtabRoute:
+      AuthenticatedDevConfiguracaoTabSubtabRoute,
+  }
+
+const AuthenticatedDevConfiguracaoTabRouteWithChildren =
+  AuthenticatedDevConfiguracaoTabRoute._addFileChildren(
+    AuthenticatedDevConfiguracaoTabRouteChildren,
+  )
+
 interface AuthenticatedDevConfiguracaoRouteChildren {
-  AuthenticatedDevConfiguracaoTabRoute: typeof AuthenticatedDevConfiguracaoTabRoute
+  AuthenticatedDevConfiguracaoTabRoute: typeof AuthenticatedDevConfiguracaoTabRouteWithChildren
 }
 
 const AuthenticatedDevConfiguracaoRouteChildren: AuthenticatedDevConfiguracaoRouteChildren =
   {
-    AuthenticatedDevConfiguracaoTabRoute: AuthenticatedDevConfiguracaoTabRoute,
+    AuthenticatedDevConfiguracaoTabRoute:
+      AuthenticatedDevConfiguracaoTabRouteWithChildren,
   }
 
 const AuthenticatedDevConfiguracaoRouteWithChildren =

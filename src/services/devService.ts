@@ -505,7 +505,53 @@ export function isDevSystemNotificationsEnabled(): boolean {
 }
 
 /**
- * Carrega as configurações do Módulo Dev.
+ * Busca as configurações e cores dos painéis remotamente no Firebase RTDB / banco
+ * e sincroniza no cache local de todos os membros e usuários conectados.
+ */
+export async function fetchRemoteDevConfiguration(): Promise<DevConfiguration> {
+  let remoteConfig: any = null;
+
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    const rtdbData = await rtdb.get<any>("role_permissions/system_dev_config");
+    if (rtdbData) {
+      remoteConfig = rtdbData.permissions || rtdbData;
+    }
+  } catch {}
+
+  if (!remoteConfig) {
+    try {
+      const { data } = await supabase
+        .from("role_permissions")
+        .select("permissions")
+        .eq("level", "system_dev_config")
+        .maybeSingle();
+
+      if (data?.permissions && typeof data.permissions === "object") {
+        remoteConfig = data.permissions;
+      }
+    } catch {}
+  }
+
+  if (remoteConfig && typeof remoteConfig === "object") {
+    const merged: DevConfiguration = {
+      ...DEFAULT_DEV_CONFIG,
+      ...remoteConfig,
+    };
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(DEV_CONFIG_KEY, JSON.stringify(merged));
+        window.dispatchEvent(new CustomEvent(DEV_CONFIG_EVENT, { detail: merged }));
+      } catch {}
+    }
+    return merged;
+  }
+
+  return getDevConfigurationSync();
+}
+
+/**
+ * Carrega as configurações do Módulo Dev com prioridade para a sincronização remota.
  */
 export async function getDevConfiguration(
   user?: AppUser | null,
@@ -515,20 +561,16 @@ export async function getDevConfiguration(
   assertDeveloperAccess(user, profile, level);
 
   try {
-    const local = localStorage.getItem(DEV_CONFIG_KEY);
-    if (local) {
-      const parsed = JSON.parse(local);
-      return { ...DEFAULT_DEV_CONFIG, ...parsed };
-    }
+    return await fetchRemoteDevConfiguration();
   } catch (err) {
-    console.warn("Falha ao ler configurações Dev do armazenamento local:", err);
+    console.warn("Falha ao buscar configurações Dev remotas, usando cache local:", err);
   }
 
-  return DEFAULT_DEV_CONFIG;
+  return getDevConfigurationSync();
 }
 
 /**
- * Salva as configurações do Módulo Dev.
+ * Salva as configurações do Módulo Dev no Firebase RTDB, localStorage e Supabase.
  */
 export async function saveDevConfiguration(
   config: DevConfiguration,
@@ -538,24 +580,57 @@ export async function saveDevConfiguration(
 ): Promise<void> {
   assertDeveloperAccess(user, profile, level);
 
-  // Simula latência de rede profissional para feedback visual de carregamento
-  await new Promise((resolve) => setTimeout(resolve, 300));
+  const cleanConfig: DevConfiguration = {
+    ...DEFAULT_DEV_CONFIG,
+    ...config,
+  };
 
+  // 1. Salva localmente e emite evento imediato
   try {
-    localStorage.setItem(DEV_CONFIG_KEY, JSON.stringify(config));
-
     if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent(DEV_CONFIG_EVENT, { detail: config }));
+      localStorage.setItem(DEV_CONFIG_KEY, JSON.stringify(cleanConfig));
+      window.dispatchEvent(new CustomEvent(DEV_CONFIG_EVENT, { detail: cleanConfig }));
+      window.dispatchEvent(new Event("storage"));
     }
+  } catch {}
 
-    // Opcional: Persistir no Supabase platform_settings se disponível
-    await (supabase.from as any)("platform_settings").upsert({
-      key: "dev_configuration",
-      value: JSON.stringify(config),
+  // 2. Persiste diretamente no Firebase RTDB para propagação em tempo real via WebSocket
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    await rtdb.set("role_permissions/system_dev_config", {
+      level: "system_dev_config",
+      nivel: "system_dev_config",
+      permissions: cleanConfig as any,
       updated_at: new Date().toISOString(),
     });
+  } catch (fbErr) {
+    console.warn("Aviso ao salvar system_dev_config no RTDB:", fbErr);
+  }
+
+  // 3. Persiste no Supabase em role_permissions e platform_settings
+  try {
+    await supabase.from("role_permissions").upsert(
+      {
+        level: "system_dev_config",
+        nivel: "system_dev_config",
+        permissions: cleanConfig as any,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "level" }
+    );
+
+    await (supabase.from as any)("platform_settings").upsert({
+      key: "dev_configuration",
+      value: JSON.stringify(cleanConfig),
+      updated_at: new Date().toISOString(),
+    });
+
+    void broadcastPermissionsRealtimeUpdate({
+      type: "role_permissions",
+      level: "system_dev_config",
+    });
   } catch (err) {
-    console.warn("Salvo localmente (Supabase fallback):", err);
+    console.warn("Aviso ao salvar dev_configuration no Supabase:", err);
   }
 }
 

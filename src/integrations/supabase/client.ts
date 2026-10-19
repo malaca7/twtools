@@ -178,12 +178,56 @@ class FirebaseRealtimeChannel {
   }
 }
 
+// ============================================================================
+// DEDUPLICAÇÃO E MICRO-CACHE REATIVO DO FIREBASE RTDB (<100ms)
+// ============================================================================
+const rtdbFetchCache = new Map<string, { data: any; expiry: number }>();
+const rtdbInFlightRequests = new Map<string, Promise<any>>();
+
+export function invalidateRtdbTableCache(table?: string) {
+  if (!table) {
+    rtdbFetchCache.clear();
+    return;
+  }
+  for (const key of Array.from(rtdbFetchCache.keys())) {
+    if (key.includes(`/${table}/`) || key.includes(`/${table}.json`)) {
+      rtdbFetchCache.delete(key);
+    }
+  }
+}
+
+export async function fastRtdbFetch(url: string, ttlMs = 2000): Promise<any> {
+  const cached = rtdbFetchCache.get(url);
+  if (cached && Date.now() < cached.expiry) {
+    return cached.data;
+  }
+  if (rtdbInFlightRequests.has(url)) {
+    return rtdbInFlightRequests.get(url);
+  }
+  const reqPromise = fetch(url)
+    .then((r) => r.json())
+    .then((data) => {
+      rtdbFetchCache.set(url, { data, expiry: Date.now() + ttlMs });
+      return data;
+    })
+    .catch(() => null)
+    .finally(() => {
+      rtdbInFlightRequests.delete(url);
+    });
+
+  rtdbInFlightRequests.set(url, reqPromise);
+  return reqPromise;
+}
+
 /**
  * Notifica imediatamente alterações de dados em tempo real para:
  * 1. Abas locais no mesmo navegador via BroadcastChannel (0ms)
  * 2. Todos os outros usuários/membros conectados na rede via Firebase Realtime Database (<50ms)
  */
 export function notifyTableChange(table: string, eventType: string, newRecord?: any) {
+  // Invalida o cache local da tabela imediatamente para leituras frescas em <0ms
+  invalidateRtdbTableCache(table);
+
   const timestamp = Date.now();
   const eventPayload = {
     id: `evt_${timestamp}_${Math.random().toString(36).substring(2, 7)}`,
@@ -1866,17 +1910,31 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
             return true;
           };
 
-          // Busca todos os registros existentes para encontrar as chaves exatas do Firebase RTDB
-          const allRes = await fetch(`${FIREBASE_RTDB_URL}/${table}.json`).then(r => r.json()).catch(() => null);
-          if (allRes && typeof allRes === 'object') {
-            for (const [k, v] of Object.entries(allRes)) {
-              if (v && typeof v === 'object' && !(v as any)._schema_info) {
-                if (checkRecordMatches(v, k)) {
-                  await fetch(`${FIREBASE_RTDB_URL}/${table}/${k}.json`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body),
-                  }).catch(() => {});
+          const directKeyFilter =
+            filters.find((f) => (f.field === 'id' || f.field === 'level' || f.field === 'key' || f.field === 'tag_id' || f.field === 'user_id' || f.field === 'product_id') && f.op === 'eq') ||
+            orFilters.find((f) => (f.field === 'id' || f.field === 'level' || f.field === 'key') && f.op === 'eq');
+
+          if (directKeyFilter && directKeyFilter.val) {
+            // Caminho ultra-rápido (<50ms): atualiza diretamente o nó específico
+            const directKey = String(directKeyFilter.val);
+            await fetch(`${FIREBASE_RTDB_URL}/${table}/${directKey}.json`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            }).catch(() => {});
+          } else {
+            // Busca apenas se não houver filtro direto por chave primária
+            const allRes = await fastRtdbFetch(`${FIREBASE_RTDB_URL}/${table}.json`, 500);
+            if (allRes && typeof allRes === 'object') {
+              for (const [k, v] of Object.entries(allRes)) {
+                if (v && typeof v === 'object' && !(v as any)._schema_info) {
+                  if (checkRecordMatches(v, k)) {
+                    await fetch(`${FIREBASE_RTDB_URL}/${table}/${k}.json`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(body),
+                    }).catch(() => {});
+                  }
                 }
               }
             }
@@ -1894,46 +1952,56 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
 
       // C) DELETE
       if (method === 'DELETE') {
-        const checkRecordMatches = (v: any, k: string) => {
-          if (filters.length === 0 && orFilters.length === 0) {
-            return false; // Nunca deletar tabela inteira sem filtros
-          }
+        const directKeyFilter =
+          filters.find((f) => (f.field === 'id' || f.field === 'level' || f.field === 'key' || f.field === 'tag_id' || f.field === 'user_id' || f.field === 'product_id') && f.op === 'eq') ||
+          orFilters.find((f) => (f.field === 'id' || f.field === 'level' || f.field === 'key') && f.op === 'eq');
 
-          if (filters.length > 0) {
-            const andMatch = filters.every((f) => {
-              const itemVal = (v as any)[f.field] !== undefined ? (v as any)[f.field] : (f.field === 'id' ? k : undefined);
-              if (f.op === 'eq') return String(itemVal) === String(f.val);
-              if (f.op === 'neq') return String(itemVal) !== String(f.val);
-              if (f.op === 'gte') return Number(itemVal) >= Number(f.val);
-              if (f.op === 'lte') return Number(itemVal) <= Number(f.val);
-              if (f.op === 'gt') return Number(itemVal) > Number(f.val);
-              if (f.op === 'lt') return Number(itemVal) < Number(f.val);
-              if (f.op === 'ilike') return String(itemVal || '').toLowerCase().includes(f.val.toLowerCase());
-              return true;
-            });
-            if (!andMatch) return false;
-          }
+        if (directKeyFilter && directKeyFilter.val) {
+          // Caminho ultra-rápido (<50ms): deleta diretamente o nó específico
+          const directKey = String(directKeyFilter.val);
+          await fetch(`${FIREBASE_RTDB_URL}/${table}/${directKey}.json`, { method: 'DELETE' }).catch(() => {});
+        } else {
+          const checkRecordMatches = (v: any, k: string) => {
+            if (filters.length === 0 && orFilters.length === 0) {
+              return false; // Nunca deletar tabela inteira sem filtros
+            }
 
-          if (orFilters.length > 0) {
-            const orMatch = orFilters.some((f) => {
-              const itemVal = (v as any)[f.field] !== undefined ? (v as any)[f.field] : (f.field === 'id' ? k : undefined);
-              if (f.op === 'eq') return String(itemVal) === String(f.val);
-              if (f.op === 'neq') return String(itemVal) !== String(f.val);
-              if (f.op === 'ilike') return String(itemVal || '').toLowerCase().includes(f.val.toLowerCase());
-              return false;
-            });
-            if (!orMatch) return false;
-          }
+            if (filters.length > 0) {
+              const andMatch = filters.every((f) => {
+                const itemVal = (v as any)[f.field] !== undefined ? (v as any)[f.field] : (f.field === 'id' ? k : undefined);
+                if (f.op === 'eq') return String(itemVal) === String(f.val);
+                if (f.op === 'neq') return String(itemVal) !== String(f.val);
+                if (f.op === 'gte') return Number(itemVal) >= Number(f.val);
+                if (f.op === 'lte') return Number(itemVal) <= Number(f.val);
+                if (f.op === 'gt') return Number(itemVal) > Number(f.val);
+                if (f.op === 'lt') return Number(itemVal) < Number(f.val);
+                if (f.op === 'ilike') return String(itemVal || '').toLowerCase().includes(f.val.toLowerCase());
+                return true;
+              });
+              if (!andMatch) return false;
+            }
 
-          return true;
-        };
+            if (orFilters.length > 0) {
+              const orMatch = orFilters.some((f) => {
+                const itemVal = (v as any)[f.field] !== undefined ? (v as any)[f.field] : (f.field === 'id' ? k : undefined);
+                if (f.op === 'eq') return String(itemVal) === String(f.val);
+                if (f.op === 'neq') return String(itemVal) !== String(f.val);
+                if (f.op === 'ilike') return String(itemVal || '').toLowerCase().includes(f.val.toLowerCase());
+                return false;
+              });
+              if (!orMatch) return false;
+            }
 
-        const allRes = await fetch(`${FIREBASE_RTDB_URL}/${table}.json`).then(r => r.json()).catch(() => null);
-        if (allRes && typeof allRes === 'object') {
-          for (const [k, v] of Object.entries(allRes)) {
-            if (v && typeof v === 'object' && !(v as any)._schema_info) {
-              if (checkRecordMatches(v, k)) {
-                await fetch(`${FIREBASE_RTDB_URL}/${table}/${k}.json`, { method: 'DELETE' }).catch(() => {});
+            return true;
+          };
+
+          const allRes = await fastRtdbFetch(`${FIREBASE_RTDB_URL}/${table}.json`, 500);
+          if (allRes && typeof allRes === 'object') {
+            for (const [k, v] of Object.entries(allRes)) {
+              if (v && typeof v === 'object' && !(v as any)._schema_info) {
+                if (checkRecordMatches(v, k)) {
+                  await fetch(`${FIREBASE_RTDB_URL}/${table}/${k}.json`, { method: 'DELETE' }).catch(() => {});
+                }
               }
             }
           }
@@ -1946,10 +2014,27 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
       }
 
       // D) GET: Select
-      const rtdbRes = await fetch(`${FIREBASE_RTDB_URL}/${table}.json`).then(r => r.json()).catch(() => null);
       let items: any[] = [];
-      if (rtdbRes && typeof rtdbRes === 'object') {
-        items = Object.values(rtdbRes).filter((item: any) => item && !item._schema_info);
+      const singleIdFilter = filters.find((f) => f.field === 'id' && f.op === 'eq');
+      if (singleIdFilter && singleIdFilter.val && !singleIdFilter.val.includes(',')) {
+        // Busca direta de um item específico por ID (<50ms)
+        const directItem = await fastRtdbFetch(`${FIREBASE_RTDB_URL}/${table}/${singleIdFilter.val}.json`);
+        if (directItem && typeof directItem === 'object' && !(directItem as any)._schema_info) {
+          if (!directItem.id) directItem.id = singleIdFilter.val;
+          items = [directItem];
+        }
+      } else {
+        const rtdbRes = await fastRtdbFetch(`${FIREBASE_RTDB_URL}/${table}.json`);
+        if (rtdbRes && typeof rtdbRes === 'object') {
+          items = Object.entries(rtdbRes)
+            .filter(([_, item]: any) => item && !item._schema_info)
+            .map(([k, item]: any) => {
+              if (typeof item === 'object' && !item.id && !k.includes('_')) {
+                return { ...item, id: k };
+              }
+              return item;
+            });
+        }
       }
 
       // Resoluções de relacionamentos e joins do sistema de produção
@@ -1974,7 +2059,7 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
         }
         items = expanded;
 
-        const matRes = await fetch(`${FIREBASE_RTDB_URL}/raw_materials.json`).then(r => r.json()).catch(() => null);
+        const matRes = await fastRtdbFetch(`${FIREBASE_RTDB_URL}/raw_materials.json`);
         const matMap: Record<string, any> = matRes && typeof matRes === 'object' ? matRes : {};
         items = items.map((rec) => {
           const rm = matMap[rec.raw_material_id] || Object.values(matMap).find((m: any) => m && m.id === rec.raw_material_id);
@@ -1992,7 +2077,7 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
           };
         });
       } else if (table === 'warehouse_stock') {
-        const prodRes = await fetch(`${FIREBASE_RTDB_URL}/products.json`).then(r => r.json()).catch(() => null);
+        const prodRes = await fastRtdbFetch(`${FIREBASE_RTDB_URL}/products.json`);
         const prodMap: Record<string, any> = prodRes && typeof prodRes === 'object' ? prodRes : {};
         items = items.map((ws) => {
           const p = prodMap[ws.product_id] || Object.values(prodMap).find((prod: any) => prod && prod.id === ws.product_id);
@@ -2002,9 +2087,9 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
           };
         });
       } else if (table === 'productions') {
-        const prodRes = await fetch(`${FIREBASE_RTDB_URL}/products.json`).then(r => r.json()).catch(() => null);
-        const prmRes = await fetch(`${FIREBASE_RTDB_URL}/production_raw_materials.json`).then(r => r.json()).catch(() => null);
-        const rmRes = await fetch(`${FIREBASE_RTDB_URL}/raw_materials.json`).then(r => r.json()).catch(() => null);
+        const prodRes = await fastRtdbFetch(`${FIREBASE_RTDB_URL}/products.json`);
+        const prmRes = await fastRtdbFetch(`${FIREBASE_RTDB_URL}/production_raw_materials.json`);
+        const rmRes = await fastRtdbFetch(`${FIREBASE_RTDB_URL}/raw_materials.json`);
 
         const prodMap: Record<string, any> = prodRes && typeof prodRes === 'object' ? prodRes : {};
         const prmList: any[] = prmRes && typeof prmRes === 'object' ? Object.values(prmRes) : [];

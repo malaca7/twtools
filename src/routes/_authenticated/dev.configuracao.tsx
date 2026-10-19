@@ -149,7 +149,13 @@ function DevConfiguracaoPageWrapper() {
 
 const FOOTER_YEAR_OPTIONS = [2035, 2034, 2033, 2032, 2031, 2030, 2029, 2028, 2027, 2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018];
 
-export function DevConfiguracaoContent({ defaultTab }: { defaultTab?: string } = {}) {
+export function DevConfiguracaoContent({
+  defaultTab,
+  defaultSubTab,
+}: {
+  defaultTab?: string;
+  defaultSubTab?: string;
+} = {}) {
   const { user, profile, level } = useAuth();
   const queryClient = useQueryClient();
   const { data: allAuditLogs = [] } = useAuditLogs();
@@ -173,9 +179,15 @@ export function DevConfiguracaoContent({ defaultTab }: { defaultTab?: string } =
       if (normParam) return normParam;
 
       const parts = window.location.pathname.split("/").filter(Boolean);
+      // Ex: /dev/configuracao/plataforma/midia -> tab é parts[2] ou parts[1]
+      const confIdx = parts.indexOf("configuracao");
+      if (confIdx !== -1 && parts[confIdx + 1]) {
+        const normPath = normalizeTab(parts[confIdx + 1]);
+        if (normPath) return normPath;
+      }
       const lastPart = parts[parts.length - 1];
-      const normPath = normalizeTab(lastPart);
-      if (normPath) return normPath;
+      const normLast = normalizeTab(lastPart);
+      if (normLast) return normLast;
     }
     return "plataforma";
   });
@@ -193,7 +205,12 @@ export function DevConfiguracaoContent({ defaultTab }: { defaultTab?: string } =
   const handleMainTabChange = (val: string) => {
     setActiveMainTab(val);
     if (typeof window !== "undefined" && window.history.pushState) {
-      window.history.pushState(null, "", `/dev/configuracao/${val}`);
+      if (val === "plataforma") {
+        const currentSub = localStorage.getItem("tw_dev_platform_subtab") || "identidade";
+        window.history.pushState(null, "", `/dev/configuracao/plataforma/${currentSub}`);
+      } else {
+        window.history.pushState(null, "", `/dev/configuracao/${val}`);
+      }
     }
   };
 
@@ -271,7 +288,43 @@ export function DevConfiguracaoContent({ defaultTab }: { defaultTab?: string } =
   const [isDraggingLogo, setIsDraggingLogo] = useState(false);
   const [isDraggingBanner, setIsDraggingBanner] = useState(false);
 
-  const [platformActiveSubTab, setPlatformActiveSubTab] = useState("identidade");
+  const VALID_PLATFORM_SUBTABS = ["identidade", "midia", "comunicacao", "operacao", "comunicados"];
+
+  const [platformActiveSubTab, setPlatformActiveSubTab] = useState<string>(() => {
+    if (defaultSubTab && VALID_PLATFORM_SUBTABS.includes(defaultSubTab)) {
+      return defaultSubTab;
+    }
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const sub = urlParams.get("subtab") || urlParams.get("sub");
+      if (sub && VALID_PLATFORM_SUBTABS.includes(sub)) return sub;
+
+      const parts = window.location.pathname.split("/").filter(Boolean);
+      const subIdx = parts.indexOf("plataforma");
+      if (subIdx !== -1 && parts[subIdx + 1] && VALID_PLATFORM_SUBTABS.includes(parts[subIdx + 1])) {
+        return parts[subIdx + 1];
+      }
+      const last = parts[parts.length - 1];
+      if (last && VALID_PLATFORM_SUBTABS.includes(last)) return last;
+    }
+    return "identidade";
+  });
+
+  useEffect(() => {
+    if (defaultSubTab && VALID_PLATFORM_SUBTABS.includes(defaultSubTab)) {
+      setPlatformActiveSubTab(defaultSubTab);
+    }
+  }, [defaultSubTab]);
+
+  const handlePlatformSubTabChange = (val: string) => {
+    setPlatformActiveSubTab(val);
+    try {
+      localStorage.setItem("tw_dev_platform_subtab", val);
+    } catch {}
+    if (typeof window !== "undefined" && window.history.pushState) {
+      window.history.pushState(null, "", `/dev/configuracao/plataforma/${val}`);
+    }
+  };
 
   const handleUploadPlatformMedia = async (
     file: File,
@@ -465,6 +518,7 @@ export function DevConfiguracaoContent({ defaultTab }: { defaultTab?: string } =
         localStorage.setItem(DEV_CONFIG_KEY, JSON.stringify(updated));
         window.dispatchEvent(new CustomEvent(DEV_CONFIG_EVENT, { detail: updated }));
       }
+      void saveDevConfiguration(updated, user, profile, level);
       const label = PANEL_COLOR_STYLES[color]?.label || color;
       const panelName =
         key === "devThemeColor" ? "Painel Dev" : key === "ceoThemeColor" ? "Painel CEO" : "Painel Membro";
@@ -472,7 +526,7 @@ export function DevConfiguracaoContent({ defaultTab }: { defaultTab?: string } =
         description: "Todas as categorias, ícones e itens do painel agora utilizam esta cor.",
       });
     } catch (e) {
-      console.error("Falha ao salvar tema localmente:", e);
+      console.error("Falha ao salvar tema:", e);
     }
   };
 
@@ -492,6 +546,7 @@ export function DevConfiguracaoContent({ defaultTab }: { defaultTab?: string } =
         localStorage.setItem(DEV_CONFIG_KEY, JSON.stringify(updated));
         window.dispatchEvent(new CustomEvent(DEV_CONFIG_EVENT, { detail: updated }));
       }
+      void saveDevConfiguration(updated, user, profile, level);
       const panelName =
         key === "devPanelIcon" ? "Painel Dev" : key === "ceoPanelIcon" ? "Painel CEO" : "Painel Membro";
       toast.success(`${panelName}: Ícone oficial alterado para "${iconName}"!`, {
@@ -499,7 +554,7 @@ export function DevConfiguracaoContent({ defaultTab }: { defaultTab?: string } =
         icon: "🎨",
       });
     } catch (e) {
-      console.error("Falha ao salvar ícone localmente:", e);
+      console.error("Falha ao salvar ícone:", e);
     }
   };
 
@@ -518,6 +573,7 @@ export function DevConfiguracaoContent({ defaultTab }: { defaultTab?: string } =
         localStorage.setItem(DEV_CONFIG_KEY, JSON.stringify(updated));
         window.dispatchEvent(new CustomEvent(DEV_CONFIG_EVENT, { detail: updated }));
       }
+      void saveDevConfiguration(updated, user, profile, level);
       const label = PANEL_COLOR_STYLES[color]?.label || color;
       toast.success(`Cor "${label}" aplicada a TODOS os painéis com sucesso!`, {
         description: "Painel Dev, Painel CEO e Painel Membro agora usam a mesma identidade visual.",
@@ -911,7 +967,7 @@ export function DevConfiguracaoContent({ defaultTab }: { defaultTab?: string } =
               {/* SUB-TABS INTERNAS DE CONFIGURAÇÕES DA PLATAFORMA */}
               <Tabs
                 value={platformActiveSubTab}
-                onValueChange={setPlatformActiveSubTab}
+                onValueChange={handlePlatformSubTabChange}
                 className="w-full space-y-5"
               >
                 <TabsList className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1 bg-secondary/40 p-1 rounded-xl border border-border/60 h-auto">

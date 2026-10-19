@@ -1,6 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import type { LucideIcon } from "lucide-react";
-import { getDevConfigurationSync, DEV_CONFIG_EVENT, type DevConfiguration } from "@/services/devService";
+import {
+  getDevConfigurationSync,
+  fetchRemoteDevConfiguration,
+  DEV_CONFIG_EVENT,
+  type DevConfiguration,
+} from "@/services/devService";
 import {
   Terminal,
   Crown,

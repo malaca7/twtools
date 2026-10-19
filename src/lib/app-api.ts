@@ -1284,17 +1284,94 @@ export async function getMemberBySlug(slug: string): Promise<Member | null> {
 }
 
 export async function updateUserTheme(theme: import("./app-types").UserThemeSettings): Promise<void> {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.user) throw new Error("Não autenticado");
+  // 1. Obtém o usuário ativo (via Supabase Session, Dev Impersonate ou localStorage)
+  let userId: string | null = null;
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user?.id) userId = session.user.id;
+  } catch {}
 
-  const { error } = await (supabase.from("profiles" as any))
-    .update({
+  if (!userId && typeof window !== "undefined") {
+    try {
+      const simRaw = sessionStorage.getItem("tw_dev_impersonate") || localStorage.getItem("tw_dev_impersonate");
+      if (simRaw) {
+        const sim = JSON.parse(simRaw);
+        userId = sim.user_id || sim.id;
+      }
+      if (!userId) {
+        const authRaw = localStorage.getItem("tw_auth_user");
+        if (authRaw) {
+          const u = JSON.parse(authRaw);
+          userId = u.user_id || u.id;
+        }
+      }
+    } catch {}
+  }
+
+  if (!userId) throw new Error("Não autenticado");
+
+  // 2. Salva no localStorage imediatamente
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem("tw_user_theme", JSON.stringify(theme));
+      const authRaw = localStorage.getItem("tw_auth_user");
+      if (authRaw) {
+        const u = JSON.parse(authRaw);
+        u.custom_theme = theme;
+        localStorage.setItem("tw_auth_user", JSON.stringify(u));
+      }
+      const devRaw = localStorage.getItem("tw_dev_impersonate");
+      if (devRaw) {
+        const d = JSON.parse(devRaw);
+        d.custom_theme = theme;
+        localStorage.setItem("tw_dev_impersonate", JSON.stringify(d));
+      }
+      const simRaw = sessionStorage.getItem("tw_dev_impersonate");
+      if (simRaw) {
+        const s = JSON.parse(simRaw);
+        s.custom_theme = theme;
+        sessionStorage.setItem("tw_dev_impersonate", JSON.stringify(s));
+      }
+    } catch {}
+  }
+
+  // 3. Persistência direta no Firebase RTDB (tenta chave direta do usuário primeiro)
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    // Tenta atualizar diretamente o nó do próprio usuário (<50ms)
+    rtdb.update(`profiles/${userId}`, {
       custom_theme: theme,
       updated_at: new Date().toISOString(),
-    })
-    .eq("user_id", session.user.id);
+    }).catch(async () => {
+      // Fallback: se o nó tiver chave alternativa
+      try {
+        const profiles = await rtdb.get<Record<string, any>>("profiles");
+        if (profiles && typeof profiles === "object") {
+          for (const [key, prof] of Object.entries(profiles)) {
+            if (prof && (prof.user_id === userId || prof.id === userId || key === userId)) {
+              await rtdb.update(`profiles/${key}`, {
+                custom_theme: theme,
+                updated_at: new Date().toISOString(),
+              });
+              break;
+            }
+          }
+        }
+      } catch {}
+    });
+  } catch (fbErr) {
+    console.warn("Aviso ao persistir custom_theme no Firebase RTDB:", fbErr);
+  }
 
-  if (error) throw error;
+  // 4. Persistência via Supabase REST (em background rápido)
+  try {
+    void (supabase.from("profiles" as any))
+      .update({
+        custom_theme: theme,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", userId);
+  } catch {}
 }
 
 export async function updateMemberDetails(payload: {
