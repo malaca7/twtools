@@ -59,7 +59,7 @@ import { useCustomRoles, useMembers } from "@/hooks/useData";
 import { useMemberTags } from "@/hooks/useMemberTags";
 import {
   LEVELS,
-  LEVEL_LABEL,
+  getLevelLabel,
   LEVEL_DESCRIPTION,
   LEVEL_RANK,
   levelBadgeClass,
@@ -148,31 +148,33 @@ export function DevMaintenanceManagerModal({
 
   // Lista de cargos disponíveis
   const availableRoles = useMemo(() => {
-    if (customRoles && customRoles.length > 0) {
+    if (customRoles && Array.isArray(customRoles) && customRoles.length > 0) {
       const filtered = customRoles.filter((r) => {
-        const id = (r.id || "").toLowerCase();
-        return id !== "desenvolvedor" && id !== "dev";
+        if (!r) return false;
+        const id = String(r.id || "").toLowerCase().trim();
+        return id && id !== "desenvolvedor" && id !== "dev";
       });
       if (filtered.length > 0) {
         return filtered.map((r) => ({
-          id: r.id.toLowerCase(),
-          nome: r.nome || LEVEL_LABEL[r.id as AppLevel] || r.id,
-          descricao: r.descricao || LEVEL_DESCRIPTION[r.id as AppLevel] || "Cargo operacional.",
-          rank: r.rank || LEVEL_RANK[r.id as AppLevel] || 0,
+          id: String(r.id).toLowerCase().trim(),
+          nome: r.nome || getLevelLabel(r.id) || String(r.id),
+          descricao: r.descricao || (LEVEL_DESCRIPTION && LEVEL_DESCRIPTION[r.id as AppLevel]) || "Cargo operacional.",
+          rank: r.rank || (LEVEL_RANK && LEVEL_RANK[r.id as AppLevel]) || 0,
         }));
       }
     }
     return LEVELS.map((lvl) => ({
       id: lvl,
-      nome: LEVEL_LABEL[lvl] || lvl,
-      descricao: LEVEL_DESCRIPTION[lvl] || "Cargo operacional.",
-      rank: LEVEL_RANK[lvl] || 0,
+      nome: getLevelLabel(lvl) || lvl,
+      descricao: (LEVEL_DESCRIPTION && LEVEL_DESCRIPTION[lvl]) || "Cargo operacional.",
+      rank: (LEVEL_RANK && LEVEL_RANK[lvl]) || 0,
     }));
   }, [customRoles]);
 
   // Lista de tags ativas
   const availableTags = useMemo(() => {
-    return memberTags.filter((t) => t.is_active !== false);
+    if (!memberTags || !Array.isArray(memberTags)) return [];
+    return memberTags.filter((t) => t && t.is_active !== false && Boolean(t.id));
   }, [memberTags]);
 
   // Sync state whenever settings or dialog open
@@ -974,7 +976,7 @@ export function DevMaintenanceManagerModal({
                       const memberId = (member.user_id || member.id || "").toLowerCase();
                       const isChecked = selectedAllowedMembers.includes(memberId);
                       const displayName = member.nome || member.nickname || "Membro";
-                      const roleLabel = member.nivel ? (LEVEL_LABEL[member.nivel as AppLevel] || member.nivel) : "Membro";
+                      const roleLabel = getLevelLabel(member.nivel);
 
                       return (
                         <div

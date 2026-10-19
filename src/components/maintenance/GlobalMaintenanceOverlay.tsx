@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import React, { Component, useState, useEffect, useMemo, type ReactNode, type ErrorInfo } from "react";
 import { toast } from "sonner";
 import {
   Wrench,
@@ -29,8 +29,43 @@ import { Brand } from "@/components/Brand";
 import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 import { useAuth } from "@/hooks/useAuth";
 import { DevMaintenanceManagerModal } from "./DevMaintenanceManagerModal";
-import { LEVEL_LABEL, type AppLevel } from "@/lib/permissions";
+import { getLevelLabel, type AppLevel } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
+
+interface MaintenanceErrorBoundaryProps {
+  children: ReactNode;
+  fallback?: ReactNode;
+}
+
+interface MaintenanceErrorBoundaryState {
+  hasError: boolean;
+  error?: Error;
+}
+
+export class MaintenanceErrorBoundary extends Component<
+  MaintenanceErrorBoundaryProps,
+  MaintenanceErrorBoundaryState
+> {
+  constructor(props: MaintenanceErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error): MaintenanceErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("[MaintenanceErrorBoundary caught]:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback ?? null;
+    }
+    return this.props.children;
+  }
+}
 
 function DiscordIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -70,45 +105,62 @@ export function GlobalMaintenanceOverlay() {
 
   // Verifica se o usuário atual é um dos membros com acesso liberado (Bypass de Membro)
   const isAllowedMember = useMemo(() => {
-    const allowed = (settings.maintenanceAllowedMembers || []).map((id) => String(id).toLowerCase());
-    if (allowed.length === 0) return false;
-    const uid = (user?.id || "").toLowerCase();
-    const pUserId = (profile?.user_id || "").toLowerCase();
-    const pId = (profile?.id || "").toLowerCase();
-    return (
-      (uid && allowed.includes(uid)) ||
-      (pUserId && allowed.includes(pUserId)) ||
-      (pId && allowed.includes(pId))
-    );
+    try {
+      const allowed = (Array.isArray(settings.maintenanceAllowedMembers) ? settings.maintenanceAllowedMembers : [])
+        .map((id) => String(id || "").toLowerCase().trim())
+        .filter(Boolean);
+      if (allowed.length === 0) return false;
+      const uid = String(user?.id || "").toLowerCase().trim();
+      const pUserId = String(profile?.user_id || "").toLowerCase().trim();
+      const pId = String(profile?.id || "").toLowerCase().trim();
+      return (
+        (uid && allowed.includes(uid)) ||
+        (pUserId && allowed.includes(pUserId)) ||
+        (pId && allowed.includes(pId))
+      );
+    } catch {
+      return false;
+    }
   }, [settings.maintenanceAllowedMembers, user?.id, profile?.user_id, profile?.id]);
 
   // Cálculo se o usuário atual é alvo da manutenção (Targeting)
   const isUserTargeted = useMemo(() => {
-    // Se o desenvolvedor está no modo de visualização como membro, sempre considera afetado para teste
-    if (previewAsMember) return true;
+    try {
+      // Se o desenvolvedor está no modo de visualização como membro, sempre considera afetado para teste
+      if (previewAsMember) return true;
 
-    // Se a manutenção for global para todos os integrantes
-    if (settings.maintenanceTargetType !== "selected") {
+      // Se a manutenção for global para todos os integrantes
+      if (settings.maintenanceTargetType !== "selected") {
+        return true;
+      }
+
+      const targetRoles = (Array.isArray(settings.maintenanceTargetRoles) ? settings.maintenanceTargetRoles : [])
+        .map((r) => String(r || "").toLowerCase().trim())
+        .filter(Boolean);
+      const targetTags = (Array.isArray(settings.maintenanceTargetTags) ? settings.maintenanceTargetTags : [])
+        .map((t) => String(t || "").toLowerCase().trim())
+        .filter(Boolean);
+
+      // Se nenhum cargo ou tag foi especificado na seletiva, não bloqueia por segurança
+      if (targetRoles.length === 0 && targetTags.length === 0) {
+        return false;
+      }
+
+      // 1. Verifica cargo (level) do usuário
+      const userRole = level ? String(level).toLowerCase().trim() : "";
+      const roleMatches = userRole ? targetRoles.includes(userRole) : false;
+
+      // 2. Verifica tags de membros do usuário
+      const userTagIds = (Array.isArray(memberTags) ? memberTags : [])
+        .map((t) => (t && t.id ? String(t.id).toLowerCase().trim() : ""))
+        .filter(Boolean);
+      const tagMatches = userTagIds.some((tId) => targetTags.includes(tId));
+
+      return roleMatches || tagMatches;
+    } catch (err) {
+      console.warn("Erro ao calcular público alvo da manutenção:", err);
       return true;
     }
-
-    const targetRoles = (settings.maintenanceTargetRoles || []).map((r) => r.toLowerCase());
-    const targetTags = (settings.maintenanceTargetTags || []).map((t) => t.toLowerCase());
-
-    // Se nenhum cargo ou tag foi especificado na seletiva, não bloqueia por segurança
-    if (targetRoles.length === 0 && targetTags.length === 0) {
-      return false;
-    }
-
-    // 1. Verifica cargo (level) do usuário
-    const userRole = level?.toLowerCase();
-    const roleMatches = userRole ? targetRoles.includes(userRole) : false;
-
-    // 2. Verifica tags de membros do usuário
-    const userTagIds = (memberTags || []).map((t) => t.id.toLowerCase());
-    const tagMatches = userTagIds.some((tId) => targetTags.includes(tId));
-
-    return roleMatches || tagMatches;
   }, [
     previewAsMember,
     settings.maintenanceTargetType,
@@ -534,7 +586,7 @@ export function GlobalMaintenanceOverlay() {
                     )}
                   </div>
                   <div className="text-[10px] text-zinc-400 font-mono">
-                    {level ? LEVEL_LABEL[level] || level : "Membro"}
+                    {level ? getLevelLabel(level) : "Membro"}
                   </div>
                 </div>
               </div>
@@ -633,11 +685,13 @@ export function GlobalMaintenanceOverlay() {
         </div>
       </div>
 
-      <DevMaintenanceManagerModal
-        open={managerOpen}
-        onOpenChange={setManagerOpen}
-        onPreviewAsMember={() => setPreviewAsMember(true)}
-      />
+      {managerOpen && (
+        <DevMaintenanceManagerModal
+          open={managerOpen}
+          onOpenChange={setManagerOpen}
+          onPreviewAsMember={() => setPreviewAsMember(true)}
+        />
+      )}
     </div>
   );
 }

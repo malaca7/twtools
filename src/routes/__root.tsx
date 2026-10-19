@@ -13,7 +13,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { useUserTheme, applyThemeToDOM } from "@/hooks/useUserTheme";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { usePageTitleSync } from "@/hooks/usePageTitle";
-import { GlobalMaintenanceOverlay } from "@/components/maintenance/GlobalMaintenanceOverlay";
+import { GlobalMaintenanceOverlay, MaintenanceErrorBoundary } from "@/components/maintenance/GlobalMaintenanceOverlay";
 
 function NotFoundComponent() {
   const pathname = typeof window !== "undefined" ? window.location.pathname : "";
@@ -73,6 +73,8 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
       localStorage.removeItem("tw_menu_config");
       localStorage.removeItem("tw_panel_mode");
       localStorage.removeItem("tw_dev_impersonate");
+      localStorage.removeItem("tw_platform_settings");
+      sessionStorage.clear();
     } catch {}
     try {
       router.invalidate();
@@ -188,7 +190,9 @@ function RootComponent() {
         <GlobalRealtimeSync />
         <DocumentTitleSync />
         <AppearanceSync />
-        <GlobalMaintenanceOverlay />
+        <MaintenanceErrorBoundary>
+          <GlobalMaintenanceOverlay />
+        </MaintenanceErrorBoundary>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
         <Toaster position="top-center" offset={80} mobileOffset={76} richColors theme="dark" closeButton />

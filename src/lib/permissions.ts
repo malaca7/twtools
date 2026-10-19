@@ -1,7 +1,26 @@
 export type AppLevel = "desenvolvedor" | "01" | "02" | "gerente" | "motoqueiro" | "membro" | "novato" | (string & {});
 
-import { getDevThemeColorSync, getMemberThemeColorSync } from "@/services/devService";
-import { getPanelColorStyle } from "@/lib/panelTheme";
+import { getPanelColorStyle, type PanelColor } from "@/lib/panelTheme";
+
+function getDevThemeColor(): PanelColor {
+  try {
+    if (typeof window !== "undefined") {
+      const cfg = localStorage.getItem("tw_dev_module_config_v1");
+      if (cfg) return (JSON.parse(cfg)?.devThemeColor as PanelColor) || "rose";
+    }
+  } catch {}
+  return "rose";
+}
+
+function getMemberThemeColor(): PanelColor {
+  try {
+    if (typeof window !== "undefined") {
+      const cfg = localStorage.getItem("tw_dev_module_config_v1");
+      if (cfg) return (JSON.parse(cfg)?.memberThemeColor as PanelColor) || "cyan";
+    }
+  } catch {}
+  return "cyan";
+}
 
 export const LEVELS: AppLevel[] = ["01", "02", "gerente", "motoqueiro", "membro", "novato"];
 export const ALL_LEVELS: AppLevel[] = LEVELS;
@@ -2884,7 +2903,7 @@ export function canPromote(
 export function levelBadgeClass(level: AppLevel | null | undefined): string {
   switch (level) {
     case "desenvolvedor": {
-      const style = getPanelColorStyle(getDevThemeColorSync(), "rose");
+      const style = getPanelColorStyle(getDevThemeColor(), "rose");
       return style.badgeClass;
     }
     case "01":
@@ -2896,7 +2915,7 @@ export function levelBadgeClass(level: AppLevel | null | undefined): string {
     case "motoqueiro":
       return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
     case "membro": {
-      const style = getPanelColorStyle(getMemberThemeColorSync(), "cyan");
+      const style = getPanelColorStyle(getMemberThemeColor(), "cyan");
       return style.badgeClass;
     }
     case "novato":
