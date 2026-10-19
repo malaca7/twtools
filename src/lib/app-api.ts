@@ -1284,94 +1284,118 @@ export async function getMemberBySlug(slug: string): Promise<Member | null> {
 }
 
 export async function updateUserTheme(theme: import("./app-types").UserThemeSettings): Promise<void> {
-  // 1. Obtém o usuário ativo (via Supabase Session, Dev Impersonate ou localStorage)
+  // 1. Obtém todos os IDs associados ao usuário ativo
   let userId: string | null = null;
+  const candidateIds = new Set<string>();
+
   try {
     const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user?.id) userId = session.user.id;
+    if (session?.user?.id) {
+      userId = session.user.id;
+      candidateIds.add(session.user.id);
+    }
   } catch {}
 
-  if (!userId && typeof window !== "undefined") {
+  if (typeof window !== "undefined") {
     try {
       const simRaw = sessionStorage.getItem("tw_dev_impersonate") || localStorage.getItem("tw_dev_impersonate");
       if (simRaw) {
         const sim = JSON.parse(simRaw);
-        userId = sim.user_id || sim.id;
+        if (sim.user_id) candidateIds.add(sim.user_id);
+        if (sim.id) candidateIds.add(sim.id);
+        if (sim.discord_id) candidateIds.add(String(sim.discord_id));
+        if (sim.game_id) candidateIds.add(String(sim.game_id));
+        if (!userId) userId = sim.user_id || sim.id;
       }
-      if (!userId) {
-        const authRaw = localStorage.getItem("tw_auth_user");
-        if (authRaw) {
-          const u = JSON.parse(authRaw);
-          userId = u.user_id || u.id;
-        }
+      const authRaw = localStorage.getItem("tw_auth_user");
+      if (authRaw) {
+        const u = JSON.parse(authRaw);
+        if (u.user_id) candidateIds.add(u.user_id);
+        if (u.id) candidateIds.add(u.id);
+        if (u.discord_id) candidateIds.add(String(u.discord_id));
+        if (!userId) userId = u.user_id || u.id;
       }
     } catch {}
   }
 
-  if (!userId) throw new Error("Não autenticado");
+  if (!userId && candidateIds.size === 0) throw new Error("Não autenticado");
 
-  // 2. Salva no localStorage imediatamente
+  // 2. Salva no localStorage e caches de sessão imediatamente
   if (typeof window !== "undefined") {
     try {
       localStorage.setItem("tw_user_theme", JSON.stringify(theme));
+
       const authRaw = localStorage.getItem("tw_auth_user");
       if (authRaw) {
         const u = JSON.parse(authRaw);
-        u.custom_theme = theme;
+        u.custom_theme = { ...(u.custom_theme || {}), ...theme };
         localStorage.setItem("tw_auth_user", JSON.stringify(u));
       }
       const devRaw = localStorage.getItem("tw_dev_impersonate");
       if (devRaw) {
         const d = JSON.parse(devRaw);
-        d.custom_theme = theme;
+        d.custom_theme = { ...(d.custom_theme || {}), ...theme };
         localStorage.setItem("tw_dev_impersonate", JSON.stringify(d));
       }
       const simRaw = sessionStorage.getItem("tw_dev_impersonate");
       if (simRaw) {
         const s = JSON.parse(simRaw);
-        s.custom_theme = theme;
+        s.custom_theme = { ...(s.custom_theme || {}), ...theme };
         sessionStorage.setItem("tw_dev_impersonate", JSON.stringify(s));
       }
     } catch {}
   }
 
-  // 3. Persistência direta no Firebase RTDB (tenta chave direta do usuário primeiro)
+  // 3. Persistência direta no Firebase RTDB
   try {
     const { rtdb } = await import("@/integrations/firebase/rtdb");
-    // Tenta atualizar diretamente o nó do próprio usuário (<50ms)
-    rtdb.update(`profiles/${userId}`, {
-      custom_theme: theme,
-      updated_at: new Date().toISOString(),
-    }).catch(async () => {
-      // Fallback: se o nó tiver chave alternativa
-      try {
-        const profiles = await rtdb.get<Record<string, any>>("profiles");
-        if (profiles && typeof profiles === "object") {
-          for (const [key, prof] of Object.entries(profiles)) {
-            if (prof && (prof.user_id === userId || prof.id === userId || key === userId)) {
-              await rtdb.update(`profiles/${key}`, {
-                custom_theme: theme,
-                updated_at: new Date().toISOString(),
-              });
-              break;
-            }
-          }
+    const profiles = await rtdb.get<Record<string, any>>("profiles");
+    if (profiles && typeof profiles === "object") {
+      for (const [key, prof] of Object.entries(profiles)) {
+        if (!prof) continue;
+        const matches = Array.from(candidateIds).some(
+          (cid) =>
+            prof.user_id === cid ||
+            prof.id === cid ||
+            key === cid ||
+            String(prof.discord_id) === cid ||
+            String(prof.game_id) === cid
+        );
+        if (matches) {
+          const mergedTheme = { ...(prof.custom_theme || {}), ...theme };
+          await rtdb.update(`profiles/${key}`, {
+            custom_theme: mergedTheme,
+            updated_at: new Date().toISOString(),
+          });
+          break;
         }
-      } catch {}
-    });
+      }
+    }
+    // Gravação direta por chave para redundância
+    if (userId) {
+      await rtdb.update(`profiles/${userId}`, {
+        custom_theme: theme,
+        updated_at: new Date().toISOString(),
+      }).catch(() => {});
+    }
   } catch (fbErr) {
     console.warn("Aviso ao persistir custom_theme no Firebase RTDB:", fbErr);
   }
 
-  // 4. Persistência via Supabase REST (em background rápido)
+  // 4. Persistência via Supabase REST (atualiza por user_id ou id)
   try {
-    void (supabase.from("profiles" as any))
-      .update({
-        custom_theme: theme,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", userId);
-  } catch {}
+    const orList = Array.from(candidateIds).map((cid) => `user_id.eq.${cid},id.eq.${cid}`).join(",");
+    if (orList) {
+      await (supabase.from("profiles" as any))
+        .update({
+          custom_theme: theme,
+          updated_at: new Date().toISOString(),
+        })
+        .or(orList);
+    }
+  } catch (sbErr) {
+    console.warn("Aviso ao persistir custom_theme no Supabase:", sbErr);
+  }
 }
 
 export async function updateMemberDetails(payload: {

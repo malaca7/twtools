@@ -137,7 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               discord_avatar_url: sim.discord_avatar_url || sim.avatar_url || null,
               discord_email: sim.discord_email || null,
               is_developer: Boolean(sim.is_developer === true),
-              is_ceo: Boolean(sim.is_ceo === true),
+              is_ceo: Boolean(sim.is_ceo === true || sim.custom_theme?.is_ceo === true || isUserCeo(sim)),
               bio: sim.bio || sim.custom_theme?.bio || null,
               custom_status: sim.custom_status || sim.custom_theme?.custom_status || null,
               social_links: sim.social_links || sim.custom_theme?.social_links || null,
@@ -194,7 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               discord_avatar_url: dev.discord_avatar_url || dev.avatar_url || null,
               discord_email: dev.discord_email || null,
               is_developer: Boolean(dev.is_developer === true),
-              is_ceo: Boolean(dev.is_ceo === true),
+              is_ceo: Boolean(dev.is_ceo === true || dev.custom_theme?.is_ceo === true || isUserCeo(dev)),
               bio: dev.bio || dev.custom_theme?.bio || null,
               custom_status: dev.custom_status || dev.custom_theme?.custom_status || null,
               social_links: dev.social_links || dev.custom_theme?.social_links || null,
@@ -301,14 +301,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const handleVerif = () => {
       void loadAuth();
+      setPermissionsTick((t) => t + 1);
       void queryClient.invalidateQueries({ queryKey: ["auth"] });
       void queryClient.invalidateQueries({ queryKey: ["members"] });
+      void queryClient.invalidateQueries({ queryKey: ["member_tags"] });
+      void queryClient.invalidateQueries({ queryKey: ["member_tag_assignments"] });
     };
     window.addEventListener("tw_verifications_updated", handleVerif);
+    window.addEventListener(CEO_CONFIG_EVENT, handleVerif);
+    window.addEventListener(DEV_CONFIG_EVENT, handleVerif);
+    window.addEventListener("tw_tags_updated", handleVerif);
+    window.addEventListener("tw_member_updated", handleVerif);
 
     return () => {
       void supabase.removeChannel(channel);
       window.removeEventListener("tw_verifications_updated", handleVerif);
+      window.removeEventListener(CEO_CONFIG_EVENT, handleVerif);
+      window.removeEventListener(DEV_CONFIG_EVENT, handleVerif);
+      window.removeEventListener("tw_tags_updated", handleVerif);
+      window.removeEventListener("tw_member_updated", handleVerif);
     };
   }, [loadAuth, queryClient, profile?.user_id, session?.user?.id]);
 
@@ -491,6 +502,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (a.member_id && candidateIds.has(String(a.member_id).trim().toLowerCase())) {
             myTagIds.add(a.tag_id);
           }
+        }
+
+        // Se o usuário está na lista de CEOs do sistema ou tem is_ceo no perfil, garante a tag 'ceo'
+        if (typeof window !== "undefined") {
+          try {
+            const ceoCfg = localStorage.getItem("tw_ceo_config");
+            if (ceoCfg) {
+              const parsed = JSON.parse(ceoCfg);
+              const list: string[] = parsed.activeCeoUserIds || [];
+              if (list.some((id) => candidateIds.has(String(id).trim().toLowerCase()))) {
+                myTagIds.add("ceo");
+              }
+            }
+          } catch {}
+        }
+        if (profile?.is_ceo || profile?.custom_theme?.is_ceo || isUserCeo(profile)) {
+          myTagIds.add("ceo");
         }
 
         const myTags = tagsData.filter(
@@ -835,9 +863,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Checagem se o membro é CEO (base ou concedido por tag ativa)
   const isCeoUser = useMemo(() => {
-    // 1. Base (flag is_ceo no perfil)
-    const baseCeo = isUserCeo(profile);
-    if (baseCeo) return true;
+    // 1. Base (flag is_ceo no perfil ou checagem isUserCeo)
+    if (isUserCeo(profile, session?.user ? { id: session.user.id } : null)) return true;
+    if (profile?.is_ceo === true || profile?.custom_theme?.is_ceo === true) return true;
     if (level === "ceo" || (profile as any)?.role === "ceo" || (profile as any)?.cargo === "ceo") return true;
 
     // 2. Concedido por qualquer tag ativa que o membro possua
@@ -856,10 +884,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (tagCeo) return true;
 
+    // 3. Fallback adicional de activeCeoUserIds em localStorage caso memberTags ainda esteja sincronizando
+    if (typeof window !== "undefined") {
+      try {
+        const ceoCfg = localStorage.getItem("tw_ceo_config");
+        if (ceoCfg) {
+          const parsed = JSON.parse(ceoCfg);
+          const list: string[] = parsed.activeCeoUserIds || [];
+          const ids = [
+            profile?.id,
+            profile?.user_id,
+            session?.user?.id,
+            profile?.discord_id,
+            (profile as any)?.game_id
+          ].filter(Boolean).map(String);
+          if (ids.some((id) => list.includes(id))) return true;
+        }
+      } catch {}
+    }
+
     // Observação: possuir a Tag Dev NÃO torna o membro CEO automaticamente.
     // O desenvolvedor só recebe permissões da Tag CEO se realmente possuir a Tag CEO.
     return false;
-  }, [profile, memberTags]);
+  }, [session?.user, profile, level, memberTags]);
 
   // Permissões ativas agregadas
   const allTagPermissions = useMemo<Permission[]>(() => {

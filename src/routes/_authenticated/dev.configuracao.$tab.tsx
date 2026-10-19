@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useChildMatches } from "@tanstack/react-router";
 import { DeveloperGuard } from "@/dev/guards/DeveloperGuard";
 import { DevConfiguracaoContent } from "./dev.configuracao";
 
@@ -10,6 +10,7 @@ export const Route = createFileRoute("/_authenticated/dev/configuracao/$tab")({
 function DevConfiguracaoTabRoute() {
   const params = Route.useParams() as Record<string, string | undefined>;
   const tab = params["$tab"] || params["tab"];
+  const childMatches = useChildMatches();
 
   useEffect(() => {
     if (tab === "bot-manage" || tab === "webhooks" || tab === "discord-logs") {
@@ -19,9 +20,14 @@ function DevConfiguracaoTabRoute() {
     }
   }, [tab]);
 
+  if (childMatches.length > 0) {
+    return <Outlet />;
+  }
+
   return (
     <DeveloperGuard>
       <DevConfiguracaoContent defaultTab={tab} />
     </DeveloperGuard>
   );
 }
+

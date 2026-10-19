@@ -316,6 +316,28 @@ export function DevConfiguracaoContent({
     }
   }, [defaultSubTab]);
 
+  useEffect(() => {
+    const handlePopState = () => {
+      const parts = window.location.pathname.split("/").filter(Boolean);
+      const confIdx = parts.indexOf("configuracao");
+      if (confIdx !== -1 && parts[confIdx + 1]) {
+        const tabPart = parts[confIdx + 1];
+        if (["plataforma", "rodape", "paineis", "dev-tools"].includes(tabPart)) {
+          setActiveMainTab(tabPart);
+        }
+      }
+      const platIdx = parts.indexOf("plataforma");
+      if (platIdx !== -1 && parts[platIdx + 1]) {
+        const subPart = parts[platIdx + 1];
+        if (VALID_PLATFORM_SUBTABS.includes(subPart)) {
+          setPlatformActiveSubTab(subPart);
+        }
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
   const handlePlatformSubTabChange = (val: string) => {
     setPlatformActiveSubTab(val);
     try {

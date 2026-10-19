@@ -2555,3 +2555,56 @@ button, a, input, select, textarea {
   background-color: var(--color-muted-foreground);
 }
 
+/* ─── Identidade Visual Dinâmica dos Painéis (Dev, CEO & Membro) ─── */
+html[data-active-panel] {
+  --primary: var(--panel-active-primary, oklch(0.63 0.185 255));
+  --ring: var(--panel-active-primary, oklch(0.63 0.185 255));
+  --sidebar-primary: var(--panel-active-primary, oklch(0.63 0.185 255));
+  --sidebar-ring: var(--panel-active-primary, oklch(0.63 0.185 255));
+}
+
+.text-panel-primary {
+  color: var(--panel-active-primary, var(--primary)) !important;
+}
+
+.bg-panel-primary {
+  background-color: var(--panel-active-primary, var(--primary)) !important;
+}
+
+.border-panel-primary {
+  border-color: var(--panel-active-primary, var(--primary)) !important;
+}
+
+.border-panel-primary\/30 {
+  border-color: color-mix(in srgb, var(--panel-active-primary, var(--primary)) 30%, transparent) !important;
+}
+
+.border-panel-primary\/50 {
+  border-color: color-mix(in srgb, var(--panel-active-primary, var(--primary)) 50%, transparent) !important;
+}
+
+.bg-panel-subtle {
+  background-color: color-mix(in srgb, var(--panel-active-primary, var(--primary)) 12%, transparent) !important;
+}
+
+.bg-panel-subtle-20 {
+  background-color: color-mix(in srgb, var(--panel-active-primary, var(--primary)) 20%, transparent) !important;
+}
+
+.bg-panel-gradient {
+  background-image: var(--panel-active-gradient, linear-gradient(135deg, var(--panel-active-primary) 0%, transparent 100%)) !important;
+}
+
+.shadow-panel-glow {
+  box-shadow: 0 0 24px -2px var(--panel-active-glow, rgba(99, 102, 241, 0.45)) !important;
+}
+
+.shadow-panel-glow-sm {
+  box-shadow: 0 0 12px -2px var(--panel-active-glow, rgba(99, 102, 241, 0.3)) !important;
+}
+
+.ring-panel-primary {
+  --tw-ring-color: var(--panel-active-primary, var(--primary)) !important;
+}
+
+

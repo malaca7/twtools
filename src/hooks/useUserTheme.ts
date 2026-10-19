@@ -77,21 +77,25 @@ export function applyThemeToDOM(theme: UserThemeSettings) {
     root.style.setProperty("--shadow-elegant", `0 0 28px -4px color-mix(in srgb, ${solidColor} 45%, transparent)`);
     root.style.setProperty("--shadow-glow", `0 0 20px -2px color-mix(in srgb, ${solidColor} 40%, transparent)`);
   } else {
-    root.style.removeProperty("--primary");
-    root.style.removeProperty("--ring");
-    root.style.removeProperty("--sidebar-primary");
-    root.style.removeProperty("--sidebar-ring");
-    root.style.removeProperty("--color-primary");
-    root.style.removeProperty("--custom-accent");
-    root.style.removeProperty("--glow-color");
-    root.style.removeProperty("--gradient-brand");
-    root.style.removeProperty("--gradient-primary");
-    root.style.removeProperty("--accent");
-    root.style.removeProperty("--accent-foreground");
-    root.style.removeProperty("--sidebar-accent");
-    root.style.removeProperty("--sidebar-accent-foreground");
-    root.style.removeProperty("--shadow-elegant");
-    root.style.removeProperty("--shadow-glow");
+    // Se o elemento raiz possui painel ativo (dev, ceo ou member), preserva as cores do painel
+    const hasActivePanel = root.hasAttribute("data-active-panel");
+    if (!hasActivePanel) {
+      root.style.removeProperty("--primary");
+      root.style.removeProperty("--ring");
+      root.style.removeProperty("--sidebar-primary");
+      root.style.removeProperty("--sidebar-ring");
+      root.style.removeProperty("--color-primary");
+      root.style.removeProperty("--custom-accent");
+      root.style.removeProperty("--glow-color");
+      root.style.removeProperty("--gradient-brand");
+      root.style.removeProperty("--gradient-primary");
+      root.style.removeProperty("--accent");
+      root.style.removeProperty("--accent-foreground");
+      root.style.removeProperty("--sidebar-accent");
+      root.style.removeProperty("--sidebar-accent-foreground");
+      root.style.removeProperty("--shadow-elegant");
+      root.style.removeProperty("--shadow-glow");
+    }
   }
 }
 
@@ -134,13 +138,27 @@ export function useUserTheme() {
   // Ref para saber se estamos ativamente salvando (evita que o sync remoto sobrescreva)
   const isSavingRef = useRef(false);
 
-  // Sincroniza quando o perfil remoto do usuário carrega (apenas na carga inicial, não durante saves)
+  // Sincroniza quando o perfil remoto do usuário carrega (preservando configurações ativas)
   useEffect(() => {
     // Se estamos salvando, ignorar o sync remoto para evitar reverter a alteração local
     if (isSavingRef.current) return;
 
-    if (profile?.custom_theme) {
-      const merged = { ...DEFAULT_USER_THEME, ...profile.custom_theme };
+    const local = getLocalUserTheme();
+    if (profile?.custom_theme && Object.keys(profile.custom_theme).length > 0) {
+      const remote = profile.custom_theme;
+      const merged: UserThemeSettings = {
+        ...DEFAULT_USER_THEME,
+        ...local,
+        ...remote,
+        brightness: remote.brightness !== undefined ? remote.brightness : (local.brightness ?? 100),
+        contrast: remote.contrast !== undefined ? remote.contrast : (local.contrast ?? 100),
+        saturation: remote.saturation !== undefined ? remote.saturation : (local.saturation ?? 100),
+        textBrightness: remote.textBrightness !== undefined ? remote.textBrightness : (local.textBrightness ?? 100),
+        themeStyle: remote.themeStyle || local.themeStyle || "cyberpunk",
+        cardStyle: remote.cardStyle || local.cardStyle || "glassmorphism",
+        fontFamily: remote.fontFamily || local.fontFamily || "space_grotesk",
+        customPrimaryColor: remote.customPrimaryColor !== undefined ? remote.customPrimaryColor : local.customPrimaryColor,
+      };
       setLocalTheme(merged);
       latestThemeRef.current = merged;
       try {
@@ -148,7 +166,6 @@ export function useUserTheme() {
       } catch {}
       applyThemeToDOM(merged);
     } else {
-      const local = getLocalUserTheme();
       setLocalTheme(local);
       latestThemeRef.current = local;
       applyThemeToDOM(local);

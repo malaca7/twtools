@@ -975,8 +975,43 @@ export function isUserCeo(
 ): boolean {
   if (profile?.is_ceo === true || profile?.custom_theme?.is_ceo === true) return true;
   if (member?.is_ceo === true || member?.custom_theme?.is_ceo === true) return true;
+  if ((profile as any)?.role === "ceo" || (profile as any)?.cargo === "ceo" || (profile as any)?.nivel === "ceo") return true;
+  if ((member as any)?.role === "ceo" || (member as any)?.cargo === "ceo" || (member as any)?.nivel === "ceo") return true;
+
+  if (typeof window !== "undefined") {
+    try {
+      const cfgRaw = localStorage.getItem("tw_ceo_config");
+      if (cfgRaw) {
+        const cfg = JSON.parse(cfgRaw);
+        const list: string[] = cfg.activeCeoUserIds || [];
+        const ids = [
+          profile?.id,
+          profile?.user_id,
+          profile?.discord_id,
+          (profile as any)?.game_id,
+          member?.id,
+          member?.user_id,
+          member?.discord_id,
+          member?.game_id,
+        ].filter(Boolean).map(String);
+        if (ids.some((id) => list.includes(id))) return true;
+      }
+    } catch {}
+
+    try {
+      const devRaw = localStorage.getItem("tw_dev_impersonate") || sessionStorage.getItem("tw_dev_impersonate");
+      if (devRaw) {
+        const dev = JSON.parse(devRaw);
+        if (dev.is_ceo === true || dev.custom_theme?.is_ceo === true) {
+          const ids = [profile?.id, profile?.user_id, member?.id, member?.user_id].filter(Boolean).map(String);
+          if (ids.length === 0 || ids.includes(String(dev.user_id)) || ids.includes(String(dev.id))) return true;
+        }
+      }
+    } catch {}
+  }
   return false;
 }
+
 
 /**
  * Carrega a lista de permissões da Tag CEO persistidas no Supabase / LocalStorage
@@ -1222,7 +1257,14 @@ export async function toggleMemberCeoTag(
     const fbProfiles = await rtdb.get<Record<string, any>>("profiles");
     if (fbProfiles && typeof fbProfiles === "object") {
       for (const [k, v] of Object.entries(fbProfiles)) {
-        if (v && (v.user_id === targetUserId || v.id === targetUserId || k === targetUserId)) {
+        if (
+          v &&
+          (v.user_id === targetUserId ||
+            v.id === targetUserId ||
+            k === targetUserId ||
+            String(v.game_id) === String(targetUserId) ||
+            String(v.discord_id) === String(targetUserId))
+        ) {
           matchedProfileKey = k;
           matchedProfileVal = v;
           targetName = v.nickname || v.nome || targetName;
@@ -1233,9 +1275,17 @@ export async function toggleMemberCeoTag(
             custom_theme: updatedTheme,
             updated_at: now,
           });
-          break; // Garante que atualiza apenas o registro específico encontrado
+          break;
         }
       }
+    }
+    // Gravação direta por chave do alvo para redundância
+    if (targetUserId) {
+      await rtdb.update(`profiles/${targetUserId}`, {
+        is_ceo: enable,
+        custom_theme: { ...existingTheme, is_ceo: enable },
+        updated_at: now,
+      }).catch(() => {});
     }
   } catch (err) {
     console.warn("Aviso ao atualizar profiles no RTDB:", err);
@@ -1245,10 +1295,19 @@ export async function toggleMemberCeoTag(
   try {
     const filterUid = matchedProfileVal?.user_id || targetUserId;
     const filterId = matchedProfileVal?.id || targetUserId;
+    const filterGameId = matchedProfileVal?.game_id || targetUserId;
+
+    const orConditions = [
+      filterUid ? `user_id.eq.${filterUid}` : null,
+      filterId ? `id.eq.${filterId}` : null,
+      filterGameId ? `game_id.eq.${filterGameId}` : null,
+      targetUserId ? `user_id.eq.${targetUserId}` : null,
+      targetUserId ? `id.eq.${targetUserId}` : null,
+    ].filter(Boolean).join(",");
 
     const { data: targetProfile } = await (supabase.from("profiles" as any))
-      .select("id, user_id, nome, nickname, custom_theme")
-      .or(`user_id.eq.${filterUid},id.eq.${filterId}`)
+      .select("id, user_id, game_id, nome, nickname, custom_theme")
+      .or(orConditions)
       .maybeSingle();
 
     if (targetProfile) {
@@ -1311,11 +1370,15 @@ export async function toggleMemberCeoTag(
     if (enable) {
       activeSet.add(resolvedTargetId);
       if (targetUserId) activeSet.add(targetUserId);
+      if (matchedProfileVal?.id) activeSet.add(matchedProfileVal.id);
+      if (matchedProfileVal?.user_id) activeSet.add(matchedProfileVal.user_id);
+      if (matchedProfileVal?.game_id) activeSet.add(String(matchedProfileVal.game_id));
     } else {
       activeSet.delete(resolvedTargetId);
       activeSet.delete(targetUserId);
       if (matchedProfileVal?.id) activeSet.delete(matchedProfileVal.id);
       if (matchedProfileVal?.user_id) activeSet.delete(matchedProfileVal.user_id);
+      if (matchedProfileVal?.game_id) activeSet.delete(String(matchedProfileVal.game_id));
     }
     await saveCeoConfiguration(
       {
@@ -1331,27 +1394,40 @@ export async function toggleMemberCeoTag(
     console.warn("Falha ao sincronizar activeCeoUserIds:", err);
   }
 
-  // 5. Se o alvo for o usuário logado atualmente, atualiza cache de sessão local
+  // 5. Se o alvo for o usuário logado atualmente ou se corresponder ao impersonate, atualiza cache de sessão local
   if (typeof window !== "undefined") {
-    const isSelf = targetUserId === user?.id || targetUserId === profile?.user_id || targetUserId === profile?.id;
-    if (isSelf) {
-      try {
-        const devRaw = localStorage.getItem("tw_dev_impersonate");
-        if (devRaw) {
-          const devObj = JSON.parse(devRaw);
+    try {
+      const devRaw = localStorage.getItem("tw_dev_impersonate");
+      if (devRaw) {
+        const devObj = JSON.parse(devRaw);
+        const matchesTarget =
+          targetUserId === user?.id ||
+          targetUserId === profile?.user_id ||
+          targetUserId === profile?.id ||
+          targetUserId === devObj.user_id ||
+          targetUserId === devObj.id ||
+          String(targetUserId) === String(devObj.game_id) ||
+          resolvedTargetId === devObj.user_id ||
+          resolvedTargetId === devObj.id;
+
+        if (matchesTarget) {
           devObj.is_ceo = enable;
           if (devObj.custom_theme) devObj.custom_theme.is_ceo = enable;
+          else devObj.custom_theme = { is_ceo: enable };
           localStorage.setItem("tw_dev_impersonate", JSON.stringify(devObj));
+          sessionStorage.setItem("tw_dev_impersonate", JSON.stringify(devObj));
         }
-      } catch {}
-      window.dispatchEvent(new CustomEvent("tw_auth_reload", { detail: { userId: targetUserId } }));
-    }
+      }
+    } catch {}
+
+    window.dispatchEvent(new CustomEvent("tw_auth_reload", { detail: { userId: targetUserId } }));
     window.dispatchEvent(new Event("tw_permissions_synced"));
     window.dispatchEvent(new Event("tw_ceo_config_updated"));
     window.dispatchEvent(new Event("tw_tags_updated"));
     window.dispatchEvent(new Event("tw_member_tags_updated"));
     window.dispatchEvent(new Event("storage"));
   }
+
 
   // 6. Registra no log de auditoria
   try {

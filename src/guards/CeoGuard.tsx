@@ -8,12 +8,14 @@ import { CeoBadge, DevBadge } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
 import { usePanelTheme } from "@/lib/panelTheme";
 
+import { isUserCeo } from "@/services/devService";
+
 interface CeoGuardProps {
   children: ReactNode;
 }
 
 export function CeoGuard({ children }: CeoGuardProps) {
-  const { isCeoUser, isDevUser, loading, hasPermission } = useAuth();
+  const { isCeoUser, isDevUser, loading, hasPermission, profile, memberTags } = useAuth();
   const { ceoStyle, devStyle, CeoIcon, DevIcon } = usePanelTheme();
 
   if (loading) {
@@ -30,8 +32,19 @@ export function CeoGuard({ children }: CeoGuardProps) {
     );
   }
 
-  const hasAccess = Boolean(
+  const isDirectCeo = Boolean(
     isCeoUser ||
+    profile?.is_ceo === true ||
+    profile?.custom_theme?.is_ceo === true ||
+    (profile as any)?.role === "ceo" ||
+    (profile as any)?.cargo === "ceo" ||
+    (profile as any)?.nivel === "ceo" ||
+    isUserCeo(profile) ||
+    memberTags?.some((t) => (t.id || "").toLowerCase() === "ceo" || t.rules?.can_access_ceo || t.rules?.is_ceo)
+  );
+
+  const hasAccess = Boolean(
+    isDirectCeo ||
     isDevUser ||
     hasPermission("view_ceo") ||
     hasPermission("view_ceo_tag_permissions") ||

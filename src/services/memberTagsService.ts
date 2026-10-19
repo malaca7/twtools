@@ -103,6 +103,47 @@ export type MemberTagAssignment = {
   tag?: MemberTag;
 };
 
+export const CEO_SYSTEM_TAG: MemberTag = {
+  id: "ceo",
+  name: "CEO",
+  description: "Tag Executiva de Diretoria da Twin Wheels. Acesso ao Painel Executivo CEO, métricas e governança.",
+  color: "#f59e0b",
+  icon: "Crown",
+  is_system: true,
+  is_active: true,
+  order_index: -10,
+  permissions: [
+    "view_ceo",
+    "view_ceo_dashboard",
+    "view_ceo_financials",
+    "view_ceo_stock_adjustments",
+    "view_ceo_notifications",
+    "view_ceo_warnings",
+    "manage_ceo_warnings",
+    "view_all_tickets",
+    "view_tickets",
+    "view_consolidated_financials",
+    "view_cash_fund",
+    "manage_cash_fund",
+    "view_members",
+    "promote_members",
+    "edit_members",
+  ],
+  rules: {
+    can_access_ceo: true,
+    is_ceo: true,
+    can_view_all_tickets: true,
+    can_view_financial_reports: true,
+    can_manage_members: true,
+    can_create_announcements: true,
+    can_deposit_cash_fund: true,
+    can_withdraw_cash_fund: true,
+  },
+  created_at: "2026-01-01T00:00:00.000Z",
+  updated_at: "2026-01-01T00:00:00.000Z",
+  assigned_count: 0,
+};
+
 /**
  * Busca todas as tags de membros cadastradas ordenadas por ordem hierárquica (order_index)
  */
@@ -115,7 +156,7 @@ export async function getMemberTags(): Promise<MemberTag[]> {
 
   if (tagsErr) {
     console.warn("Aviso ao buscar member_tags (retornando lista vazia de segurança):", tagsErr.message || tagsErr);
-    return [];
+    return [CEO_SYSTEM_TAG];
   }
 
   // Busca contagem de atribuições
@@ -130,7 +171,7 @@ export async function getMemberTags(): Promise<MemberTag[]> {
     }
   }
 
-  return (tags || []).map((t: any) => ({
+  const mappedTags: MemberTag[] = (tags || []).map((t: any) => ({
     id: t.id,
     name: t.name,
     description: t.description || null,
@@ -150,6 +191,17 @@ export async function getMemberTags(): Promise<MemberTag[]> {
     discord_sync_enabled: t.discord_sync_enabled !== false,
     discord_role_position: t.discord_role_position !== undefined ? t.discord_role_position : null,
   }));
+
+  // Garante que a Tag CEO oficial do sistema esteja sempre presente na lista
+  const hasCeo = mappedTags.some((t) => t.id === "ceo" || t.name.toLowerCase().trim() === "ceo");
+  if (!hasCeo) {
+    mappedTags.unshift({
+      ...CEO_SYSTEM_TAG,
+      assigned_count: counts["ceo"] || 0,
+    });
+  }
+
+  return mappedTags;
 }
 
 /**
@@ -203,6 +255,12 @@ export async function getMemberTagsForMember(memberId: string): Promise<MemberTa
         mappedTags = directTags;
       }
     }
+  }
+
+  const hasCeoAssignment = data.some((d: any) => d.tag_id === "ceo");
+  const hasCeoTag = mappedTags.some((t: any) => t.id === "ceo" || t.name?.toLowerCase().trim() === "ceo");
+  if (hasCeoAssignment && !hasCeoTag) {
+    mappedTags.push(CEO_SYSTEM_TAG);
   }
 
   return mappedTags

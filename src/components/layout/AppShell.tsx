@@ -64,6 +64,7 @@ import {
 import { resolveMenuIcon } from "@/lib/menuIcons";
 import {
   isUserDeveloper,
+  isUserCeo,
   DEFAULT_CEO_CONFIG,
   type CeoConfiguration,
   getDevThemeColorSync,
@@ -507,33 +508,42 @@ function DynamicSidebarNavigation() {
     root.setAttribute("data-active-panel", panelKey);
     root.setAttribute("data-panel-color", activePanelStyle.key);
 
+    // Propaga as cores primárias de cada painel como variáveis acessíveis
+    root.style.setProperty("--panel-dev-primary", devStyle.primaryHex);
+    root.style.setProperty("--panel-ceo-primary", ceoStyle.primaryHex);
+    root.style.setProperty("--panel-member-primary", memberStyle.primaryHex);
+
     const userThemeRaw = localStorage.getItem("tw_user_theme");
-    let hasCustomPrimary = false;
+    let customPrimaryColor: string | null = null;
     if (userThemeRaw) {
       try {
         const parsed = JSON.parse(userThemeRaw);
-        if (parsed.customPrimaryColor) hasCustomPrimary = true;
+        if (parsed.customPrimaryColor) customPrimaryColor = parsed.customPrimaryColor;
       } catch {}
     }
 
-    if (isDevArea || isCeoArea || !hasCustomPrimary) {
-      const solidColor = activePanelStyle.primaryHex;
-      const gradient = activePanelStyle.gradientHex || solidColor;
+    // No modo Membro, respeita customPrimaryColor individual caso exista;
+    // Nos modos Dev e CEO (ou no modo Membro sem cor customizada), usa estritamente a cor oficial do painel ativo.
+    const isOverriddenByMemberTheme = !isDevArea && !isCeoArea && Boolean(customPrimaryColor);
+    const solidColor = isOverriddenByMemberTheme ? (customPrimaryColor as string) : activePanelStyle.primaryHex;
+    const gradient = isOverriddenByMemberTheme
+      ? `linear-gradient(105deg, ${solidColor} 0%, color-mix(in srgb, ${solidColor} 60%, #ffffff 40%) 100%)`
+      : (activePanelStyle.gradient || activePanelStyle.previewGradient || solidColor);
 
-      root.style.setProperty("--primary", solidColor);
-      root.style.setProperty("--ring", solidColor);
-      root.style.setProperty("--sidebar-primary", solidColor);
-      root.style.setProperty("--sidebar-ring", solidColor);
-      root.style.setProperty("--color-primary", solidColor);
-      root.style.setProperty("--custom-accent", solidColor);
-      root.style.setProperty("--glow-color", activePanelStyle.glowHex || solidColor);
-      root.style.setProperty("--gradient-brand", gradient);
-      root.style.setProperty("--gradient-primary", gradient);
-      root.style.setProperty("--accent", `color-mix(in srgb, ${solidColor} 18%, transparent)`);
-      root.style.setProperty("--sidebar-accent", `color-mix(in srgb, ${solidColor} 14%, transparent)`);
-      root.style.setProperty("--shadow-glow", `0 0 20px -2px color-mix(in srgb, ${solidColor} 40%, transparent)`);
-    }
-  }, [isDevArea, isCeoArea, activePanelStyle]);
+    root.style.setProperty("--primary", solidColor);
+    root.style.setProperty("--ring", solidColor);
+    root.style.setProperty("--sidebar-primary", solidColor);
+    root.style.setProperty("--sidebar-ring", solidColor);
+    root.style.setProperty("--color-primary", solidColor);
+    root.style.setProperty("--custom-accent", solidColor);
+    root.style.setProperty("--glow-color", solidColor);
+    root.style.setProperty("--gradient-brand", gradient);
+    root.style.setProperty("--gradient-primary", gradient);
+    root.style.setProperty("--accent", `color-mix(in srgb, ${solidColor} 18%, transparent)`);
+    root.style.setProperty("--sidebar-accent", `color-mix(in srgb, ${solidColor} 14%, transparent)`);
+    root.style.setProperty("--shadow-glow", `0 0 24px -2px color-mix(in srgb, ${solidColor} 45%, transparent)`);
+    root.style.setProperty("--shadow-elegant", `0 0 28px -4px color-mix(in srgb, ${solidColor} 50%, transparent)`);
+  }, [isDevArea, isCeoArea, activePanelStyle, devStyle, ceoStyle, memberStyle]);
 
   const grouped = useMemo(() => {
     // -------------------------------------------------------------------------
@@ -1306,7 +1316,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
 
   // Permissões e cálculo de acesso a múltiplos painéis
-  const canAccessCeo = isCeoUser || isDevUser || hasPermission("view_ceo") || hasPermission("verification.manage");
+  const canAccessCeo = Boolean(
+    isCeoUser ||
+    isDevUser ||
+    profile?.is_ceo === true ||
+    profile?.custom_theme?.is_ceo === true ||
+    (profile as any)?.role === "ceo" ||
+    (profile as any)?.cargo === "ceo" ||
+    isUserCeo(profile) ||
+    myTags.some((t) => (t.id || "").toLowerCase() === "ceo" || t.rules?.can_access_ceo || t.rules?.is_ceo) ||
+    hasPermission("view_ceo") ||
+    hasPermission("verification.manage")
+  );
   const canAccessDev = isDevUser;
   const hasMultiplePanels = canAccessCeo || canAccessDev;
 

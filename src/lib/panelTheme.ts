@@ -103,6 +103,8 @@ export interface PanelColorStyle {
   primaryHex: string;
   previewGradient?: string;
   gradient?: string;
+  gradientHex?: string;
+  glowHex?: string;
   isGradient?: boolean;
   colorType: PanelColorType;
   textClass: string;
@@ -803,6 +805,8 @@ export const PANEL_COLOR_STYLES: Record<PanelColor, PanelColorStyle> = Object.fr
       ...v,
       primaryHex: v.hex,
       gradient: v.previewGradient,
+      gradientHex: v.previewGradient || v.hex,
+      glowHex: v.hex,
       isGradient: v.colorType === "gradient",
     },
   ])
