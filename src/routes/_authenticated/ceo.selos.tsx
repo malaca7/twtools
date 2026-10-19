@@ -116,14 +116,14 @@ export function CeoSelosPage() {
       ? "ceo"
       : "member";
 
-  // Permissões Granulares de Verificação no painel efetivo
-  const canManage = hasPermission("verification.manage", effectivePanel);
-  const canReview = hasPermission("verification.review", effectivePanel);
-  const canGrant = hasPermission("verification.grant_direct", effectivePanel);
-  const canRevoke = hasPermission("verification.revoke", effectivePanel);
-  const canConfig = hasPermission("verification.config", effectivePanel);
-  const canRequirements = hasPermission("verification.requirements", effectivePanel);
-  const canAudit = hasPermission("verification.audit", effectivePanel);
+  // Permissões Granulares de Verificação no painel efetivo (com fallback total para CEO e Desenvolvedor)
+  const canManage = hasPermission("verification.manage", effectivePanel) || isCeoUser || isDevUser;
+  const canReview = hasPermission("verification.review", effectivePanel) || isCeoUser || isDevUser;
+  const canGrant = hasPermission("verification.grant_direct", effectivePanel) || isCeoUser || isDevUser;
+  const canRevoke = hasPermission("verification.revoke", effectivePanel) || isCeoUser || isDevUser;
+  const canConfig = hasPermission("verification.config", effectivePanel) || isCeoUser || isDevUser;
+  const canRequirements = hasPermission("verification.requirements", effectivePanel) || isCeoUser || isDevUser;
+  const canAudit = hasPermission("verification.audit", effectivePanel) || isCeoUser || isDevUser;
   const canView = canManage;
 
   const { data: members = [], isLoading: loadingMembers } = useMembers();
@@ -250,10 +250,18 @@ export function CeoSelosPage() {
 
   // Membros elegíveis para concessão direta (que ainda não são verificados)
   const unverifiedMembers = useMemo(() => {
-    const verifiedUserIds = new Set(activeVerifications.map((v) => v.user_id));
+    const verifiedUserIds = new Set<string>();
+    activeVerifications.forEach((v) => {
+      if (v.user_id) verifiedUserIds.add(v.user_id);
+    });
     return members.filter((m) => {
-      if (verifiedUserIds.has(m.user_id) || (m as any).is_verified) return false;
-      if (m.user_id === directTargetUserId) return true;
+      const isVer =
+        (m.user_id && verifiedUserIds.has(m.user_id)) ||
+        (m.id && verifiedUserIds.has(m.id)) ||
+        Boolean((m as any).is_verified);
+      if (isVer) return false;
+      const memId = m.user_id || m.id;
+      if (memId === directTargetUserId) return true;
       if (!directSearch) return true;
       const q = directSearch.toLowerCase();
       return (
@@ -266,7 +274,7 @@ export function CeoSelosPage() {
   }, [members, activeVerifications, directSearch, directTargetUserId]);
 
   const selectedDirectMember = useMemo(() => {
-    return members.find((m) => m.user_id === directTargetUserId);
+    return members.find((m) => m.user_id === directTargetUserId || m.id === directTargetUserId);
   }, [members, directTargetUserId]);
 
   // Gerenciar Requisitos Personalizados
@@ -1432,11 +1440,14 @@ export function CeoSelosPage() {
                 className="h-9 w-full rounded-xl border border-input bg-background px-3 text-xs font-semibold cursor-pointer shadow-xs focus:ring-2 focus:ring-sky-500/30"
               >
                 <option value="">Selecione um integrante ({unverifiedMembers.length} disponíveis)...</option>
-                {unverifiedMembers.map((m) => (
-                  <option key={m.user_id} value={m.user_id}>
-                    {m.nome} {m.nickname ? `(${m.nickname})` : ""} — ID #{m.game_id || "N/A"}
-                  </option>
-                ))}
+                {unverifiedMembers.map((m) => {
+                  const mId = m.user_id || m.id;
+                  return (
+                    <option key={mId} value={mId}>
+                      {m.nome} {m.nickname ? `(${m.nickname})` : ""} — ID #{m.game_id || "N/A"}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 

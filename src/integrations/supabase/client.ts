@@ -278,6 +278,10 @@ function getRecordKey(table: string, item: any): string {
   if (table === 'member_tag_assignments' && (item.user_id || item.member_id) && item.tag_id) {
     return `${item.user_id || item.member_id}_${item.tag_id}`;
   }
+  if (table === 'verification_badge_config' && item.id) return String(item.id);
+  if (table === 'member_verifications' && (item.user_id || item.id)) return String(item.user_id || item.id);
+  if (table === 'verification_requests' && item.id) return String(item.id);
+  if (table === 'verification_audit_logs' && item.id) return String(item.id);
   if (table === 'action_scale_members' && item.scale_id && item.member_id) return `${item.scale_id}_${item.member_id}`;
   if (table === 'member_insignias' && item.user_id && item.insignia_id) return `${item.user_id}_${item.insignia_id}`;
   if (table === 'profile_post_likes' && item.post_id && item.user_id) return `${item.post_id}_${item.user_id}`;
@@ -503,10 +507,14 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
 
       if (rpcName === 'set_tag_members_rpc') {
         const targetTagId = body.p_tag_id;
-        const userIds = Array.isArray(body.p_user_ids) ? body.p_user_ids : [];
+        const userIds = Array.isArray(body.p_user_ids)
+          ? body.p_user_ids
+          : Array.isArray(body.p_member_ids)
+          ? body.p_member_ids
+          : [];
         if (targetTagId) {
           const curRes = await fetch(`${FIREBASE_RTDB_URL}/member_tag_assignments.json`).then(r => r.json()).catch(() => null);
-          if (curRes) {
+          if (curRes && typeof curRes === 'object') {
             for (const [k, v] of Object.entries(curRes)) {
               if (v && (v as any).tag_id === targetTagId) {
                 await fetch(`${FIREBASE_RTDB_URL}/member_tag_assignments/${k}.json`, { method: 'DELETE' }).catch(() => {});
@@ -523,6 +531,7 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
                 user_id: uid,
                 member_id: uid,
                 tag_id: targetTagId,
+                assigned_by: body.p_assigned_by || null,
                 created_at: now,
               }),
             }).catch(() => {});
@@ -539,23 +548,47 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
         const targetUserId = body.p_user_id || body.p_member_id;
         const tagId = body.p_tag_id;
         const assignId = `${targetUserId}_${tagId}`;
-        if (body.p_active === false) {
-          await fetch(`${FIREBASE_RTDB_URL}/member_tag_assignments/${assignId}.json`, { method: 'DELETE' }).catch(() => {});
-        } else if (targetUserId && tagId) {
-          await fetch(`${FIREBASE_RTDB_URL}/member_tag_assignments/${assignId}.json`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              id: assignId,
-              user_id: targetUserId,
-              member_id: targetUserId,
-              tag_id: tagId,
-              created_at: now,
-            }),
-          }).catch(() => {});
+        let shouldActive = body.p_active;
+
+        if (targetUserId && tagId) {
+          const curRes = await fetch(`${FIREBASE_RTDB_URL}/member_tag_assignments.json`).then(r => r.json()).catch(() => null);
+          const candidateKeys: string[] = [];
+          if (curRes && typeof curRes === 'object') {
+            for (const [k, v] of Object.entries(curRes)) {
+              if (v && ((v as any).user_id === targetUserId || (v as any).member_id === targetUserId) && (v as any).tag_id === tagId) {
+                candidateKeys.push(k);
+              }
+            }
+          }
+
+          if (shouldActive === undefined) {
+            shouldActive = candidateKeys.length === 0;
+          }
+
+          if (shouldActive === false) {
+            // Desvincular: Deletar todas as instâncias existentes
+            await fetch(`${FIREBASE_RTDB_URL}/member_tag_assignments/${assignId}.json`, { method: 'DELETE' }).catch(() => {});
+            for (const k of candidateKeys) {
+              await fetch(`${FIREBASE_RTDB_URL}/member_tag_assignments/${k}.json`, { method: 'DELETE' }).catch(() => {});
+            }
+          } else {
+            // Vincular
+            await fetch(`${FIREBASE_RTDB_URL}/member_tag_assignments/${assignId}.json`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: assignId,
+                user_id: targetUserId,
+                member_id: targetUserId,
+                tag_id: tagId,
+                assigned_by: body.p_assigned_by || null,
+                created_at: now,
+              }),
+            }).catch(() => {});
+          }
+          notifyTableChange('member_tag_assignments', 'UPDATE');
         }
-        notifyTableChange('member_tag_assignments', 'UPDATE');
-        return new Response(JSON.stringify({ success: true }), {
+        return new Response(JSON.stringify({ success: true, assigned: shouldActive }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
@@ -905,12 +938,32 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
       // F) Selos e Solicitações de Verificação
       if (rpcName === 'submit_verification_request_rpc') {
         const reqId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `verif_${Date.now()}`;
+        let activeUid: string | null = null;
+        if (typeof window !== 'undefined') {
+          try {
+            const sim = localStorage.getItem('tw_dev_impersonate');
+            if (sim) {
+              const p = JSON.parse(sim);
+              activeUid = p.user_id || p.id;
+            }
+            if (!activeUid) {
+              const authU = localStorage.getItem('tw_auth_user');
+              if (authU) {
+                const p = JSON.parse(authU);
+                activeUid = p.id || p.user_id;
+              }
+            }
+          } catch {}
+        }
+        const targetUserId = body.p_user_id || body.p_target_user_id || activeUid || 'user_anon';
         const newReq = {
           id: reqId,
-          target_user_id: body.p_target_user_id,
-          requested_title: body.p_requested_title || 'Membro Verificado',
+          user_id: targetUserId,
+          target_user_id: targetUserId,
           reason: body.p_reason || '',
-          status: 'pending',
+          document_url: body.p_document_url || null,
+          extra_data: body.p_extra_data || {},
+          status: 'pendente',
           created_at: now,
           updated_at: now,
         };
@@ -919,19 +972,163 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(newReq),
         }).catch(() => {});
+
+        const auditId = `audit_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        await fetch(`${FIREBASE_RTDB_URL}/verification_audit_logs/${auditId}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: auditId,
+            action: 'solicitacao_criada',
+            target_user_id: targetUserId,
+            performed_by: targetUserId,
+            details: { request_id: reqId, reason: body.p_reason || '' },
+            created_at: now,
+          }),
+        }).catch(() => {});
+
         notifyTableChange('verification_requests', 'INSERT');
-        return new Response(JSON.stringify(newReq), {
+        notifyTableChange('verification_audit_logs', 'INSERT');
+        return new Response(JSON.stringify({ success: true, request_id: reqId, ...newReq }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
       }
 
-      if (rpcName === 'grant_direct_verification_rpc' || rpcName === 'review_verification_request_rpc') {
+      if (rpcName === 'cancel_verification_request_rpc') {
+        const reqId = body.p_request_id;
+        if (reqId) {
+          const curReq = await fetch(`${FIREBASE_RTDB_URL}/verification_requests/${reqId}.json`).then(r => r.json()).catch(() => null);
+          await fetch(`${FIREBASE_RTDB_URL}/verification_requests/${reqId}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'cancelado', updated_at: now }),
+          }).catch(() => {});
+
+          const auditId = `audit_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+          await fetch(`${FIREBASE_RTDB_URL}/verification_audit_logs/${auditId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: auditId,
+              action: 'solicitacao_cancelada',
+              target_user_id: curReq?.user_id || curReq?.target_user_id,
+              details: { request_id: reqId },
+              created_at: now,
+            }),
+          }).catch(() => {});
+
+          notifyTableChange('verification_requests', 'UPDATE');
+          notifyTableChange('verification_audit_logs', 'INSERT');
+        }
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (rpcName === 'review_verification_request_rpc') {
+        const reqId = body.p_request_id;
+        const approve = Boolean(body.p_approve);
+        const notes = body.p_notes || null;
+        const customTitle = body.p_custom_title || 'Verificado Oficial';
+        const badgeColor = body.p_badge_color || null;
+
+        let targetUserId = body.p_target_user_id;
+        if (reqId) {
+          const curReq = await fetch(`${FIREBASE_RTDB_URL}/verification_requests/${reqId}.json`).then(r => r.json()).catch(() => null);
+          if (curReq) {
+            targetUserId = curReq.user_id || curReq.target_user_id;
+          }
+          await fetch(`${FIREBASE_RTDB_URL}/verification_requests/${reqId}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              status: approve ? 'aprovado' : 'rejeitado',
+              review_notes: notes,
+              reviewed_at: now,
+              updated_at: now,
+            }),
+          }).catch(() => {});
+          notifyTableChange('verification_requests', 'UPDATE');
+        }
+
+        if (targetUserId) {
+          if (approve) {
+            const profs = await fetch(`${FIREBASE_RTDB_URL}/profiles.json`).then(r => r.json()).catch(() => null);
+            let targetKey = targetUserId;
+            if (profs && typeof profs === 'object') {
+              for (const [k, v] of Object.entries(profs)) {
+                if (v && ((v as any).user_id === targetUserId || (v as any).id === targetUserId)) {
+                  targetKey = k;
+                  break;
+                }
+              }
+            }
+            await fetch(`${FIREBASE_RTDB_URL}/profiles/${targetKey}.json`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                is_verified: true,
+                verified_title: customTitle,
+                verified_badge_color: badgeColor,
+                verified_at: now,
+              }),
+            }).catch(() => {});
+
+            const verifData = {
+              id: targetUserId,
+              user_id: targetUserId,
+              is_verified: true,
+              verified_at: now,
+              request_id: reqId || null,
+              custom_title: customTitle,
+              badge_color_override: badgeColor,
+              notes: notes,
+              created_at: now,
+              updated_at: now,
+            };
+            await fetch(`${FIREBASE_RTDB_URL}/member_verifications/${targetUserId}.json`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(verifData),
+            }).catch(() => {});
+
+            notifyTableChange('profiles', 'UPDATE');
+            notifyTableChange('member_verifications', 'UPDATE');
+          }
+
+          const auditId = `audit_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+          await fetch(`${FIREBASE_RTDB_URL}/verification_audit_logs/${auditId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: auditId,
+              action: approve ? 'solicitacao_aprovada' : 'solicitacao_rejeitada',
+              target_user_id: targetUserId,
+              details: { request_id: reqId, custom_title: customTitle, notes: notes },
+              created_at: now,
+            }),
+          }).catch(() => {});
+          notifyTableChange('verification_audit_logs', 'INSERT');
+        }
+
+        return new Response(JSON.stringify({ success: true, approved: approve }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (rpcName === 'grant_direct_verification_rpc') {
         const targetUserId = body.p_target_user_id;
+        const customTitle = body.p_custom_title || 'Verificado Oficial';
+        const badgeColor = body.p_badge_color || null;
+        const notes = body.p_notes || null;
+
         if (targetUserId) {
           const profs = await fetch(`${FIREBASE_RTDB_URL}/profiles.json`).then(r => r.json()).catch(() => null);
           let targetKey = targetUserId;
-          if (profs) {
+          if (profs && typeof profs === 'object') {
             for (const [k, v] of Object.entries(profs)) {
               if (v && ((v as any).user_id === targetUserId || (v as any).id === targetUserId)) {
                 targetKey = k;
@@ -944,13 +1141,62 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               is_verified: true,
-              verified_title: body.p_approved_title || body.p_title || 'Verificado Oficial',
-              verified_badge_color: body.p_badge_color || null,
+              verified_title: customTitle,
+              verified_badge_color: badgeColor,
               verified_at: now,
             }),
           }).catch(() => {});
+
+          const verifData = {
+            id: targetUserId,
+            user_id: targetUserId,
+            is_verified: true,
+            verified_at: now,
+            custom_title: customTitle,
+            badge_color_override: badgeColor,
+            notes: notes,
+            created_at: now,
+            updated_at: now,
+          };
+          await fetch(`${FIREBASE_RTDB_URL}/member_verifications/${targetUserId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(verifData),
+          }).catch(() => {});
+
+          // Aprova qualquer solicitação pendente do membro
+          const allReqs = await fetch(`${FIREBASE_RTDB_URL}/verification_requests.json`).then(r => r.json()).catch(() => null);
+          if (allReqs && typeof allReqs === 'object') {
+            for (const [k, v] of Object.entries(allReqs)) {
+              if (v && ((v as any).user_id === targetUserId || (v as any).target_user_id === targetUserId) && (v as any).status === 'pendente') {
+                await fetch(`${FIREBASE_RTDB_URL}/verification_requests/${k}.json`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ status: 'aprovado', updated_at: now }),
+                }).catch(() => {});
+              }
+            }
+          }
+
+          const auditId = `audit_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+          await fetch(`${FIREBASE_RTDB_URL}/verification_audit_logs/${auditId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: auditId,
+              action: 'selo_concedido_direto',
+              target_user_id: targetUserId,
+              details: { custom_title: customTitle, notes: notes },
+              created_at: now,
+            }),
+          }).catch(() => {});
+
           notifyTableChange('profiles', 'UPDATE');
+          notifyTableChange('member_verifications', 'UPDATE');
+          notifyTableChange('verification_requests', 'UPDATE');
+          notifyTableChange('verification_audit_logs', 'INSERT');
         }
+
         return new Response(JSON.stringify({ success: true }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
@@ -959,10 +1205,12 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
 
       if (rpcName === 'revoke_verification_rpc') {
         const targetUserId = body.p_target_user_id;
+        const reason = body.p_reason || 'Selo revogado pela administração.';
+
         if (targetUserId) {
           const profs = await fetch(`${FIREBASE_RTDB_URL}/profiles.json`).then(r => r.json()).catch(() => null);
           let targetKey = targetUserId;
-          if (profs) {
+          if (profs && typeof profs === 'object') {
             for (const [k, v] of Object.entries(profs)) {
               if (v && ((v as any).user_id === targetUserId || (v as any).id === targetUserId)) {
                 targetKey = k;
@@ -973,10 +1221,37 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
           await fetch(`${FIREBASE_RTDB_URL}/profiles/${targetKey}.json`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ is_verified: false, verified_title: null, verified_badge_color: null }),
+            body: JSON.stringify({
+              is_verified: false,
+              verified_title: null,
+              verified_badge_color: null,
+            }),
           }).catch(() => {});
+
+          await fetch(`${FIREBASE_RTDB_URL}/member_verifications/${targetUserId}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_verified: false, updated_at: now }),
+          }).catch(() => {});
+
+          const auditId = `audit_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+          await fetch(`${FIREBASE_RTDB_URL}/verification_audit_logs/${auditId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: auditId,
+              action: 'selo_removido',
+              target_user_id: targetUserId,
+              details: { reason },
+              created_at: now,
+            }),
+          }).catch(() => {});
+
           notifyTableChange('profiles', 'UPDATE');
+          notifyTableChange('member_verifications', 'UPDATE');
+          notifyTableChange('verification_audit_logs', 'INSERT');
         }
+
         return new Response(JSON.stringify({ success: true }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },

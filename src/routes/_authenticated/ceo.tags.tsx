@@ -952,9 +952,17 @@ export function CeoGerenciarTagsPage() {
       return;
     }
     setTagForMembers(tag);
-    const existing = new Set(
-      assignments.filter((a) => a.tag_id === tag.id).map((a) => a.member_id)
-    );
+    const existing = new Set<string>();
+    assignments
+      .filter((a) => a.tag_id === tag.id)
+      .forEach((a) => {
+        if (a.member_id) existing.add(a.member_id);
+      });
+    // Sincroniza pares de user_id e id de cada membro
+    members.forEach((m) => {
+      if (m.user_id && existing.has(m.user_id) && m.id) existing.add(m.id);
+      if (m.id && existing.has(m.id) && m.user_id) existing.add(m.user_id);
+    });
     setSelectedMemberIds(existing);
     setMemberAssignSearch("");
     setMemberAssignFilter("all");
@@ -980,8 +988,8 @@ export function CeoGerenciarTagsPage() {
 
     // Ordenação: 1º Integrantes vinculados no topo, 2º Ordem alfabética
     return list.sort((a, b) => {
-      const isAssignedA = selectedMemberIds.has(a.user_id) || (a.id && selectedMemberIds.has(a.id));
-      const isAssignedB = selectedMemberIds.has(b.user_id) || (b.id && selectedMemberIds.has(b.id));
+      const isAssignedA = (a.user_id && selectedMemberIds.has(a.user_id)) || (a.id && selectedMemberIds.has(a.id));
+      const isAssignedB = (b.user_id && selectedMemberIds.has(b.user_id)) || (b.id && selectedMemberIds.has(b.id));
 
       if (isAssignedA !== isAssignedB) {
         return isAssignedA ? -1 : 1;
@@ -993,35 +1001,41 @@ export function CeoGerenciarTagsPage() {
     });
   }, [members, memberAssignSearch, memberAssignFilter, selectedMemberIds]);
 
-  const handleToggleMember = async (userId: string) => {
+  const handleToggleMember = async (member: { id?: string; user_id?: string }) => {
     if (!tagForMembers) return;
     if (!canAssignTag) {
       toast.error("Você não possui permissão para alterar vínculos de membros.");
       return;
     }
 
-    const isCurrentlyChecked = selectedMemberIds.has(userId);
+    const candidateIds = [member.user_id, member.id].filter(Boolean) as string[];
+    if (candidateIds.length === 0) return;
+
+    const isCurrentlyChecked = candidateIds.some((id) => selectedMemberIds.has(id));
     const nextChecked = !isCurrentlyChecked;
+    const primaryId = member.user_id || member.id || candidateIds[0];
 
     // Atualização otimista imediata na interface
     setSelectedMemberIds((prev) => {
       const next = new Set(prev);
       if (nextChecked) {
-        next.add(userId);
+        candidateIds.forEach((id) => next.add(id));
       } else {
-        next.delete(userId);
+        candidateIds.forEach((id) => next.delete(id));
       }
       return next;
     });
 
-    setMemberAssignSavingId(userId);
+    setMemberAssignSavingId(primaryId);
     setMemberAssignAutoSaved(false);
 
     try {
       await toggleAssignmentMutation.mutateAsync({
-        memberId: userId,
+        memberId: primaryId,
         tagId: tagForMembers.id,
         currentStatus: isCurrentlyChecked,
+        active: nextChecked,
+        candidateIds,
         assignedBy: user?.id,
       });
 
@@ -1040,8 +1054,11 @@ export function CeoGerenciarTagsPage() {
       // Reverter em caso de erro
       setSelectedMemberIds((prev) => {
         const rollback = new Set(prev);
-        if (isCurrentlyChecked) rollback.add(userId);
-        else rollback.delete(userId);
+        if (isCurrentlyChecked) {
+          candidateIds.forEach((id) => rollback.add(id));
+        } else {
+          candidateIds.forEach((id) => rollback.delete(id));
+        }
         return rollback;
       });
       toast.error(err.message || "Erro ao salvar vínculo do membro.");
@@ -2242,7 +2259,7 @@ export function CeoGerenciarTagsPage() {
                   return (
                     <div
                       key={memKey}
-                      onClick={() => memKey && handleToggleMember(memKey)}
+                      onClick={() => handleToggleMember(m)}
                       className={cn(
                         "p-2.5 flex items-center justify-between gap-3 cursor-pointer transition-colors select-none",
                         isChecked ? "bg-primary/10 hover:bg-primary/15" : "hover:bg-secondary/40"
@@ -2251,7 +2268,7 @@ export function CeoGerenciarTagsPage() {
                       <div className="flex items-center gap-2.5 min-w-0">
                         <Checkbox
                           checked={Boolean(isChecked)}
-                          onCheckedChange={() => memKey && handleToggleMember(memKey)}
+                          onCheckedChange={() => handleToggleMember(m)}
                           className="rounded pointer-events-none"
                         />
                         <Avatar className="h-7 w-7 border border-border/50 shrink-0">

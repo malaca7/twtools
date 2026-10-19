@@ -496,50 +496,114 @@ export async function triggerAutoDiscordTagSync(
 }
 
 /**
- * Alterna a atribuição de uma tag a um membro
+ * Alterna a atribuição de uma tag a um membro com suporte explícito a remoção/adição
  */
 export async function toggleMemberTagAssignment(
   memberId: string,
   tagId: string,
-  assignedBy?: string
+  assignedBy?: string,
+  active?: boolean,
+  candidateIds?: string[]
 ): Promise<{ assigned: boolean }> {
+  const allIds = Array.from(new Set([memberId, ...(candidateIds || [])].filter(Boolean)));
   let isAssigned = false;
+
   const { data, error } = await supabase.rpc("toggle_member_tag_rpc" as any, {
     p_member_id: memberId,
+    p_user_id: memberId,
     p_tag_id: tagId,
     p_assigned_by: assignedBy || null,
+    p_active: active,
   });
 
-  if (error) {
-    // Fallback manual se RPC falhar
+  if (!error && data && (data as any).assigned !== undefined) {
+    isAssigned = Boolean((data as any).assigned);
+  } else if (active !== undefined) {
+    isAssigned = active;
+  } else {
+    // Consulta status atual se não foi explicitamente fornecido
     const { data: existing } = await supabase
       .from("member_tag_assignments" as any)
       .select("id")
-      .eq("member_id", memberId)
       .eq("tag_id", tagId)
+      .or(allIds.map((id) => `member_id.eq.${id},user_id.eq.${id}`).join(","))
       .maybeSingle();
+    isAssigned = !existing;
+  }
 
-    if (existing) {
+  // Executa garantia direta em Supabase e Firebase RTDB
+  if (!isAssigned) {
+    // DESVINCULAR (Remover de todas as tabelas)
+    for (const uid of allIds) {
       await supabase
         .from("member_tag_assignments" as any)
         .delete()
-        .eq("member_id", memberId)
-        .eq("tag_id", tagId);
-      isAssigned = false;
-    } else {
-      await supabase.from("member_tag_assignments" as any).insert({
-        member_id: memberId,
-        tag_id: tagId,
-        assigned_by: assignedBy || null,
-      });
-      isAssigned = true;
+        .eq("tag_id", tagId)
+        .eq("member_id", uid);
+      await supabase
+        .from("member_tag_assignments" as any)
+        .delete()
+        .eq("tag_id", tagId)
+        .eq("user_id", uid);
+    }
+    try {
+      const { rtdb } = await import("@/integrations/firebase/rtdb");
+      const list = await rtdb.getList<any>("member_tag_assignments");
+      for (const item of list) {
+        if (
+          item &&
+          item.tag_id === tagId &&
+          (allIds.includes(item.member_id) || allIds.includes(item.user_id) || allIds.includes(item.id))
+        ) {
+          const key = item._key || item.id || `${item.member_id || item.user_id}_${item.tag_id}`;
+          await rtdb.remove(`member_tag_assignments/${key}`);
+        }
+      }
+      for (const uid of allIds) {
+        await rtdb.remove(`member_tag_assignments/${uid}_${tagId}`);
+      }
+    } catch {}
+
+    if (tagId === "ceo") {
+      try {
+        const { toggleMemberCeoTag } = await import("@/services/devService");
+        await toggleMemberCeoTag(memberId, false);
+      } catch {}
     }
   } else {
-    isAssigned = Boolean((data as any)?.assigned);
+    // VINCULAR (Inserir / Atualizar)
+    const primaryId = memberId || allIds[0];
+    const assignId = `${primaryId}_${tagId}`;
+    const assignData = {
+      id: assignId,
+      member_id: primaryId,
+      user_id: primaryId,
+      tag_id: tagId,
+      assigned_by: assignedBy || null,
+      created_at: new Date().toISOString(),
+    };
+    await (supabase.from("member_tag_assignments" as any)).upsert(assignData, { onConflict: "id" });
+    try {
+      const { rtdb } = await import("@/integrations/firebase/rtdb");
+      await rtdb.set(`member_tag_assignments/${assignId}`, assignData);
+    } catch {}
+
+    if (tagId === "ceo") {
+      try {
+        const { toggleMemberCeoTag } = await import("@/services/devService");
+        await toggleMemberCeoTag(memberId, true);
+      } catch {}
+    }
   }
 
-  // Dispara sincronização automática com o Discord em background
+  // Sincronização Discord em background
   void triggerAutoDiscordTagSync(memberId, tagId, isAssigned ? "add" : "remove");
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("tw_tags_updated"));
+    window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
+    window.dispatchEvent(new Event("tw_permissions_synced"));
+  }
 
   return { assigned: isAssigned };
 }
@@ -552,7 +616,6 @@ export async function setMemberTags(
   tagIds: string[],
   assignedBy?: string
 ): Promise<void> {
-  // Busca tags anteriores para sincronizar remoções
   const { data: previous } = await supabase
     .from("member_tag_assignments" as any)
     .select("tag_id")
@@ -564,12 +627,12 @@ export async function setMemberTags(
 
   const { error } = await supabase.rpc("set_member_tags_rpc" as any, {
     p_member_id: memberId,
+    p_user_id: memberId,
     p_tag_ids: tagIds,
     p_assigned_by: assignedBy || null,
   });
 
   if (error) {
-    // Fallback direto
     await supabase
       .from("member_tag_assignments" as any)
       .delete()
@@ -579,6 +642,7 @@ export async function setMemberTags(
       await supabase.from("member_tag_assignments" as any).insert(
         tagIds.map((t) => ({
           member_id: memberId,
+          user_id: memberId,
           tag_id: t,
           assigned_by: assignedBy || null,
         }))
@@ -586,12 +650,38 @@ export async function setMemberTags(
     }
   }
 
-  // Sincroniza adições e remoções no Discord
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    const list = await rtdb.getList<any>("member_tag_assignments");
+    for (const item of list) {
+      if (item && (item.member_id === memberId || item.user_id === memberId)) {
+        const key = item._key || item.id || `${item.member_id}_${item.tag_id}`;
+        await rtdb.remove(`member_tag_assignments/${key}`);
+      }
+    }
+    for (const t of tagIds) {
+      const assignId = `${memberId}_${t}`;
+      await rtdb.set(`member_tag_assignments/${assignId}`, {
+        id: assignId,
+        member_id: memberId,
+        user_id: memberId,
+        tag_id: t,
+        assigned_by: assignedBy || null,
+        created_at: new Date().toISOString(),
+      });
+    }
+  } catch {}
+
   for (const tid of removedTagIds) {
     void triggerAutoDiscordTagSync(memberId, tid, "remove");
   }
   for (const tid of addedTagIds) {
     void triggerAutoDiscordTagSync(memberId, tid, "add");
+  }
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("tw_tags_updated"));
+    window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
   }
 }
 
@@ -615,11 +705,11 @@ export async function setTagMembers(
   const { error } = await supabase.rpc("set_tag_members_rpc" as any, {
     p_tag_id: tagId,
     p_member_ids: memberIds,
+    p_user_ids: memberIds,
     p_assigned_by: assignedBy || null,
   });
 
   if (error) {
-    // Fallback direto
     await supabase
       .from("member_tag_assignments" as any)
       .delete()
@@ -629,6 +719,7 @@ export async function setTagMembers(
       await supabase.from("member_tag_assignments" as any).insert(
         memberIds.map((m) => ({
           member_id: m,
+          user_id: m,
           tag_id: tagId,
           assigned_by: assignedBy || null,
         }))
@@ -636,12 +727,38 @@ export async function setTagMembers(
     }
   }
 
-  // Sincroniza adições e remoções no Discord
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    const list = await rtdb.getList<any>("member_tag_assignments");
+    for (const item of list) {
+      if (item && item.tag_id === tagId) {
+        const key = item._key || item.id || `${item.member_id}_${item.tag_id}`;
+        await rtdb.remove(`member_tag_assignments/${key}`);
+      }
+    }
+    for (const m of memberIds) {
+      const assignId = `${m}_${tagId}`;
+      await rtdb.set(`member_tag_assignments/${assignId}`, {
+        id: assignId,
+        member_id: m,
+        user_id: m,
+        tag_id: tagId,
+        assigned_by: assignedBy || null,
+        created_at: new Date().toISOString(),
+      });
+    }
+  } catch {}
+
   for (const mid of removedMemberIds) {
     void triggerAutoDiscordTagSync(mid, tagId, "remove");
   }
   for (const mid of addedMemberIds) {
     void triggerAutoDiscordTagSync(mid, tagId, "add");
+  }
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("tw_tags_updated"));
+    window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
   }
 }
 

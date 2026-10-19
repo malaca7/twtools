@@ -1304,6 +1304,8 @@ const NOVATO: Permission[] = [
   "life_follow_members",
   // Permissões de Selos de Verificação (Novato)
   "verification.view_page",
+  "verification.request",
+  "verification.cancel_own",
 ];
 
 export const PERMISSIONS: Record<AppLevel, Permission[]> = {

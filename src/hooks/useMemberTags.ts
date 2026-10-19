@@ -186,12 +186,16 @@ export function useMemberTagMutations() {
       memberId,
       tagId,
       assignedBy,
+      active,
+      candidateIds,
     }: {
       memberId: string;
       tagId: string;
       assignedBy?: string;
       currentStatus?: boolean;
-    }) => toggleMemberTagAssignment(memberId, tagId, assignedBy),
+      active?: boolean;
+      candidateIds?: string[];
+    }) => toggleMemberTagAssignment(memberId, tagId, assignedBy, active, candidateIds),
     onSuccess: (res) => {
       toast.success(res.assigned ? "Tag vinculada ao membro!" : "Tag desvinculada do membro!");
       invalidate();
