@@ -156,7 +156,7 @@ export async function getMemberTags(): Promise<MemberTag[]> {
 
   if (tagsErr) {
     console.warn("Aviso ao buscar member_tags (retornando lista vazia de segurança):", tagsErr.message || tagsErr);
-    return [CEO_SYSTEM_TAG];
+    return [];
   }
 
   // Busca contagem de atribuições
@@ -171,35 +171,33 @@ export async function getMemberTags(): Promise<MemberTag[]> {
     }
   }
 
-  const mappedTags: MemberTag[] = (tags || []).map((t: any) => ({
-    id: t.id,
-    name: t.name,
-    description: t.description || null,
-    color: t.color || "#3b82f6",
-    icon: t.icon || "Tag",
-    is_system: Boolean(t.is_system),
-    is_active: t.is_active !== false,
-    order_index: typeof t.order_index === "number" ? t.order_index : 0,
-    permissions: Array.isArray(t.permissions) ? t.permissions : [],
-    rules: parseMemberTagRules(t.rules),
-    created_at: t.created_at,
-    updated_at: t.updated_at,
-    assigned_count: counts[t.id] || 0,
-    discord_role_id: t.discord_role_id || null,
-    discord_guild_id: t.discord_guild_id || null,
-    discord_role_name: t.discord_role_name || null,
-    discord_sync_enabled: t.discord_sync_enabled !== false,
-    discord_role_position: t.discord_role_position !== undefined ? t.discord_role_position : null,
-  }));
-
-  // Garante que a Tag CEO oficial do sistema esteja sempre presente na lista
-  const hasCeo = mappedTags.some((t) => t.id === "ceo" || t.name.toLowerCase().trim() === "ceo");
-  if (!hasCeo) {
-    mappedTags.unshift({
-      ...CEO_SYSTEM_TAG,
-      assigned_count: counts["ceo"] || 0,
-    });
-  }
+  const mappedTags: MemberTag[] = (tags || [])
+    .filter((t: any) => {
+      const cleanId = (t.id || "").toLowerCase().trim();
+      const cleanName = (t.name || "").toLowerCase().trim();
+      // Tag CEO é exclusiva do painel dev em /dev/permissoes
+      return cleanId !== "ceo" && cleanName !== "ceo";
+    })
+    .map((t: any) => ({
+      id: t.id,
+      name: t.name,
+      description: t.description || null,
+      color: t.color || "#3b82f6",
+      icon: t.icon || "Tag",
+      is_system: Boolean(t.is_system),
+      is_active: t.is_active !== false,
+      order_index: typeof t.order_index === "number" ? t.order_index : 0,
+      permissions: Array.isArray(t.permissions) ? t.permissions : [],
+      rules: parseMemberTagRules(t.rules),
+      created_at: t.created_at,
+      updated_at: t.updated_at,
+      assigned_count: counts[t.id] || 0,
+      discord_role_id: t.discord_role_id || null,
+      discord_guild_id: t.discord_guild_id || null,
+      discord_role_name: t.discord_role_name || null,
+      discord_sync_enabled: t.discord_sync_enabled !== false,
+      discord_role_position: t.discord_role_position !== undefined ? t.discord_role_position : null,
+    }));
 
   return mappedTags;
 }

@@ -215,7 +215,16 @@ export function CeoGerenciarTagsPage() {
     hasPermission("manage_dev_tags")
   );
 
-  const { data: tags = [], isLoading: loadingTags, refetch: refetchTags } = useMemberTags();
+  const { data: rawTags = [], isLoading: loadingTags, refetch: refetchTags } = useMemberTags();
+  // Tag CEO é exclusiva do Painel Dev na página de permissões (/dev/permissoes).
+  // Não deve ser exibida nem gerenciada na página de Gerenciar Tags.
+  const tags = useMemo(() => {
+    return rawTags.filter((t) => {
+      const cleanId = (t.id || "").toLowerCase().trim();
+      const cleanName = (t.name || "").toLowerCase().trim();
+      return cleanId !== "ceo" && cleanName !== "ceo";
+    });
+  }, [rawTags]);
   const { data: assignments = [], isLoading: loadingAssignments, refetch: refetchAssignments } = useMemberTagAssignments();
   const { data: members = [], isLoading: loadingMembers } = useMembers();
   const {
