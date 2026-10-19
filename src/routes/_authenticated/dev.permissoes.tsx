@@ -752,29 +752,45 @@ function DevPermissoesContent() {
   };
 
   // Atribuição de Tag Dev com verificação e feedback
-  const handleToggleDevTag = async (targetUserId: string, currentStatus: boolean, memberName: string) => {
+  const handleToggleDevTag = async (targetMember: any, currentStatus: boolean, memberNameFallback?: string) => {
     if (!isDevUser) {
       toast.error("Acesso Negado: Apenas membros com a Tag Dev podem alterar a Tag Dev.");
       return;
     }
 
-    if (!targetUserId) {
+    const memberName = typeof targetMember === "object"
+      ? (targetMember.nickname || targetMember.nome || memberNameFallback || "Membro")
+      : (memberNameFallback || "Membro");
+
+    const targetIds = [
+      typeof targetMember === "object" ? targetMember.user_id : null,
+      typeof targetMember === "object" ? targetMember.id : null,
+      typeof targetMember === "object" && targetMember.game_id ? String(targetMember.game_id) : null,
+      typeof targetMember === "object" && targetMember.discord_id ? String(targetMember.discord_id) : null,
+      typeof targetMember === "string" ? targetMember : null,
+    ].filter(Boolean).map(String);
+
+    if (targetIds.length === 0) {
       toast.error("ID de usuário inválido.");
       return;
     }
 
+    const primaryTargetId = targetIds[0];
     const nextStatus = !currentStatus;
-    setTogglingMemberId(targetUserId);
+    setTogglingMemberId(primaryTargetId);
 
     // 1. Atualização otimista imediata na lista de membros em cache
     queryClient.setQueryData<any[]>(["members"], (old) => {
       if (!Array.isArray(old)) return old;
       return old.map((m) => {
-        const mId = m.user_id || m.id;
-        if (mId === targetUserId || m.user_id === targetUserId || m.id === targetUserId) {
+        const mIds = [m.user_id, m.id, m.game_id ? String(m.game_id) : null, m.discord_id ? String(m.discord_id) : null]
+          .filter(Boolean)
+          .map(String);
+        if (mIds.some((id) => targetIds.includes(id))) {
           return {
             ...m,
             is_developer: nextStatus,
+            nivel: (m.nivel === "desenvolvedor" && !nextStatus) ? "membro" : m.nivel,
           };
         }
         return m;
@@ -782,13 +798,16 @@ function DevPermissoesContent() {
     });
 
     try {
-      await toggleMemberDevTag(targetUserId, nextStatus, user, profile, level);
+      await toggleMemberDevTag(targetMember, nextStatus, user, profile, level);
 
       // Invalidação das queries
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["members"] }),
         queryClient.invalidateQueries({ queryKey: ["member_tags"] }),
         queryClient.invalidateQueries({ queryKey: ["member_tag_assignments"] }),
+        queryClient.invalidateQueries({ queryKey: ["role_permissions"] }),
+        queryClient.invalidateQueries({ queryKey: ["user_roles"] }),
+        queryClient.invalidateQueries({ queryKey: ["profiles"] }),
         queryClient.invalidateQueries({ queryKey: ["auth_session"] }),
         queryClient.invalidateQueries({ queryKey: ["auth"] }),
       ]);
@@ -804,8 +823,10 @@ function DevPermissoesContent() {
       queryClient.setQueryData<any[]>(["members"], (old) => {
         if (!Array.isArray(old)) return old;
         return old.map((m) => {
-          const mId = m.user_id || m.id;
-          if (mId === targetUserId || m.user_id === targetUserId || m.id === targetUserId) {
+          const mIds = [m.user_id, m.id, m.game_id ? String(m.game_id) : null, m.discord_id ? String(m.discord_id) : null]
+            .filter(Boolean)
+            .map(String);
+          if (mIds.some((id) => targetIds.includes(id))) {
             return {
               ...m,
               is_developer: currentStatus,
@@ -821,26 +842,41 @@ function DevPermissoesContent() {
   };
 
   // Atribuição de Tag CEO com verificação e feedback
-  const handleToggleCeoTag = async (targetUserId: string, currentStatus: boolean, memberName: string) => {
+  const handleToggleCeoTag = async (targetMember: any, currentStatus: boolean, memberNameFallback?: string) => {
     if (!isDevUser) {
       toast.error("Acesso Negado: Apenas membros com a Tag Dev podem alterar a Tag CEO.");
       return;
     }
 
-    if (!targetUserId) {
+    const memberName = typeof targetMember === "object"
+      ? (targetMember.nickname || targetMember.nome || memberNameFallback || "Membro")
+      : (memberNameFallback || "Membro");
+
+    const targetIds = [
+      typeof targetMember === "object" ? targetMember.user_id : null,
+      typeof targetMember === "object" ? targetMember.id : null,
+      typeof targetMember === "object" && targetMember.game_id ? String(targetMember.game_id) : null,
+      typeof targetMember === "object" && targetMember.discord_id ? String(targetMember.discord_id) : null,
+      typeof targetMember === "string" ? targetMember : null,
+    ].filter(Boolean).map(String);
+
+    if (targetIds.length === 0) {
       toast.error("ID de usuário inválido.");
       return;
     }
 
+    const primaryTargetId = targetIds[0];
     const nextStatus = !currentStatus;
-    setTogglingMemberId(targetUserId);
+    setTogglingMemberId(primaryTargetId);
 
     // 1. Atualização otimista imediata na lista de membros em cache
     queryClient.setQueryData<any[]>(["members"], (old) => {
       if (!Array.isArray(old)) return old;
       return old.map((m) => {
-        const mId = m.user_id || m.id;
-        if (mId === targetUserId || m.user_id === targetUserId || m.id === targetUserId) {
+        const mIds = [m.user_id, m.id, m.game_id ? String(m.game_id) : null, m.discord_id ? String(m.discord_id) : null]
+          .filter(Boolean)
+          .map(String);
+        if (mIds.some((id) => targetIds.includes(id))) {
           return {
             ...m,
             is_ceo: nextStatus,
@@ -855,7 +891,7 @@ function DevPermissoesContent() {
     });
 
     try {
-      await toggleMemberCeoTag(targetUserId, nextStatus, user, profile, level);
+      await toggleMemberCeoTag(targetMember, nextStatus, user, profile, level);
 
       // Invalidação das queries
       await Promise.all([
@@ -863,6 +899,8 @@ function DevPermissoesContent() {
         queryClient.invalidateQueries({ queryKey: ["member_tags"] }),
         queryClient.invalidateQueries({ queryKey: ["member_tag_assignments"] }),
         queryClient.invalidateQueries({ queryKey: ["role_permissions"] }),
+        queryClient.invalidateQueries({ queryKey: ["user_roles"] }),
+        queryClient.invalidateQueries({ queryKey: ["profiles"] }),
         queryClient.invalidateQueries({ queryKey: ["auth_session"] }),
         queryClient.invalidateQueries({ queryKey: ["auth"] }),
       ]);
@@ -878,8 +916,10 @@ function DevPermissoesContent() {
       queryClient.setQueryData<any[]>(["members"], (old) => {
         if (!Array.isArray(old)) return old;
         return old.map((m) => {
-          const mId = m.user_id || m.id;
-          if (mId === targetUserId || m.user_id === targetUserId || m.id === targetUserId) {
+          const mIds = [m.user_id, m.id, m.game_id ? String(m.game_id) : null, m.discord_id ? String(m.discord_id) : null]
+            .filter(Boolean)
+            .map(String);
+          if (mIds.some((id) => targetIds.includes(id))) {
             return {
               ...m,
               is_ceo: currentStatus,
@@ -1884,7 +1924,11 @@ function DevPermissoesContent() {
                         const memberId = member.user_id || member.id;
                         const isDev = Boolean(member.is_developer || member.nivel === "desenvolvedor");
                         const isCeo = Boolean(member.is_ceo || member.custom_theme?.is_ceo);
-                        const isToggling = togglingMemberId === memberId || togglingMemberId === member.user_id;
+                        const isToggling =
+                          togglingMemberId === memberId ||
+                          togglingMemberId === member.user_id ||
+                          togglingMemberId === member.id ||
+                          (member.game_id && togglingMemberId === String(member.game_id));
 
                         return (
                           <div
@@ -1955,7 +1999,7 @@ function DevPermissoesContent() {
                                 checked={isDev}
                                 disabled={isToggling}
                                 onCheckedChange={() =>
-                                  handleToggleDevTag(memberId, isDev, member.nickname || member.nome)
+                                  handleToggleDevTag(member, isDev)
                                 }
                               />
                             </div>
@@ -2469,7 +2513,11 @@ function DevPermissoesContent() {
                         const memberId = member.user_id || member.id;
                         const isCeo = Boolean(member.is_ceo || member.custom_theme?.is_ceo);
                         const isDev = Boolean(member.is_developer || member.nivel === "desenvolvedor");
-                        const isToggling = togglingMemberId === memberId || togglingMemberId === member.user_id;
+                        const isToggling =
+                          togglingMemberId === memberId ||
+                          togglingMemberId === member.user_id ||
+                          togglingMemberId === member.id ||
+                          (member.game_id && togglingMemberId === String(member.game_id));
 
                         return (
                           <div
@@ -2559,7 +2607,7 @@ function DevPermissoesContent() {
                                   disabled={isToggling}
                                   aria-label={`Alternar Tag CEO para ${member.nickname || member.nome}`}
                                   onCheckedChange={() =>
-                                    handleToggleCeoTag(memberId, isCeo, member.nickname || member.nome)
+                                    handleToggleCeoTag(member, isCeo)
                                   }
                                 />
                               )}

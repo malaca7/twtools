@@ -848,8 +848,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 2. Concedido por qualquer tag ativa que o membro possua
     return memberTags.some((t) => {
       if (t.is_active === false) return false;
+      if (isDevTagItem(t)) return true;
       const cleanId = t.id.toLowerCase().trim();
-      if (cleanId === "desenvolvedor" || cleanId === "dev_test") return true;
+      if (cleanId === "desenvolvedor" || cleanId === "dev" || cleanId === "dev_test") return true;
       if (t.rules?.can_access_dev === true || t.rules?.is_dev_test === true) return true;
       if (
         Array.isArray(t.permissions) &&
@@ -859,7 +860,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return false;
     });
-  }, [session?.user, profile, level, memberTags]);
+  }, [session?.user, profile, level, memberTags, isDevTagItem]);
 
   // Checagem se o membro é CEO (base ou concedido por tag ativa)
   const isCeoUser = useMemo(() => {
@@ -871,6 +872,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 2. Concedido por qualquer tag ativa que o membro possua
     const tagCeo = memberTags.some((t) => {
       if (t.is_active === false) return false;
+      if (isCeoTagItem(t)) return true;
       const cleanId = t.id.toLowerCase().trim();
       if (cleanId === "ceo") return true;
       if (t.rules?.can_access_ceo === true || t.rules?.is_ceo === true) return true;

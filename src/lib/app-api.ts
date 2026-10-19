@@ -924,23 +924,29 @@ export async function getMembers(): Promise<Member[]> {
   let profiles: any[] = [];
   let roles: any[] = [];
   let signupReqs: any[] = [];
+  let tagAssignments: any[] = [];
+  let ceoConfig: any = null;
 
   try {
-    const [fbProfiles, fbRoles, fbSignups] = await Promise.all([
+    const [fbProfiles, fbRoles, fbSignups, fbTagAssignments, fbCeoConfig] = await Promise.all([
       rtdb.getList<any>("profiles"),
       rtdb.getList<any>("user_roles"),
       rtdb.getList<any>("signup_requests"),
+      rtdb.getList<any>("member_tag_assignments").catch(() => []),
+      rtdb.get<any>("role_permissions/system_ceo_config").catch(() => null),
     ]);
     if (fbProfiles && fbProfiles.length > 0) {
       profiles = fbProfiles;
       roles = fbRoles || [];
       signupReqs = fbSignups || [];
+      tagAssignments = fbTagAssignments || [];
+      ceoConfig = fbCeoConfig;
     }
   } catch {}
 
   if (profiles.length === 0) {
     try {
-      const [profilesRes, rolesRes, signupReqsRes] = await Promise.all([
+      const [profilesRes, rolesRes, signupReqsRes, tagAssignsRes] = await Promise.all([
         (supabase.from("profiles" as any))
           .select("id, user_id, nome, nickname, telefone, game_id, status, data_entrada, created_at, discord_id, discord_username, discord_avatar_url, avatar_url, discord_email, is_developer, is_ceo, custom_theme, xp, gamification_level, stars_rating, stars_count, tw_coins, is_verified")
           .order("created_at", { ascending: true }),
@@ -948,13 +954,57 @@ export async function getMembers(): Promise<Member[]> {
           .from("user_roles")
           .select("user_id, nivel"),
         (supabase.from("signup_requests" as any))
-          .select("user_id, status")
+          .select("user_id, status"),
+        (supabase.from("member_tag_assignments" as any))
+          .select("user_id, member_id, tag_id")
+          .catch(() => ({ data: [] })),
       ]);
 
       if (!profilesRes.error && profilesRes.data && profilesRes.data.length > 0) {
         profiles = profilesRes.data;
         roles = rolesRes.data || [];
         signupReqs = signupReqsRes.data || [];
+        tagAssignments = (tagAssignsRes as any)?.data || [];
+      }
+    } catch {}
+  }
+
+  const devTagUserIds = new Set<string>();
+  const ceoTagUserIds = new Set<string>();
+  if (Array.isArray(tagAssignments)) {
+    for (const a of tagAssignments) {
+      if (!a) continue;
+      const tId = String(a.tag_id || "").toLowerCase().trim();
+      const uId = String(a.user_id || a.member_id || "").trim();
+      if (!uId) continue;
+      if (tId === "dev" || tId === "desenvolvedor") {
+        devTagUserIds.add(uId);
+      }
+      if (tId === "ceo") {
+        ceoTagUserIds.add(uId);
+      }
+    }
+  }
+
+  const activeCeoSet = new Set<string>();
+  const ceoConfigList = Array.isArray(ceoConfig?.permissions?.activeCeoUserIds)
+    ? ceoConfig.permissions.activeCeoUserIds
+    : Array.isArray(ceoConfig?.activeCeoUserIds)
+    ? ceoConfig.activeCeoUserIds
+    : [];
+  for (const cid of ceoConfigList) {
+    if (cid) activeCeoSet.add(String(cid).trim());
+  }
+  if (typeof window !== "undefined") {
+    try {
+      const localCfg = localStorage.getItem("tw_ceo_config");
+      if (localCfg) {
+        const parsed = JSON.parse(localCfg);
+        if (Array.isArray(parsed?.activeCeoUserIds)) {
+          for (const cid of parsed.activeCeoUserIds) {
+            if (cid) activeCeoSet.add(String(cid).trim());
+          }
+        }
       }
     } catch {}
   }
@@ -979,6 +1029,15 @@ export async function getMembers(): Promise<Member[]> {
     })
     .map((d: any) => {
       const roleNivel = rolesMap.get(d.user_id) || "novato";
+      const candidateIds = [
+        d.id,
+        d.user_id,
+        d.game_id ? String(d.game_id) : null,
+        d.discord_id ? String(d.discord_id) : null,
+      ].filter(Boolean).map(String);
+
+      const hasDevTag = candidateIds.some((cid) => devTagUserIds.has(cid));
+      const hasCeoTag = candidateIds.some((cid) => ceoTagUserIds.has(cid) || activeCeoSet.has(cid));
 
       return {
         id: d.id || d.user_id,
@@ -1009,8 +1068,8 @@ export async function getMembers(): Promise<Member[]> {
         bio: d.bio || d.custom_theme?.bio || null,
         custom_status: d.custom_status || d.custom_theme?.custom_status || null,
         social_links: d.social_links || d.custom_theme?.social_links || null,
-        is_developer: Boolean(d.is_developer === true || roleNivel === "desenvolvedor"),
-        is_ceo: Boolean(d.is_ceo === true || d.custom_theme?.is_ceo === true),
+        is_developer: Boolean(d.is_developer === true || roleNivel === "desenvolvedor" || hasDevTag),
+        is_ceo: Boolean(d.is_ceo === true || d.custom_theme?.is_ceo === true || hasCeoTag),
         custom_theme: d.custom_theme || null,
         custom_url: d.custom_url ?? d.custom_theme?.custom_url ?? null,
         xp: Number(d.xp || 0),
