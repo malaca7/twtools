@@ -572,7 +572,7 @@ export function ArmazemPage() {
         destination: "WAREHOUSE",
         originBauId,
         quantity: numQ,
-        reason: `Estorno de transferência (#${mov.id.slice(0, 8)}) para o Armazém`,
+        reason: `Estorno de transferência (#${(mov?.id || "").slice(0, 8)}) para o Armazém`,
       });
     },
     onSuccess: (_, mov) => {

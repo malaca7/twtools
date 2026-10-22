@@ -229,7 +229,7 @@ export function CreateGroupDialog({
               ) : (
                 filteredMembers.map((m) => {
                   const isSelected = selectedUserIds.includes(m.user_id);
-                  const displayName = m.nickname || m.nome;
+                  const displayName = m.nickname || m.nome || "Membro";
                   const currentNivel = (m.nivel || "novato") as AppLevel;
 
                   return (

@@ -1568,16 +1568,16 @@ export function AppShell({ children }: { children: ReactNode }) {
               )}
 
               {/* TAGS DO INTEGRANTE NA BARRA DE TOPO */}
-              {user && myTags.length > 0 && (
+              {user && Array.isArray(myTags) && myTags.length > 0 && (
                 <div className="hidden lg:flex items-center gap-1 mr-1 max-w-[260px] xl:max-w-[360px] overflow-x-auto scrollbar-none py-0.5">
-                  {myTags.slice(0, 3).map((tag) => (
+                  {(myTags || []).slice(0, 3).map((tag) => (
                     <MemberTagBadge key={tag.id} tag={tag} size="xs" />
                   ))}
                   {myTags.length > 3 && (
                     <Badge
                       variant="outline"
                       className="text-[9px] font-mono px-1.5 py-0 h-4 border-border/60 text-muted-foreground shrink-0 cursor-default"
-                      title={myTags.slice(3).map((t) => t.name).join(", ")}
+                      title={(myTags || []).slice(3).map((t) => t.name).join(", ")}
                     >
                       +{myTags.length - 3}
                     </Badge>

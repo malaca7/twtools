@@ -612,7 +612,7 @@ function TicketsContent() {
                         <Avatar className="h-4 w-4">
                           <AvatarImage src={t.creator_avatar || undefined} />
                           <AvatarFallback className="text-[8px]">
-                            {t.creator_name.slice(0, 2).toUpperCase()}
+                            {(t?.creator_name || t?.creator_nickname || "TC").slice(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
                         <span className="text-foreground truncate font-medium">

@@ -265,7 +265,7 @@ export function ProfileConnectionsModal({
                           </span>
                         )}
                         <span className="truncate">
-                          @{member.custom_url || member.discord_username?.replace(/#0$/, "") || member.id.slice(0, 8)}
+                          @{member?.custom_url || member?.discord_username?.replace(/#0$/, "") || member?.id?.slice(0, 8) || (member as any)?.user_id?.slice(0, 8) || "membro"}
                         </span>
                       </div>
                     </div>

@@ -2283,7 +2283,7 @@ export function CeoGerenciarTagsPage() {
                         <Avatar className="h-7 w-7 border border-border/50 shrink-0">
                           <AvatarImage src={m.avatar_url || ""} />
                           <AvatarFallback className="text-[10px] font-bold">
-                            {(m.nickname || m.nome).slice(0, 2).toUpperCase()}
+                            {(m?.nickname || m?.nome || "MB").slice(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">

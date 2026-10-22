@@ -2424,7 +2424,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                               </Badge>
                             )}
                           </div>
-                          <span className="text-[10px] text-muted-foreground font-mono block">ID: {b.id.slice(0, 8)}...</span>
+                          <span className="text-[10px] text-muted-foreground font-mono block">ID: {(b?.id || "").slice(0, 8)}...</span>
                         </div>
                       </div>
                       {!b.banner_url && (
@@ -2494,7 +2494,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                                 >
                                   <Check className="w-3 h-3 text-emerald-400" />
                                   <span className="truncate max-w-[120px]">
-                                    {found ? found.name : `${channelId.slice(0, 10)}...`}
+                                    {found ? found.name : `${(channelId || "").slice(0, 10)}...`}
                                   </span>
                                 </span>
                               );
@@ -2943,7 +2943,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                                   <img src={g.iconUrl} alt={g.name} className="w-4 h-4 rounded-full object-cover shrink-0" />
                                 ) : (
                                   <div className="w-4 h-4 rounded-full bg-[#5865F2]/20 flex items-center justify-center text-[9px] font-bold shrink-0">
-                                    {g.name.slice(0, 2).toUpperCase()}
+                                    {(g?.name || "G").slice(0, 2).toUpperCase()}
                                   </div>
                                 )}
                                 <span className="font-medium truncate">{g.name}</span>
@@ -3010,7 +3010,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                                 }
                                 return (
                                   <span className="text-amber-400 font-mono">
-                                    # Canal atual ({discordChannelId.slice(0, 10)}...)
+                                    # Canal atual ({(discordChannelId || "").slice(0, 10)}...)
                                   </span>
                                 );
                               })()
@@ -3032,7 +3032,7 @@ function BausTabContent({ canManage }: BausTabContentProps) {
                               <div className="flex items-center gap-1.5 text-amber-400">
                                 <Hash className="w-3.5 h-3.5 shrink-0" />
                                 <span className="font-mono">
-                                  # Canal atual configurado ({discordChannelId.slice(0, 10)}...)
+                                  # Canal atual configurado ({(discordChannelId || "").slice(0, 10)}...)
                                 </span>
                               </div>
                             </SelectItem>

@@ -421,7 +421,7 @@ export function MembrosPage() {
                             <AvatarImage src={req.discord_avatar_url} alt={req.nome} />
                           )}
                           <AvatarFallback className="bg-primary/20 text-primary font-bold text-xs">
-                            {(req.nickname || req.nome).slice(0, 2).toUpperCase()}
+                            {(req?.nickname || req?.nome || "MB").slice(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
 
@@ -579,7 +579,7 @@ export function MembrosPage() {
                 {sortedMembers.map((m) => {
                   const currentNivel = m.nivel || "novato";
                   const avatarUrl = m.discord_avatar_url || m.avatar_url;
-                  const initials = (m.nickname || m.nome).slice(0, 2).toUpperCase();
+                  const initials = (m?.nickname || m?.nome || "MB").slice(0, 2).toUpperCase();
                   const targetIsDev = Boolean(m.is_developer || m.nivel === "desenvolvedor");
                   const targetIsCeo = Boolean(m.is_ceo || m.custom_theme?.is_ceo);
                   const canChangeThisTargetRole = canChangeRoles && (!targetIsDev || isDev);
@@ -842,7 +842,7 @@ export function MembrosPage() {
                     {sortedMembers.map((m) => {
                       const currentNivel = m.nivel || "novato";
                       const avatarUrl = m.discord_avatar_url || m.avatar_url;
-                      const initials = (m.nickname || m.nome).slice(0, 2).toUpperCase();
+                      const initials = (m?.nickname || m?.nome || "MB").slice(0, 2).toUpperCase();
                       const targetIsDev = Boolean(m.is_developer || m.nivel === "desenvolvedor");
                       const targetIsCeo = Boolean(m.is_ceo || m.custom_theme?.is_ceo);
                       const canChangeThisTargetRole = canChangeRoles && (!targetIsDev || isDev);

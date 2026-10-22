@@ -932,7 +932,7 @@ export function AusenciasPage() {
                         <Avatar className="h-9 w-9 border border-primary/30 shrink-0">
                           {item.member_avatar && <AvatarImage src={item.member_avatar} alt={item.member_name} />}
                           <AvatarFallback className="text-xs font-bold bg-primary/20 text-primary">
-                            {item.member_name.slice(0, 2).toUpperCase()}
+                            {(item?.member_name || item?.member_nickname || "MB").slice(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
@@ -1011,7 +1011,7 @@ export function AusenciasPage() {
                     {/* Actions Toolbar */}
                     <div className="pt-3 border-t border-border/40 flex items-center justify-between gap-2">
                       <span className="text-[10px] font-mono text-muted-foreground">
-                        {formatDateBR(item.created_at.slice(0, 10))}
+                        {item?.created_at ? formatDateBR(item.created_at.slice(0, 10)) : "-"}
                       </span>
 
                       <div className="flex items-center gap-1.5">

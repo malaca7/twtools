@@ -545,7 +545,7 @@ export function AtendimentoTicketsContent() {
                           <Avatar className="h-6 w-6 border border-border/60 shrink-0">
                             {ticket.creator_avatar && <AvatarImage src={ticket.creator_avatar} alt={ticket.creator_name} />}
                             <AvatarFallback className="text-[9px] font-bold bg-primary/20 text-primary">
-                              {ticket.creator_name.slice(0, 2).toUpperCase()}
+                              {(ticket?.creator_name || ticket?.creator_nickname || "TC").slice(0, 2).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
                           <span className="truncate font-semibold text-foreground/90">

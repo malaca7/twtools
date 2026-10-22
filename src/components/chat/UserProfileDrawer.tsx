@@ -36,8 +36,8 @@ export function UserProfileDrawer({
 
   if (!member) return null;
 
-  const displayName = member.nickname || member.nome;
-  const initials = displayName.slice(0, 2).toUpperCase();
+  const displayName = member.nickname || member.nome || "Membro";
+  const initials = (displayName || "MB").slice(0, 2).toUpperCase();
   const nivel = (member.nivel || "novato") as AppLevel;
 
   return (

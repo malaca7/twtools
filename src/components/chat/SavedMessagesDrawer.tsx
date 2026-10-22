@@ -117,7 +117,7 @@ export function SavedMessagesDrawer({
                     <Avatar className="h-6 w-6 border border-border/60 shrink-0">
                       {item.sender_avatar && <AvatarImage src={item.sender_avatar} />}
                       <AvatarFallback className="text-[9px] font-black">
-                        {item.sender_name.slice(0, 2).toUpperCase()}
+                        {(item?.sender_name || "M").slice(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <span className="text-xs font-black text-foreground truncate">

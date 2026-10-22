@@ -1713,7 +1713,7 @@ export function MetasPage() {
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-primary shrink-0">
-                  {item.member.nome.slice(0, 2).toUpperCase()}
+                  {(item?.member?.nome || item?.member?.nickname || "MB").slice(0, 2).toUpperCase()}
                 </div>
 
                 <div className="space-y-0.5 min-w-0">

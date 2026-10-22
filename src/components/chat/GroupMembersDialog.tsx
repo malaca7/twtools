@@ -205,7 +205,7 @@ export function GroupMembersDialog({
                   availableToAdd.map((m) => {
                     const isSelected = selectedNewUserIds.includes(m.user_id);
                     const currentNivel = (m.nivel || "novato") as AppLevel;
-                    const displayName = m.nickname || m.nome;
+                    const displayName = m.nickname || m.nome || "Membro";
 
                     return (
                       <button

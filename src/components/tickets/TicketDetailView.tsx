@@ -378,7 +378,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
               <Avatar className="h-4 w-4">
                 <AvatarImage src={ticket.creator_avatar || undefined} />
                 <AvatarFallback className="text-[9px]">
-                  {ticket.creator_name.slice(0, 2).toUpperCase()}
+                  {(ticket?.creator_name || ticket?.creator_nickname || "TC").slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <span className="text-foreground font-medium">
@@ -459,7 +459,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
             <Avatar className="h-3.5 w-3.5">
               <AvatarImage src={ticket.creator_avatar || undefined} />
               <AvatarFallback className="text-[7px]">
-                {ticket.creator_name.slice(0, 2).toUpperCase()}
+                {(ticket?.creator_name || ticket?.creator_nickname || "TC").slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <span className="text-[11px] font-medium text-foreground">
@@ -476,7 +476,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
               <Avatar className="h-3.5 w-3.5">
                 <AvatarImage src={ticket.assigned_to_avatar || undefined} />
                 <AvatarFallback className="text-[7px]">
-                  {ticket.assigned_to_name.slice(0, 2).toUpperCase()}
+                  {(ticket?.assigned_to_name || ticket?.assigned_to_nickname || "TC").slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <span className="text-[11px] font-medium text-sky-400">
@@ -498,7 +498,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
               <Avatar className="h-3.5 w-3.5">
                 <AvatarImage src={m.avatar || undefined} />
                 <AvatarFallback className="text-[7px]">
-                  {m.name.slice(0, 2).toUpperCase()}
+                  {(m?.name || m?.nickname || "MB").slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <span className="text-[11px] font-medium text-foreground">
@@ -645,7 +645,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
               <Avatar className="h-7 w-7">
                 <AvatarImage src={ticket.creator_avatar || undefined} />
                 <AvatarFallback className="text-xs">
-                  {ticket.creator_name.slice(0, 2).toUpperCase()}
+                  {(ticket?.creator_name || ticket?.creator_nickname || "TC").slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div>
@@ -744,7 +744,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
                         <Avatar className="h-5 w-5">
                           <AvatarImage src={msg.sender_avatar || undefined} />
                           <AvatarFallback className="text-[9px]">
-                            {msg.sender_name.slice(0, 2).toUpperCase()}
+                            {(msg?.sender_name || msg?.sender_nickname || "MB").slice(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
                         <span className="text-xs font-semibold text-amber-300">
@@ -786,7 +786,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
                         <Avatar className="h-5 w-5">
                           <AvatarImage src={msg.sender_avatar || undefined} />
                           <AvatarFallback className="text-[9px]">
-                            {msg.sender_name.slice(0, 2).toUpperCase()}
+                            {(msg?.sender_name || msg?.sender_nickname || "MB").slice(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
                         <span className="font-semibold text-xs text-foreground">
@@ -1014,7 +1014,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
                         <Avatar className="h-5 w-5">
                           <AvatarImage src={m.avatar_url || undefined} />
                           <AvatarFallback className="text-[9px]">
-                            {m.nome.slice(0, 2).toUpperCase()}
+                            {(m?.nome || m?.nickname || "MB").slice(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
                         <span>{m.nickname || m.nome}</span>
@@ -1188,7 +1188,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
                       <Avatar className="h-6 w-6">
                         <AvatarImage src={m.avatar_url || m.discord_avatar_url || undefined} />
                         <AvatarFallback className="text-[9px]">
-                          {m.nome.slice(0, 2).toUpperCase()}
+                          {(m?.nome || m?.nickname || "MB").slice(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                       <div>

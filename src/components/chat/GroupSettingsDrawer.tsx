@@ -568,7 +568,7 @@ export function GroupSettingsDrawer({
               ) : (
                 filteredAvailable.map((m) => {
                   const isSelected = selectedUserIds.includes(m.user_id);
-                  const displayName = m.nickname || m.nome;
+                  const displayName = m.nickname || m.nome || "Membro";
 
                   return (
                     <div

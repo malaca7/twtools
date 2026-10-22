@@ -709,7 +709,7 @@ function RankingsContent() {
                                   <Avatar className="h-9 w-9 border border-border shrink-0">
                                     <AvatarImage src={m.avatar_url || ""} />
                                     <AvatarFallback className="font-bold text-xs">
-                                      {(m.nickname || m.nome).slice(0, 2).toUpperCase()}
+                                      {(m?.nickname || m?.nome || "MB").slice(0, 2).toUpperCase()}
                                     </AvatarFallback>
                                   </Avatar>
 
@@ -850,7 +850,7 @@ function RankingsContent() {
                                       <Avatar className="h-9 w-9 border border-border shrink-0">
                                         <AvatarImage src={m.avatar_url || ""} />
                                         <AvatarFallback className="font-bold text-xs">
-                                          {(m.nickname || m.nome).slice(0, 2).toUpperCase()}
+                                          {(m?.nickname || m?.nome || "MB").slice(0, 2).toUpperCase()}
                                         </AvatarFallback>
                                       </Avatar>
                                       <div>

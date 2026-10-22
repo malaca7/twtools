@@ -354,7 +354,7 @@ function GestaoDesempenhoContent() {
                     <Avatar className="h-12 w-12 border-2 border-primary/50 shadow-md shrink-0">
                       <AvatarImage src={topPerformer.discord_avatar_url || (topPerformer as any).avatar_url || undefined} />
                       <AvatarFallback className="bg-primary/20 text-primary font-extrabold text-sm">
-                        {(topPerformer.nickname || topPerformer.nome).slice(0, 2).toUpperCase()}
+                        {(topPerformer?.nickname || topPerformer?.nome || "MB").slice(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">
@@ -534,7 +534,7 @@ function GestaoDesempenhoContent() {
                               <Avatar className="h-7 w-7 border shrink-0">
                                 <AvatarImage src={m.discord_avatar_url || (m as any).avatar_url || undefined} />
                                 <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
-                                  {(m.nickname || m.nome).slice(0, 2).toUpperCase()}
+                                  {(m?.nickname || m?.nome || "MB").slice(0, 2).toUpperCase()}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="min-w-0">
@@ -623,7 +623,7 @@ function GestaoDesempenhoContent() {
                                   <Avatar className="h-8 w-8 border border-border/60 shrink-0">
                                     <AvatarImage src={m.discord_avatar_url || (m as any).avatar_url || undefined} />
                                     <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
-                                      {(m.nickname || m.nome).slice(0, 2).toUpperCase()}
+                                      {(m?.nickname || m?.nome || "MB").slice(0, 2).toUpperCase()}
                                     </AvatarFallback>
                                   </Avatar>
                                   <div className="min-w-0">
@@ -737,7 +737,7 @@ function GestaoDesempenhoContent() {
                 <Avatar className="h-12 w-12 border-2 border-primary/40 shadow-sm">
                   <AvatarImage src={inspectedMember.discord_avatar_url || (inspectedMember as any).avatar_url || undefined} />
                   <AvatarFallback className="bg-primary/10 text-primary font-bold text-base">
-                    {(inspectedMember.nickname || inspectedMember.nome).slice(0, 2).toUpperCase()}
+                    {(inspectedMember?.nickname || inspectedMember?.nome || "MB").slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div>

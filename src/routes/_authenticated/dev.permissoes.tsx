@@ -2519,6 +2519,7 @@ function DevPermissoesContent() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[380px] overflow-y-auto pr-1">
                       {filteredMembers.map((member) => {
                         const memberId = member.user_id || member.id;
+                        const isCeo = Boolean(member.is_ceo || member.custom_theme?.is_ceo);
                         const isDev = Boolean(
                           member.is_developer ||
                           member.nivel === "desenvolvedor" ||

@@ -1968,7 +1968,7 @@ export function EscalasPage() {
                                     className="w-full h-full object-cover"
                                   />
                                 ) : (
-                                  (member.nickname || member.nome).slice(0, 2).toUpperCase()
+                                  (member?.nickname || member?.nome || "MB").slice(0, 2).toUpperCase()
                                 )}
                               </div>
                               <div className="min-w-0 space-y-0.5">
@@ -2145,7 +2145,7 @@ export function EscalasPage() {
                                     className="w-full h-full object-cover"
                                   />
                                 ) : (
-                                  (member.nickname || member.nome).slice(0, 2).toUpperCase()
+                                  (member?.nickname || member?.nome || "MB").slice(0, 2).toUpperCase()
                                 )}
                               </div>
                               <div className="min-w-0 space-y-0.5">

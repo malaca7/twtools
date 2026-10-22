@@ -251,9 +251,9 @@ function DashboardContent() {
                                 key={rm.user_id}
                                 className="inline-block h-5 w-5 rounded-full ring-1 ring-background border border-border"
                               >
-                                <AvatarImage src={rm.discord_avatar_url || undefined} alt={rm.nome} />
+                                <AvatarImage src={rm.discord_avatar_url || undefined} alt={rm.nickname || rm.nome || "Membro"} />
                                 <AvatarFallback className="text-[8px] bg-secondary font-bold">
-                                  {(rm.nickname || rm.nome).slice(0, 2).toUpperCase()}
+                                  {(rm?.nickname || rm?.nome || "MB").slice(0, 2).toUpperCase()}
                                 </AvatarFallback>
                               </Avatar>
                             ))}
