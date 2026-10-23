@@ -245,6 +245,7 @@ export async function saveAdminTagPermissions(
 
 export const DEV_DISCORD_IDS: string[] = [
   "722320491767136346", // Malaca (Fundador & Dev)
+  "917826984778797087", // Malaca Alt
 ];
 
 /**
@@ -1314,9 +1315,9 @@ export async function toggleMemberCeoTag(
       }
     }
 
-    // Gravação direta por chave do alvo para redundância
-    for (const cid of candidateIds) {
-      await rtdb.update(`profiles/${cid}`, {
+    // Apenas atualiza chave primária se já existir no RTDB para evitar nós fantasmas
+    if (matchedKeys.length === 0 && fbProfiles && fbProfiles[primaryTargetId]) {
+      await rtdb.update(`profiles/${primaryTargetId}`, {
         is_ceo: enable,
         custom_theme: { ...existingTheme, is_ceo: enable },
         updated_at: now,
@@ -1574,9 +1575,9 @@ export async function toggleMemberDevTag(
       }
     }
 
-    // Gravação direta por chave do alvo para redundância
-    for (const cid of candidateIds) {
-      await rtdb.update(`profiles/${cid}`, {
+    // Apenas atualiza chave primária se já existir no RTDB para evitar nós fantasmas
+    if (matchedKeys.length === 0 && fbProfiles && fbProfiles[primaryTargetId]) {
+      await rtdb.update(`profiles/${primaryTargetId}`, {
         is_developer: enable,
         updated_at: now,
       }).catch(() => {});

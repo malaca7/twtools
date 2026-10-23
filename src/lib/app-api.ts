@@ -1019,8 +1019,14 @@ export async function getMembers(): Promise<Member[]> {
     if (s.status === "pendente") pendingSet.add(s.user_id);
   });
 
-  return profiles
+  const mapped = profiles
     .filter((d: any) => {
+      if (!d) return false;
+      // Must have valid name and identity (filter out ghost records)
+      if (!d.nome && !d.nickname) return false;
+      const uid = d.user_id || d.id;
+      if (!uid) return false;
+
       // User must not be pending and must have an assigned role or approved status
       if (pendingSet.has(d.user_id)) return false;
       const hasRole = rolesMap.has(d.user_id);
@@ -1041,14 +1047,14 @@ export async function getMembers(): Promise<Member[]> {
 
       return {
         id: d.id || d.user_id,
-        user_id: d.user_id,
+        user_id: d.user_id || d.id,
         nome: d.nome,
         nickname: d.nickname || null,
         telefone: d.telefone ?? null,
         game_id: d.game_id ?? null,
-        status: d.status,
-        data_entrada: String(d.data_entrada),
-        created_at: String(d.created_at),
+        status: d.status || "ativo",
+        data_entrada: String(d.data_entrada || new Date().toISOString().slice(0, 10)),
+        created_at: String(d.created_at || new Date().toISOString()),
         nivel: roleNivel,
         presence_status: "offline" as UserPresenceStatus,
         last_seen: null,
@@ -1071,7 +1077,7 @@ export async function getMembers(): Promise<Member[]> {
           d.is_developer === true ||
           roleNivel === "desenvolvedor" ||
           hasDevTag ||
-          (d.discord_id && String(d.discord_id) === "722320491767136346") ||
+          (d.discord_id && (String(d.discord_id) === "722320491767136346" || String(d.discord_id) === "917826984778797087")) ||
           d.user_id === "c5ef6dc6-e126-4027-80c3-319f0a870315" ||
           d.id === "860f8be7-6e51-4a47-8c14-9ca912d3c20a"
         ),
@@ -1086,6 +1092,25 @@ export async function getMembers(): Promise<Member[]> {
         is_verified: d.is_verified === true,
       };
     });
+
+  // Deduplicação estrita por user_id e game_id
+  const seenUserIds = new Set<string>();
+  const seenGameIds = new Set<string>();
+  const deduplicated: Member[] = [];
+
+  for (const m of mapped) {
+    const uid = String(m.user_id || m.id).trim();
+    const gid = m.game_id ? String(m.game_id).trim() : null;
+
+    if (seenUserIds.has(uid)) continue;
+    if (gid && seenGameIds.has(gid)) continue;
+
+    seenUserIds.add(uid);
+    if (gid) seenGameIds.add(gid);
+    deduplicated.push(m);
+  }
+
+  return deduplicated;
 }
 
 export async function cancelSignupRequest(userId?: string): Promise<void> {
@@ -1471,8 +1496,8 @@ export async function updateUserTheme(theme: import("./app-types").UserThemeSett
         }
       }
     }
-    // Gravação direta por chave para redundância
-    if (userId) {
+    // Apenas atualiza userId se já existir nó correspondente no RTDB
+    if (userId && profiles && profiles[userId]) {
       await rtdb.update(`profiles/${userId}`, {
         custom_theme: theme,
         updated_at: new Date().toISOString(),

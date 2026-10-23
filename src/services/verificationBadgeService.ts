@@ -467,6 +467,22 @@ export async function cancelVerificationRequest(requestId: string): Promise<void
   }
 }
 
+async function syncProfileVerificationRtdb(targetUserId: string, isVerified: boolean, now: string) {
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    const fbProfiles = await rtdb.get<Record<string, any>>("profiles");
+    if (fbProfiles && typeof fbProfiles === "object") {
+      for (const [k, p] of Object.entries(fbProfiles)) {
+        if (!p) continue;
+        if (p.user_id === targetUserId || p.id === targetUserId || k === targetUserId) {
+          await rtdb.update(`profiles/${k}`, { is_verified: isVerified, updated_at: now }).catch(() => {});
+          return;
+        }
+      }
+    }
+  } catch {}
+}
+
 /**
  * Analisa uma solicitação de verificação (Aprova ou Rejeita)
  */
@@ -544,10 +560,7 @@ export async function reviewVerificationRequest(params: {
           .or(`user_id.eq.${targetUserId},id.eq.${targetUserId}`);
       } catch {}
 
-      try {
-        const { rtdb } = await import("@/integrations/firebase/rtdb");
-        await rtdb.update(`profiles/${targetUserId}`, { is_verified: true, updated_at: now });
-      } catch {}
+      await syncProfileVerificationRtdb(targetUserId, true, now);
 
       // Insere/atualiza registro em member_verifications
       const verRecord = {
@@ -583,9 +596,9 @@ export async function reviewVerificationRequest(params: {
           .or(`user_id.eq.${targetUserId},id.eq.${targetUserId}`);
       } catch {}
 
+      await syncProfileVerificationRtdb(targetUserId, false, now);
       try {
         const { rtdb } = await import("@/integrations/firebase/rtdb");
-        await rtdb.update(`profiles/${targetUserId}`, { is_verified: false, updated_at: now });
         await rtdb.delete(`member_verifications/${targetUserId}`);
       } catch {}
 
@@ -656,10 +669,7 @@ export async function grantDirectVerification(params: {
       .or(`user_id.eq.${params.targetUserId},id.eq.${params.targetUserId}`);
   } catch {}
 
-  try {
-    const { rtdb } = await import("@/integrations/firebase/rtdb");
-    await rtdb.update(`profiles/${params.targetUserId}`, { is_verified: true, updated_at: now });
-  } catch {}
+    await syncProfileVerificationRtdb(params.targetUserId, true, now);
 
   const verRecord = {
     id: `ver_${params.targetUserId}`,
@@ -738,11 +748,11 @@ export async function revokeVerification(params: {
       .or(`user_id.eq.${params.targetUserId},id.eq.${params.targetUserId}`);
   } catch {}
 
-  try {
-    const { rtdb } = await import("@/integrations/firebase/rtdb");
-    await rtdb.update(`profiles/${params.targetUserId}`, { is_verified: false, updated_at: now });
-    await rtdb.delete(`member_verifications/${params.targetUserId}`);
-  } catch {}
+    await syncProfileVerificationRtdb(params.targetUserId, false, now);
+    try {
+      const { rtdb } = await import("@/integrations/firebase/rtdb");
+      await rtdb.delete(`member_verifications/${params.targetUserId}`);
+    } catch {}
 
   try {
     await supabase

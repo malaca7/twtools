@@ -336,19 +336,39 @@ export function MembrosPage() {
     onError: (err) => toast.error(errorMessage(err)),
   });
 
-  // Filtro por termo de busca
-  const filteredMembers = members.filter((m) => {
-    const term = search.toLowerCase().trim();
-    if (!term) return true;
+  // Filtro por termo de busca com deduplicação rigorosa
+  const filteredMembers = useMemo(() => {
+    const seenUserIds = new Set<string>();
+    const seenGameIds = new Set<string>();
 
-    const nomeMatch = m.nome.toLowerCase().includes(term);
-    const nickMatch = (m.nickname || "").toLowerCase().includes(term);
-    const phoneMatch = (m.telefone || "").toLowerCase().includes(term);
-    const gameMatch = (m.game_id || "").toLowerCase().includes(term);
-    const discordMatch = (m.discord_username || "").toLowerCase().includes(term);
+    return members.filter((m) => {
+      const uid = String(m.user_id || m.id).trim();
+      const gid = m.game_id ? String(m.game_id).trim() : null;
 
-    return nomeMatch || nickMatch || phoneMatch || gameMatch || discordMatch;
-  });
+      if (!uid || seenUserIds.has(uid)) return false;
+      if (gid && seenGameIds.has(gid)) return false;
+
+      const term = search.toLowerCase().trim();
+      if (!term) {
+        seenUserIds.add(uid);
+        if (gid) seenGameIds.add(gid);
+        return true;
+      }
+
+      const nomeMatch = (m.nome || "").toLowerCase().includes(term);
+      const nickMatch = (m.nickname || "").toLowerCase().includes(term);
+      const phoneMatch = (m.telefone || "").toLowerCase().includes(term);
+      const gameMatch = (m.game_id || "").toLowerCase().includes(term);
+      const discordMatch = (m.discord_username || "").toLowerCase().includes(term);
+
+      const matches = nomeMatch || nickMatch || phoneMatch || gameMatch || discordMatch;
+      if (matches) {
+        seenUserIds.add(uid);
+        if (gid) seenGameIds.add(gid);
+      }
+      return matches;
+    });
+  }, [members, search]);
 
   // Ordenação: Estritamente 1º por Cargos (Hierarquia descendente) e 2º por Ordem Alfabética
   const sortedMembers = useMemo(() => {

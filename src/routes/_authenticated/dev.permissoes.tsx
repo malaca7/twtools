@@ -940,47 +940,89 @@ function DevPermissoesContent() {
 
   // Membros filtrados para a gestão rápida da Tag Dev
   const activeDevsCount = useMemo(() => {
-    return members.filter((m) =>
-      Boolean(m.is_developer || m.nivel === "desenvolvedor" || (m.discord_id && String(m.discord_id) === "722320491767136346"))
-    ).length;
+    const seen = new Set<string>();
+    return members.filter((m) => {
+      const uid = String(m.user_id || m.id).trim();
+      if (!uid || seen.has(uid)) return false;
+      const isDev = Boolean(
+        m.is_developer ||
+        m.nivel === "desenvolvedor" ||
+        (m.discord_id && (String(m.discord_id) === "722320491767136346" || String(m.discord_id) === "917826984778797087"))
+      );
+      if (isDev) {
+        seen.add(uid);
+        return true;
+      }
+      return false;
+    }).length;
   }, [members]);
 
   const filteredDevMembers = useMemo(() => {
+    const seen = new Set<string>();
     return members.filter((m) => {
+      const uid = String(m.user_id || m.id).trim();
+      if (!uid || seen.has(uid)) return false;
+
       const isDev = Boolean(
-        m.is_developer || m.nivel === "desenvolvedor" || (m.discord_id && String(m.discord_id) === "722320491767136346")
+        m.is_developer ||
+        m.nivel === "desenvolvedor" ||
+        (m.discord_id && (String(m.discord_id) === "722320491767136346" || String(m.discord_id) === "917826984778797087"))
       );
       if (filterDevOnly === "dev_only" && !isDev) return false;
       if (filterDevOnly === "non_dev" && isDev) return false;
 
-      if (!searchDevMember.trim()) return true;
+      if (!searchDevMember.trim()) {
+        seen.add(uid);
+        return true;
+      }
       const q = searchDevMember.toLowerCase();
       const nome = (m.nome || "").toLowerCase();
       const nick = (m.nickname || "").toLowerCase();
       const gameId = (m.game_id || "").toLowerCase();
       const cargo = (getLevelLabel(m.nivel) || "").toLowerCase();
-      return nome.includes(q) || nick.includes(q) || gameId.includes(q) || cargo.includes(q);
+      const matches = nome.includes(q) || nick.includes(q) || gameId.includes(q) || cargo.includes(q);
+      if (matches) seen.add(uid);
+      return matches;
     });
   }, [members, searchDevMember, filterDevOnly]);
 
   // Membros filtrados para a gestão rápida da Tag CEO
   const activeCeosCount = useMemo(() => {
-    return members.filter((m) => Boolean(m.is_ceo || m.custom_theme?.is_ceo)).length;
+    const seen = new Set<string>();
+    return members.filter((m) => {
+      const uid = String(m.user_id || m.id).trim();
+      if (!uid || seen.has(uid)) return false;
+      const isCeo = Boolean(m.is_ceo || m.custom_theme?.is_ceo);
+      if (isCeo) {
+        seen.add(uid);
+        return true;
+      }
+      return false;
+    }).length;
   }, [members]);
 
   const filteredMembers = useMemo(() => {
+    const seen = new Set<string>();
     return members.filter((m) => {
+      const uid = String(m.user_id || m.id).trim();
+      if (!uid || seen.has(uid)) return false;
+
       const isCeo = Boolean(m.is_ceo || m.custom_theme?.is_ceo);
       if (filterCeoOnly === "ceo_only" && !isCeo) return false;
       if (filterCeoOnly === "non_ceo" && isCeo) return false;
 
-      if (!searchMember.trim()) return true;
+      if (!searchMember.trim()) {
+        seen.add(uid);
+        return true;
+      }
       const q = searchMember.toLowerCase();
       const nome = (m.nome || "").toLowerCase();
       const nick = (m.nickname || "").toLowerCase();
       const gameId = (m.game_id || "").toLowerCase();
       const cargo = (getLevelLabel(m.nivel) || "").toLowerCase();
-      return nome.includes(q) || nick.includes(q) || gameId.includes(q) || cargo.includes(q);
+      const matches = nome.includes(q) || nick.includes(q) || gameId.includes(q) || cargo.includes(q);
+      if (matches) seen.add(uid);
+      return matches;
     });
   }, [members, searchMember, filterCeoOnly]);
 
