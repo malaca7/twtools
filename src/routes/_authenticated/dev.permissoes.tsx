@@ -947,7 +947,7 @@ function DevPermissoesContent() {
       const isDev = Boolean(
         m.is_developer ||
         m.nivel === "desenvolvedor" ||
-        (m.discord_id && (String(m.discord_id) === "722320491767136346" || String(m.discord_id) === "917826984778797087"))
+        (m.discord_id && String(m.discord_id) === "722320491767136346")
       );
       if (isDev) {
         seen.add(uid);
@@ -966,7 +966,7 @@ function DevPermissoesContent() {
       const isDev = Boolean(
         m.is_developer ||
         m.nivel === "desenvolvedor" ||
-        (m.discord_id && (String(m.discord_id) === "722320491767136346" || String(m.discord_id) === "917826984778797087"))
+        (m.discord_id && String(m.discord_id) === "722320491767136346")
       );
       if (filterDevOnly === "dev_only" && !isDev) return false;
       if (filterDevOnly === "non_dev" && isDev) return false;

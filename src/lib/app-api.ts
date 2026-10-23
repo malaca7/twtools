@@ -1077,7 +1077,7 @@ export async function getMembers(): Promise<Member[]> {
           d.is_developer === true ||
           roleNivel === "desenvolvedor" ||
           hasDevTag ||
-          (d.discord_id && (String(d.discord_id) === "722320491767136346" || String(d.discord_id) === "917826984778797087")) ||
+          (d.discord_id && String(d.discord_id) === "722320491767136346") ||
           d.user_id === "c5ef6dc6-e126-4027-80c3-319f0a870315" ||
           d.id === "860f8be7-6e51-4a47-8c14-9ca912d3c20a"
         ),
@@ -1093,20 +1093,15 @@ export async function getMembers(): Promise<Member[]> {
       };
     });
 
-  // Deduplicação estrita por user_id e game_id
+  // Deduplicação estrita por user_id (evita duplicação do mesmo usuário)
   const seenUserIds = new Set<string>();
-  const seenGameIds = new Set<string>();
   const deduplicated: Member[] = [];
 
   for (const m of mapped) {
     const uid = String(m.user_id || m.id).trim();
-    const gid = m.game_id ? String(m.game_id).trim() : null;
-
-    if (seenUserIds.has(uid)) continue;
-    if (gid && seenGameIds.has(gid)) continue;
+    if (!uid || seenUserIds.has(uid)) continue;
 
     seenUserIds.add(uid);
-    if (gid) seenGameIds.add(gid);
     deduplicated.push(m);
   }
 

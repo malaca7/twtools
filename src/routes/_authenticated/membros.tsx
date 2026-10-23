@@ -336,22 +336,17 @@ export function MembrosPage() {
     onError: (err) => toast.error(errorMessage(err)),
   });
 
-  // Filtro por termo de busca com deduplicação rigorosa
+  // Filtro por termo de busca com deduplicação rigorosa por user_id
   const filteredMembers = useMemo(() => {
     const seenUserIds = new Set<string>();
-    const seenGameIds = new Set<string>();
 
     return members.filter((m) => {
       const uid = String(m.user_id || m.id).trim();
-      const gid = m.game_id ? String(m.game_id).trim() : null;
-
       if (!uid || seenUserIds.has(uid)) return false;
-      if (gid && seenGameIds.has(gid)) return false;
 
       const term = search.toLowerCase().trim();
       if (!term) {
         seenUserIds.add(uid);
-        if (gid) seenGameIds.add(gid);
         return true;
       }
 
@@ -364,7 +359,6 @@ export function MembrosPage() {
       const matches = nomeMatch || nickMatch || phoneMatch || gameMatch || discordMatch;
       if (matches) {
         seenUserIds.add(uid);
-        if (gid) seenGameIds.add(gid);
       }
       return matches;
     });
