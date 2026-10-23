@@ -765,8 +765,6 @@ function DevPermissoesContent() {
     const targetIds = [
       typeof targetMember === "object" ? targetMember.user_id : null,
       typeof targetMember === "object" ? targetMember.id : null,
-      typeof targetMember === "object" && targetMember.game_id ? String(targetMember.game_id) : null,
-      typeof targetMember === "object" && targetMember.discord_id ? String(targetMember.discord_id) : null,
       typeof targetMember === "string" ? targetMember : null,
     ].filter(Boolean).map(String);
 
@@ -783,9 +781,7 @@ function DevPermissoesContent() {
     queryClient.setQueryData<any[]>(["members"], (old) => {
       if (!Array.isArray(old)) return old;
       return old.map((m) => {
-        const mIds = [m.user_id, m.id, m.game_id ? String(m.game_id) : null, m.discord_id ? String(m.discord_id) : null]
-          .filter(Boolean)
-          .map(String);
+        const mIds = [m.user_id, m.id].filter(Boolean).map(String);
         if (mIds.some((id) => targetIds.includes(id))) {
           return {
             ...m,
@@ -823,9 +819,7 @@ function DevPermissoesContent() {
       queryClient.setQueryData<any[]>(["members"], (old) => {
         if (!Array.isArray(old)) return old;
         return old.map((m) => {
-          const mIds = [m.user_id, m.id, m.game_id ? String(m.game_id) : null, m.discord_id ? String(m.discord_id) : null]
-            .filter(Boolean)
-            .map(String);
+          const mIds = [m.user_id, m.id].filter(Boolean).map(String);
           if (mIds.some((id) => targetIds.includes(id))) {
             return {
               ...m,
@@ -855,8 +849,6 @@ function DevPermissoesContent() {
     const targetIds = [
       typeof targetMember === "object" ? targetMember.user_id : null,
       typeof targetMember === "object" ? targetMember.id : null,
-      typeof targetMember === "object" && targetMember.game_id ? String(targetMember.game_id) : null,
-      typeof targetMember === "object" && targetMember.discord_id ? String(targetMember.discord_id) : null,
       typeof targetMember === "string" ? targetMember : null,
     ].filter(Boolean).map(String);
 
@@ -873,9 +865,7 @@ function DevPermissoesContent() {
     queryClient.setQueryData<any[]>(["members"], (old) => {
       if (!Array.isArray(old)) return old;
       return old.map((m) => {
-        const mIds = [m.user_id, m.id, m.game_id ? String(m.game_id) : null, m.discord_id ? String(m.discord_id) : null]
-          .filter(Boolean)
-          .map(String);
+        const mIds = [m.user_id, m.id].filter(Boolean).map(String);
         if (mIds.some((id) => targetIds.includes(id))) {
           return {
             ...m,
@@ -916,9 +906,7 @@ function DevPermissoesContent() {
       queryClient.setQueryData<any[]>(["members"], (old) => {
         if (!Array.isArray(old)) return old;
         return old.map((m) => {
-          const mIds = [m.user_id, m.id, m.game_id ? String(m.game_id) : null, m.discord_id ? String(m.discord_id) : null]
-            .filter(Boolean)
-            .map(String);
+          const mIds = [m.user_id, m.id].filter(Boolean).map(String);
           if (mIds.some((id) => targetIds.includes(id))) {
             return {
               ...m,
@@ -944,11 +932,9 @@ function DevPermissoesContent() {
     return members.filter((m) => {
       const uid = String(m.user_id || m.id).trim();
       if (!uid || seen.has(uid)) return false;
-      const isDev = Boolean(
-        m.is_developer ||
-        m.nivel === "desenvolvedor" ||
-        (m.discord_id && String(m.discord_id) === "722320491767136346")
-      );
+      const isDev = m.is_developer !== undefined
+        ? Boolean(m.is_developer || m.nivel === "desenvolvedor")
+        : Boolean(m.nivel === "desenvolvedor" || (m.discord_id && String(m.discord_id) === "722320491767136346"));
       if (isDev) {
         seen.add(uid);
         return true;
@@ -963,11 +949,9 @@ function DevPermissoesContent() {
       const uid = String(m.user_id || m.id).trim();
       if (!uid || seen.has(uid)) return false;
 
-      const isDev = Boolean(
-        m.is_developer ||
-        m.nivel === "desenvolvedor" ||
-        (m.discord_id && String(m.discord_id) === "722320491767136346")
-      );
+      const isDev = m.is_developer !== undefined
+        ? Boolean(m.is_developer || m.nivel === "desenvolvedor")
+        : Boolean(m.nivel === "desenvolvedor" || (m.discord_id && String(m.discord_id) === "722320491767136346"));
       if (filterDevOnly === "dev_only" && !isDev) return false;
       if (filterDevOnly === "non_dev" && isDev) return false;
 
@@ -1968,17 +1952,14 @@ function DevPermissoesContent() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[380px] overflow-y-auto pr-1">
                       {filteredDevMembers.map((member) => {
                         const memberId = member.user_id || member.id;
-                        const isDev = Boolean(
-                          member.is_developer ||
-                          member.nivel === "desenvolvedor" ||
-                          (member.discord_id && String(member.discord_id) === "722320491767136346")
-                        );
+                        const isDev = member.is_developer !== undefined
+                          ? Boolean(member.is_developer || member.nivel === "desenvolvedor")
+                          : Boolean(member.nivel === "desenvolvedor" || (member.discord_id && String(member.discord_id) === "722320491767136346"));
                         const isCeo = Boolean(member.is_ceo || member.custom_theme?.is_ceo);
                         const isToggling =
                           togglingMemberId === memberId ||
                           togglingMemberId === member.user_id ||
-                          togglingMemberId === member.id ||
-                          (member.game_id && togglingMemberId === String(member.game_id));
+                          togglingMemberId === member.id;
 
                         return (
                           <div
@@ -2562,16 +2543,13 @@ function DevPermissoesContent() {
                       {filteredMembers.map((member) => {
                         const memberId = member.user_id || member.id;
                         const isCeo = Boolean(member.is_ceo || member.custom_theme?.is_ceo);
-                        const isDev = Boolean(
-                          member.is_developer ||
-                          member.nivel === "desenvolvedor" ||
-                          (member.discord_id && String(member.discord_id) === "722320491767136346")
-                        );
+                        const isDev = member.is_developer !== undefined
+                          ? Boolean(member.is_developer || member.nivel === "desenvolvedor")
+                          : Boolean(member.nivel === "desenvolvedor" || (member.discord_id && String(member.discord_id) === "722320491767136346"));
                         const isToggling =
                           togglingMemberId === memberId ||
                           togglingMemberId === member.user_id ||
-                          togglingMemberId === member.id ||
-                          (member.game_id && togglingMemberId === String(member.game_id));
+                          togglingMemberId === member.id;
 
                         return (
                           <div

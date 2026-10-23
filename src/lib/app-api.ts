@@ -1038,7 +1038,6 @@ export async function getMembers(): Promise<Member[]> {
       const candidateIds = [
         d.id,
         d.user_id,
-        d.game_id ? String(d.game_id) : null,
         d.discord_id ? String(d.discord_id) : null,
       ].filter(Boolean).map(String);
 
@@ -1077,9 +1076,7 @@ export async function getMembers(): Promise<Member[]> {
           d.is_developer === true ||
           roleNivel === "desenvolvedor" ||
           hasDevTag ||
-          (d.discord_id && String(d.discord_id) === "722320491767136346") ||
-          d.user_id === "c5ef6dc6-e126-4027-80c3-319f0a870315" ||
-          d.id === "860f8be7-6e51-4a47-8c14-9ca912d3c20a"
+          (d.is_developer === undefined && d.discord_id && String(d.discord_id) === "722320491767136346")
         ),
         is_ceo: Boolean(d.is_ceo === true || d.custom_theme?.is_ceo === true || hasCeoTag),
         custom_theme: d.custom_theme || null,

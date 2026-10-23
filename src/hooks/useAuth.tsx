@@ -488,7 +488,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             activeUserId,
             activeProfileId,
             activeDiscordId,
-            activeGameId,
             profile?.user_id,
             profile?.id,
             session?.user?.id,
@@ -901,7 +900,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             profile?.user_id,
             session?.user?.id,
             profile?.discord_id,
-            (profile as any)?.game_id
           ].filter(Boolean).map(String);
           if (ids.some((id) => list.includes(id))) return true;
         }
