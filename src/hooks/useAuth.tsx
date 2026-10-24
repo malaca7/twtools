@@ -673,12 +673,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const cleanName = (t.name || "").toLowerCase().trim();
     return (
       cleanId === "ceo" ||
-      cleanId.startsWith("ceo_") ||
       cleanName === "ceo" ||
-      cleanName === "diretoria" ||
       t.rules?.can_access_ceo === true ||
-      t.rules?.is_ceo === true ||
-      (Array.isArray(t.permissions) && (t.permissions.includes("view_ceo") || t.permissions.includes("manage_ceo_bot") || t.permissions.includes("view_ceo_dashboard")))
+      t.rules?.is_ceo === true
     );
   }, []);
 
@@ -901,12 +898,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const cleanId = t.id.toLowerCase().trim();
       if (cleanId === "ceo") return true;
       if (t.rules?.can_access_ceo === true || t.rules?.is_ceo === true) return true;
-      if (
-        Array.isArray(t.permissions) &&
-        (t.permissions.includes("view_ceo") || t.permissions.includes("manage_ceo_bot"))
-      ) {
-        return true;
-      }
       return false;
     });
     if (tagCeo) return true;

@@ -470,6 +470,16 @@ function DynamicSidebarNavigation() {
     [storageKey]
   );
 
+  const canAccessCeo = Boolean(
+    isCeoUser ||
+    profile?.is_ceo === true ||
+    profile?.custom_theme?.is_ceo === true ||
+    (profile as any)?.role === "ceo" ||
+    (profile as any)?.cargo === "ceo" ||
+    (profile as any)?.nivel === "ceo" ||
+    isUserCeo(profile)
+  );
+
   // Sincroniza o modo de painel com base na rota acessada (/dev/* -> dev, /ceo/* -> ceo, outras -> member)
   useEffect(() => {
     if (pathname.startsWith("/dev")) {
@@ -477,7 +487,7 @@ function DynamicSidebarNavigation() {
         setPanelMode("dev");
       }
     } else if (pathname.startsWith("/ceo")) {
-      if ((isCeoUser || isDevUser || hasPermission("view_ceo") || hasPermission("verification.manage")) && panelMode !== "ceo") {
+      if (canAccessCeo && panelMode !== "ceo") {
         setPanelMode("ceo");
       }
     } else {
@@ -485,11 +495,11 @@ function DynamicSidebarNavigation() {
         setPanelMode("member");
       }
     }
-  }, [pathname, isDevUser, isCeoUser, panelMode, setPanelMode, hasPermission]);
+  }, [pathname, isDevUser, canAccessCeo, panelMode, setPanelMode]);
 
   const isDevArea = Boolean(isDevUser && (pathname.startsWith("/dev") || panelMode === "dev"));
   const isCeoArea = Boolean(
-    (isCeoUser || isDevUser || hasPermission("view_ceo") || hasPermission("verification.manage")) &&
+    canAccessCeo &&
       !isDevArea &&
       (pathname.startsWith("/ceo") || panelMode === "ceo")
   );
@@ -724,7 +734,7 @@ function DynamicSidebarNavigation() {
         }
         return item;
       });
-      const canSeeCeo = Boolean(isCeoUser || isDevUser || hasPermission("view_ceo") || hasPermission("verification.manage"));
+      const canSeeCeo = Boolean(canAccessCeo);
 
       const targetRole: "dev" | "ceo" = isDevArea ? "dev" : "ceo";
 
@@ -879,8 +889,8 @@ function DynamicSidebarNavigation() {
     if (isDevArea) {
       const devGroups = buildDevGroups();
 
-      // Menus do painel da tag CEO se o membro possuir a TAG CEO ou for Desenvolvedor
-      const ceoGroups = (isCeoUser || isDevUser || hasPermission("view_ceo")) ? buildCeoGroups() : [];
+      // Menus do painel da tag CEO se o membro possuir a TAG CEO
+      const ceoGroups = canAccessCeo ? buildCeoGroups() : [];
 
       // Menus do painel admin / plataforma que o membro possui permissão na TAG DEV (soma dev + cargo)
       const visibleDevPlatform = allPlatformItems
@@ -1055,13 +1065,7 @@ function DynamicSidebarNavigation() {
       }
     });
 
-    const canSeeCeo = Boolean(isCeoUser || isDevUser || hasPermission("view_ceo") || hasPermission("verification.manage"));
-    const canSeeDev = Boolean(isDevUser);
-
-    const devSection = canSeeDev ? buildDevGroups() : [];
-    const ceoSection = canSeeCeo ? buildCeoGroups() : [];
-
-    return [...devSection, ...ceoSection, ...memberGroups];
+    return memberGroups;
   }, [
     isDevArea,
     isCeoArea,
@@ -1331,15 +1335,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   // Permissões e cálculo de acesso a múltiplos painéis
   const canAccessCeo = Boolean(
     isCeoUser ||
-    isDevUser ||
     profile?.is_ceo === true ||
     profile?.custom_theme?.is_ceo === true ||
     (profile as any)?.role === "ceo" ||
     (profile as any)?.cargo === "ceo" ||
+    (profile as any)?.nivel === "ceo" ||
     isUserCeo(profile) ||
-    myTags.some((t) => (t.id || "").toLowerCase() === "ceo" || t.rules?.can_access_ceo || t.rules?.is_ceo) ||
-    hasPermission("view_ceo") ||
-    hasPermission("verification.manage")
+    myTags.some((t) => (t.id || "").toLowerCase() === "ceo" || t.rules?.can_access_ceo || t.rules?.is_ceo)
   );
   const canAccessDev = isDevUser;
   const hasMultiplePanels = canAccessCeo || canAccessDev;

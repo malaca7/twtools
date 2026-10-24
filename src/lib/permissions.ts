@@ -1506,9 +1506,6 @@ export function satisfiesPermission(
   if (permission === "verification.manage" || permission === "permission.ceo_selos") {
     return list.includes("verification.manage");
   }
-  if (permission === "view_ceo" && list.includes("verification.manage")) {
-    return true;
-  }
   if (
     permission === "verification.review" ||
     permission === "verification.grant_direct" ||
