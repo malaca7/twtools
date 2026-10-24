@@ -15,6 +15,8 @@ import {
   type MemberTag,
   type MemberTagAssignment,
   type MemberTagRules,
+  CEO_SYSTEM_TAG,
+  DEV_SYSTEM_TAG,
 } from "@/services/memberTagsService";
 import type { Permission } from "@/lib/permissions";
 import { useAuth } from "@/hooks/useAuth";
@@ -58,6 +60,10 @@ export function useMemberTagsMap(options: { onlySystem?: boolean } = { onlySyste
       tagMap.set(t.id, t);
     });
 
+    tagMap.set("ceo", CEO_SYSTEM_TAG);
+    tagMap.set("dev", DEV_SYSTEM_TAG);
+    tagMap.set("desenvolvedor", DEV_SYSTEM_TAG);
+
     const memberIdToUserId = new Map<string, string>();
     const userIdToMemberId = new Map<string, string>();
     members.forEach((m) => {
@@ -80,6 +86,9 @@ export function useMemberTagsMap(options: { onlySystem?: boolean } = { onlySyste
           const alt2 = userIdToMemberId.get(a.member_id);
           if (alt2) ids.add(alt2);
         }
+        if ((a as any).user_id) {
+          ids.add((a as any).user_id);
+        }
 
         ids.forEach((id) => {
           if (!memberTagsMap[id]) {
@@ -87,6 +96,27 @@ export function useMemberTagsMap(options: { onlySystem?: boolean } = { onlySyste
           }
           if (!memberTagsMap[id].some((t) => t.id === tag.id)) {
             memberTagsMap[id].push(tag);
+          }
+        });
+      }
+    });
+
+    // Mapeia flags is_ceo e is_developer presentes nos membros
+    members.forEach((m) => {
+      const uIds = [m.id, m.user_id].filter(Boolean) as string[];
+      if (m.is_ceo || (m as any).custom_theme?.is_ceo) {
+        uIds.forEach((uid) => {
+          if (!memberTagsMap[uid]) memberTagsMap[uid] = [];
+          if (!memberTagsMap[uid].some((t) => t.id === "ceo")) {
+            memberTagsMap[uid].push(CEO_SYSTEM_TAG);
+          }
+        });
+      }
+      if (m.is_developer || m.nivel === "desenvolvedor") {
+        uIds.forEach((uid) => {
+          if (!memberTagsMap[uid]) memberTagsMap[uid] = [];
+          if (!memberTagsMap[uid].some((t) => t.id === "dev" || t.id === "desenvolvedor")) {
+            memberTagsMap[uid].push(DEV_SYSTEM_TAG);
           }
         });
       }

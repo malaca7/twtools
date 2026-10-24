@@ -144,6 +144,26 @@ export const CEO_SYSTEM_TAG: MemberTag = {
   assigned_count: 0,
 };
 
+export const DEV_SYSTEM_TAG: MemberTag = {
+  id: "dev",
+  name: "Desenvolvedor",
+  description: "Tag de Engenharia e Acesso Total ao Sistema Twin Wheels. Acesso ao painel Dev Tools e privilégios de desenvolvimento.",
+  color: "#f43f5e",
+  icon: "Code2",
+  is_system: true,
+  is_active: true,
+  order_index: -20,
+  permissions: [],
+  rules: {
+    can_access_dev: true,
+    is_dev_test: true,
+    priority_badge: true,
+  },
+  created_at: "2026-01-01T00:00:00.000Z",
+  updated_at: "2026-01-01T00:00:00.000Z",
+  assigned_count: 0,
+};
+
 /**
  * Busca todas as tags de membros cadastradas ordenadas por ordem hierárquica (order_index)
  */
@@ -259,6 +279,12 @@ export async function getMemberTagsForMember(memberId: string): Promise<MemberTa
   const hasCeoTag = mappedTags.some((t: any) => t.id === "ceo" || t.name?.toLowerCase().trim() === "ceo");
   if (hasCeoAssignment && !hasCeoTag) {
     mappedTags.push(CEO_SYSTEM_TAG);
+  }
+
+  const hasDevAssignment = data.some((d: any) => d.tag_id === "dev" || d.tag_id === "desenvolvedor");
+  const hasDevTag = mappedTags.some((t: any) => t.id === "dev" || t.id === "desenvolvedor" || t.name?.toLowerCase().trim() === "desenvolvedor" || t.name?.toLowerCase().trim() === "dev");
+  if (hasDevAssignment && !hasDevTag) {
+    mappedTags.push(DEV_SYSTEM_TAG);
   }
 
   return mappedTags
@@ -565,13 +591,13 @@ export async function toggleMemberTagAssignment(
     if (tagId === "ceo") {
       try {
         const { toggleMemberCeoTag } = await import("@/services/devService");
-        await toggleMemberCeoTag(targetMember || memberId, false);
+        await toggleMemberCeoTag(memberId, false);
       } catch {}
     }
     if (tagId === "dev" || tagId === "desenvolvedor") {
       try {
         const { toggleMemberDevTag } = await import("@/services/devService");
-        await toggleMemberDevTag(targetMember || memberId, false);
+        await toggleMemberDevTag(memberId, false);
       } catch {}
     }
   } else {
@@ -595,13 +621,13 @@ export async function toggleMemberTagAssignment(
     if (tagId === "ceo") {
       try {
         const { toggleMemberCeoTag } = await import("@/services/devService");
-        await toggleMemberCeoTag(targetMember || memberId, true);
+        await toggleMemberCeoTag(memberId, true);
       } catch {}
     }
     if (tagId === "dev" || tagId === "desenvolvedor") {
       try {
         const { toggleMemberDevTag } = await import("@/services/devService");
-        await toggleMemberDevTag(targetMember || memberId, true);
+        await toggleMemberDevTag(memberId, true);
       } catch {}
     }
   }

@@ -280,8 +280,25 @@ export async function getCurrentAuth(): Promise<AuthState> {
     };
 
     const pAny = profileRow as any;
-    const isDev = Boolean(pAny?.is_developer === true || (pAny?.is_developer === undefined && discordId === "722320491767136346"));
-    const isCeo = Boolean(pAny?.is_ceo === true || pAny?.custom_theme?.is_ceo === true);
+    const candidateUids = [session.user.id, pAny?.id, pAny?.user_id, discordId].filter(Boolean).map(String);
+    let isDev = Boolean(
+      pAny?.is_developer === true ||
+      (pAny?.is_developer === undefined && discordId === "722320491767136346") ||
+      roleRow?.nivel === "desenvolvedor"
+    );
+    let isCeo = Boolean(pAny?.is_ceo === true || pAny?.custom_theme?.is_ceo === true || roleRow?.nivel === "ceo");
+
+    if (typeof window !== "undefined") {
+      try {
+        const ceoCfg = localStorage.getItem("tw_ceo_config");
+        if (ceoCfg) {
+          const list = JSON.parse(ceoCfg)?.activeCeoUserIds || [];
+          if (list.some((id: string) => candidateUids.includes(String(id)))) {
+            isCeo = true;
+          }
+        }
+      } catch {}
+    }
 
     const profile: Profile | null = profileRow ? {
       id: pAny.id,

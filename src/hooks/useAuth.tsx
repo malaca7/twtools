@@ -7,7 +7,7 @@ import type { AppUser, AuthState, Profile, SignupRequestStatus } from "@/lib/app
 import { can, satisfiesPermission, LEVEL_LABEL, type AppLevel, type Permission } from "@/lib/permissions";
 import { useRolePermissions } from "@/hooks/useData";
 import { isUserDeveloper, DEV_DISCORD_IDS, isDevBypassActive, DEV_CONFIG_EVENT, CEO_CONFIG_EVENT, getCeoTagPermissionsSync, getDevTagPermissionsSync, isUserCeo } from "@/services/devService";
-import { parseMemberTagRules, getMemberTags, getMemberTagAssignments, type MemberTag } from "@/services/memberTagsService";
+import { parseMemberTagRules, getMemberTags, getMemberTagAssignments, CEO_SYSTEM_TAG, DEV_SYSTEM_TAG, type MemberTag } from "@/services/memberTagsService";
 import type { MemberWarning, SuspensionFunctionalBlocks } from "@/types/warnings";
 import { getWarnings, WARNINGS_REALTIME_EVENT } from "@/services/warningsService";
 
@@ -498,31 +498,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const myTagIds = new Set<string>();
         for (const a of assignmentsData) {
-          if (a.member_id && candidateIds.has(String(a.member_id).trim().toLowerCase())) {
+          const mId = String(a.member_id || "").trim().toLowerCase();
+          const uId = String((a as any).user_id || "").trim().toLowerCase();
+          if ((mId && candidateIds.has(mId)) || (uId && candidateIds.has(uId))) {
             myTagIds.add(a.tag_id);
           }
         }
 
         // Se o usuário está na lista de CEOs do sistema ou tem is_ceo no perfil, garante a tag 'ceo'
-        if (typeof window !== "undefined") {
+        let hasCeoActive = Boolean(
+          myTagIds.has("ceo") ||
+          profile?.is_ceo === true ||
+          profile?.custom_theme?.is_ceo === true ||
+          isUserCeo(profile)
+        );
+
+        if (!hasCeoActive && typeof window !== "undefined") {
           try {
             const ceoCfg = localStorage.getItem("tw_ceo_config");
             if (ceoCfg) {
               const parsed = JSON.parse(ceoCfg);
               const list: string[] = parsed.activeCeoUserIds || [];
               if (list.some((id) => candidateIds.has(String(id).trim().toLowerCase()))) {
+                hasCeoActive = true;
                 myTagIds.add("ceo");
               }
             }
           } catch {}
         }
-        if (profile?.is_ceo || profile?.custom_theme?.is_ceo || isUserCeo(profile)) {
-          myTagIds.add("ceo");
-        }
+
+        const hasDevActive = Boolean(
+          myTagIds.has("dev") ||
+          myTagIds.has("desenvolvedor") ||
+          profile?.is_developer === true ||
+          level === "desenvolvedor" ||
+          (profile as any)?.role === "desenvolvedor" ||
+          isUserDeveloper(session?.user ? { id: session.user.id, email: session.user.email ?? null } : null, profile, level)
+        );
 
         const myTags = tagsData.filter(
           (t) => myTagIds.has(t.id) && t.is_active !== false
         );
+
+        if (hasCeoActive && !myTags.some((t) => t.id === "ceo")) {
+          myTags.unshift(CEO_SYSTEM_TAG);
+        }
+        if (hasDevActive && !myTags.some((t) => t.id === "dev" || t.id === "desenvolvedor")) {
+          myTags.unshift(DEV_SYSTEM_TAG);
+        }
 
         if (!isCancelled) {
           setMemberTagsState(myTags);
@@ -909,7 +932,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Observação: possuir a Tag Dev NÃO torna o membro CEO automaticamente.
     // O desenvolvedor só recebe permissões da Tag CEO se realmente possuir a Tag CEO.
     return false;
-  }, [session?.user, profile, level, memberTags]);
+  }, [session?.user, profile, level, memberTags, isCeoTagItem]);
 
   // Permissões ativas agregadas
   const allTagPermissions = useMemo<Permission[]>(() => {
@@ -1194,43 +1217,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Avaliação base de membro: APENAS as permissões configuradas no cargo do membro (+ tags de sistema não-executivas)
+      // Avaliação base de membro: permissões configuradas no cargo do membro (+ tags de sistema)
       const evaluateAsMember = () => {
         if (can(level, permission, customRolePermissions)) return true;
         if (satisfiesPermission(systemTagPermissions, permission)) return true;
         return false;
       };
 
-      // REGRA 1: NO PAINEL MEMBRO
-      // Todas as permissões do painel membro são APENAS as permissões do cargo do membro (sem vazamento de Dev ou CEO)
-      if (activePanel === "member") {
-        return evaluateAsMember();
-      }
-
-      // REGRA 2: NO PAINEL CEO
-      // Todas as permissões do painel ceo são uma soma das permissões da tag ceo + permissões do cargo do membro
-      if (activePanel === "ceo") {
-        if (isDevUser && bypassActive) return true;
-        if (permission === "view_ceo" || permission === "view_ceo_dashboard") return true;
-        const hasCeoTagPerm =
-          (isCeoUser || isDevUser) && satisfiesPermission(ceoTagPermissions, permission);
-        const hasMemberCargoPerm = evaluateAsMember();
-        return hasCeoTagPerm || hasMemberCargoPerm;
-      }
-
-      // REGRA 3: NO PAINEL DEV
-      // Todas as permissões do painel dev são uma soma das permissões da tag dev + permissões do cargo do membro
-      if (activePanel === "dev") {
-        if (isDevUser && bypassActive) return true;
+      // REGRA MESTRA: Membros com a Tag Dev ativa possuem os privilégios da Tag Dev (+ cargo)
+      if (isDevUser) {
+        if (bypassActive) return true;
         if (permission === "view_dev_hub" || permission === "view_dev") return true;
-        const hasDevTagPerm =
-          isDevUser && satisfiesPermission(devTagPermissions, permission);
-        const hasMemberCargoPerm = evaluateAsMember();
-        return hasDevTagPerm || hasMemberCargoPerm;
+        if (satisfiesPermission(devTagPermissions, permission)) return true;
       }
 
-      // Fallback padrão: avalia o cargo do membro
-      return evaluateAsMember();
+      // REGRA MESTRA: Membros com a Tag CEO ativa possuem os privilégios da Tag CEO (+ cargo)
+      if (isCeoUser) {
+        if (permission === "view_ceo" || permission === "view_ceo_dashboard") return true;
+        if (satisfiesPermission(ceoTagPermissions, permission)) return true;
+      }
+
+      // Privilégios do cargo e tags adicionais do membro
+      if (evaluateAsMember()) {
+        return true;
+      }
+
+      return false;
     },
     [
       level,

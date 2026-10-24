@@ -783,10 +783,8 @@ function DynamicSidebarNavigation() {
       return ceoGroups;
     };
 
-    // =========================================================================
-    // CASO 1: PAINEL DEV (Apenas dentro de rotas /dev/*)
-    // =========================================================================
-    if (isDevArea) {
+    // Função auxiliar para construir os grupos e menus do painel DEV
+    const buildDevGroups = () => {
       const devValidItems = devMenuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
       const devConfigMap = new Map(devValidItems.map((c) => [c.id || c.url, c]));
       const rawDevCats = devMenuConfig?.categories?.length
@@ -872,8 +870,17 @@ function DynamicSidebarNavigation() {
         }
       });
 
+      return devGroups;
+    };
+
+    // =========================================================================
+    // CASO 1: PAINEL DEV (Apenas dentro de rotas /dev/*)
+    // =========================================================================
+    if (isDevArea) {
+      const devGroups = buildDevGroups();
+
       // Menus do painel da tag CEO se o membro possuir a TAG CEO ou for Desenvolvedor
-      const ceoGroups = (isCeoUser || isDevUser) ? buildCeoGroups() : [];
+      const ceoGroups = (isCeoUser || isDevUser || hasPermission("view_ceo")) ? buildCeoGroups() : [];
 
       // Menus do painel admin / plataforma que o membro possui permissão na TAG DEV (soma dev + cargo)
       const visibleDevPlatform = allPlatformItems
@@ -1048,7 +1055,13 @@ function DynamicSidebarNavigation() {
       }
     });
 
-    return memberGroups;
+    const canSeeCeo = Boolean(isCeoUser || isDevUser || hasPermission("view_ceo") || hasPermission("verification.manage"));
+    const canSeeDev = Boolean(isDevUser);
+
+    const devSection = canSeeDev ? buildDevGroups() : [];
+    const ceoSection = canSeeCeo ? buildCeoGroups() : [];
+
+    return [...devSection, ...ceoSection, ...memberGroups];
   }, [
     isDevArea,
     isCeoArea,

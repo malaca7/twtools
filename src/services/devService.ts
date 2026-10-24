@@ -1251,6 +1251,8 @@ function extractTargetCandidateIds(target: any): string[] {
   if (typeof target === "object") {
     if (target.user_id) ids.add(String(target.user_id).trim());
     if (target.id) ids.add(String(target.id).trim());
+    if (target.member_id) ids.add(String(target.member_id).trim());
+    if (target.discord_id) ids.add(String(target.discord_id).trim());
   }
   return Array.from(ids).filter(Boolean);
 }
