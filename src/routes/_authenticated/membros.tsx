@@ -664,7 +664,7 @@ export function MembrosPage() {
                                 <p className="font-extrabold text-sm text-foreground group-hover/link:text-primary transition-colors truncate">
                                   {m.nickname || m.nome}
                                 </p>
-                                <VerifiedBadge isVerified={m.is_verified} size="xs" />
+                                <VerifiedBadge isVerified={m.is_verified} userId={m.user_id} size="xs" />
                                 {targetIsDev && <DevBadge size="xs" />}
                                 {targetIsCeo && <CeoBadge size="xs" />}
                               </div>
@@ -910,7 +910,7 @@ export function MembrosPage() {
                                   <p className="font-bold text-xs text-foreground group-hover:text-primary transition-colors">
                                     {m.nickname ? `${m.nickname}` : m.nome}
                                   </p>
-                                  <VerifiedBadge isVerified={m.is_verified} size="xs" />
+                                  <VerifiedBadge isVerified={m.is_verified} userId={m.user_id} size="xs" />
                                   {targetIsDev && <DevBadge size="xs" />}
                                   {targetIsCeo && <CeoBadge size="xs" />}
                                 </div>

@@ -230,7 +230,7 @@ export function GroupMembersDialog({
                           </Avatar>
                           <div className="flex items-center gap-1.5 min-w-0">
                             <span className="truncate font-bold text-foreground">{displayName}</span>
-                            <VerifiedBadge isVerified={m.is_verified} size="xs" />
+                            <VerifiedBadge isVerified={m.is_verified} userId={m.user_id} size="xs" />
                           </div>
                         </div>
 
@@ -295,7 +295,7 @@ export function GroupMembersDialog({
                           <span className="truncate font-bold text-foreground text-xs leading-tight">
                             {displayName}
                           </span>
-                          <VerifiedBadge isVerified={(prof as any)?.is_verified ?? members.find((m: any) => m.user_id === p.user_id)?.is_verified} size="xs" />
+                          <VerifiedBadge isVerified={(prof as any)?.is_verified ?? members.find((m: any) => m.user_id === p.user_id)?.is_verified} userId={p.user_id} size="xs" />
                           {isSelf && (
                             <span className="text-[10px] font-mono text-muted-foreground">(você)</span>
                           )}

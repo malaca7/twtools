@@ -87,6 +87,7 @@ import { formatTimeOnly, formatUserPresenceText, resolveMemberPresence } from "@
 import { LEVEL_LABEL } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import type { ChatConversation, ChatMessage } from "@/types/chat";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 
 interface ChatWindowProps {
   conversation: ChatConversation;
@@ -488,6 +489,13 @@ export function ChatWindow({
                 <h4 className="truncate font-bold text-sm text-[#e9edef] leading-tight group-hover:text-[#00a884] transition-colors">
                   {title}
                 </h4>
+                {!isGroup && otherMember && (
+                  <VerifiedBadge
+                    userId={otherMember.user_id}
+                    isVerified={Boolean(liveMember?.is_verified ?? otherMember.is_verified)}
+                    size="xs"
+                  />
+                )}
                 {isGroup && conversation.only_admins_can_post && (
                   <Badge variant="outline" className="text-[8.5px] font-mono border-amber-500/40 text-amber-400 bg-amber-500/10 px-1.5 py-0 font-bold shrink-0">
                     <Lock className="h-2.5 w-2.5 mr-0.5 inline" /> Admins

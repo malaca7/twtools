@@ -12,6 +12,7 @@ import {
   reviewVerificationRequest,
   grantDirectVerification,
   revokeVerification,
+  updateMemberVerificationOverride,
   fetchMemberVerifications,
   fetchVerificationAuditLogs,
   type VerificationBadgeConfig,
@@ -29,7 +30,7 @@ export const VERIFICATION_KEYS = {
 };
 
 /**
- * Hook para obter a configuração geral do Selo de Verificado com Realtime
+ * Hook para obter a configuração geral do Selo de Verificado com Realtime e cache local
  */
 export function useVerificationConfig() {
   const queryClient = useQueryClient();
@@ -58,9 +59,18 @@ export function useVerificationConfig() {
     };
   }, [queryClient]);
 
+  const initialConfig = typeof window !== "undefined" ? (() => {
+    try {
+      const cached = localStorage.getItem("tw_verification_badge_config");
+      if (cached) return JSON.parse(cached) as VerificationBadgeConfig;
+    } catch {}
+    return undefined;
+  })() : undefined;
+
   return useQuery<VerificationBadgeConfig>({
     queryKey: VERIFICATION_KEYS.config,
     queryFn: fetchVerificationConfig,
+    initialData: initialConfig,
     staleTime: 1000 * 60 * 5, // 5 min
   });
 }
@@ -152,15 +162,23 @@ export function useMemberVerifications() {
       )
       .subscribe();
 
+    const handleCustomUpdate = () => {
+      void queryClient.invalidateQueries({ queryKey: VERIFICATION_KEYS.activeMembers });
+      void queryClient.invalidateQueries({ queryKey: ["members"] });
+      void queryClient.invalidateQueries({ queryKey: ["profiles"] });
+    };
+    window.addEventListener("tw_verifications_updated", handleCustomUpdate);
+
     return () => {
       void supabase.removeChannel(channel);
+      window.removeEventListener("tw_verifications_updated", handleCustomUpdate);
     };
   }, [queryClient]);
 
   return useQuery<MemberVerification[]>({
     queryKey: VERIFICATION_KEYS.activeMembers,
     queryFn: fetchMemberVerifications,
-    staleTime: 1000 * 60,
+    staleTime: 1000 * 30,
   });
 }
 
@@ -265,6 +283,23 @@ export function useVerificationMutations() {
     },
   });
 
+  const updateOverrideMutation = useMutation({
+    mutationFn: (params: {
+      targetUserId: string;
+      customTitle?: string;
+      badgeColor?: string;
+      badgeIcon?: string;
+      notes?: string;
+    }) => updateMemberVerificationOverride(params),
+    onSuccess: () => {
+      toast.success("Personalização do membro atualizada com sucesso!");
+      invalidateAll();
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Erro ao atualizar personalização do membro.");
+    },
+  });
+
   const revokeMutation = useMutation({
     mutationFn: (params: { targetUserId: string; reason?: string }) => revokeVerification(params),
     onSuccess: () => {
@@ -282,6 +317,7 @@ export function useVerificationMutations() {
     cancelRequestMutation,
     reviewRequestMutation,
     grantDirectMutation,
+    updateOverrideMutation,
     revokeMutation,
   };
 }

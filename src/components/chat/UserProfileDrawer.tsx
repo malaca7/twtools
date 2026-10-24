@@ -61,7 +61,7 @@ export function UserProfileDrawer({
           <div className="space-y-0.5">
             <div className="flex items-center justify-center gap-1.5 flex-wrap">
               <h3 className="font-extrabold text-base text-foreground">{displayName}</h3>
-              <VerifiedBadge isVerified={member.is_verified} size="sm" />
+              <VerifiedBadge isVerified={member.is_verified} userId={member.user_id} size="sm" />
             </div>
             {member.nickname && <p className="text-xs text-muted-foreground">{member.nome}</p>}
             <div className="pt-1 flex items-center justify-center gap-1.5 flex-wrap">

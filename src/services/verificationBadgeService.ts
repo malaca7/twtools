@@ -139,10 +139,8 @@ export const DEFAULT_VERIFICATION_CONFIG: VerificationBadgeConfig = {
   allow_self_request: true,
 };
 
-/**
- * Busca a configuração singleton do Selo de Verificado
- */
 export async function fetchVerificationConfig(): Promise<VerificationBadgeConfig> {
+  // 1. Tenta carregar do Supabase
   try {
     const { data, error } = await supabase
       .from("verification_badge_config" as any)
@@ -151,7 +149,7 @@ export async function fetchVerificationConfig(): Promise<VerificationBadgeConfig
       .maybeSingle();
 
     if (!error && data) {
-      return {
+      const merged: VerificationBadgeConfig = {
         ...DEFAULT_VERIFICATION_CONFIG,
         ...(data as any),
         requirements_config: {
@@ -159,15 +157,21 @@ export async function fetchVerificationConfig(): Promise<VerificationBadgeConfig
           ...((data as any).requirements_config || {}),
         },
       };
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("tw_verification_badge_config", JSON.stringify(merged));
+        } catch {}
+      }
+      return merged;
     }
   } catch {}
 
-  // Fallback Firebase RTDB
+  // 2. Fallback Firebase RTDB
   try {
     const { rtdb } = await import("@/integrations/firebase/rtdb");
     const rtdbConfig = await rtdb.get<any>("verification_badge_config/default");
     if (rtdbConfig) {
-      return {
+      const merged: VerificationBadgeConfig = {
         ...DEFAULT_VERIFICATION_CONFIG,
         ...rtdbConfig,
         requirements_config: {
@@ -175,8 +179,24 @@ export async function fetchVerificationConfig(): Promise<VerificationBadgeConfig
           ...(rtdbConfig.requirements_config || {}),
         },
       };
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("tw_verification_badge_config", JSON.stringify(merged));
+        } catch {}
+      }
+      return merged;
     }
   } catch {}
+
+  // 3. Fallback LocalStorage Cache
+  if (typeof window !== "undefined") {
+    try {
+      const cached = localStorage.getItem("tw_verification_badge_config");
+      if (cached) {
+        return { ...DEFAULT_VERIFICATION_CONFIG, ...JSON.parse(cached) };
+      }
+    } catch {}
+  }
 
   return DEFAULT_VERIFICATION_CONFIG;
 }
@@ -216,6 +236,9 @@ export async function updateVerificationConfig(
   }
 
   if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem("tw_verification_badge_config", JSON.stringify({ ...DEFAULT_VERIFICATION_CONFIG, ...payload }));
+    } catch {}
     window.dispatchEvent(new CustomEvent("tw_verification_config_updated"));
   }
 
@@ -798,9 +821,12 @@ export async function revokeVerification(params: {
 
 /**
  * Lista todos os membros verificados ativos
+ * Combina resiliente Supabase e Firebase RTDB, consolidando member_verifications e profiles com is_verified === true
  */
 export async function fetchMemberVerifications(): Promise<MemberVerification[]> {
-  let verifications: any[] = [];
+  const verificationsMap = new Map<string, any>();
+
+  // 1. Carrega de member_verifications do Supabase
   try {
     const { data, error } = await supabase
       .from("member_verifications" as any)
@@ -809,66 +835,80 @@ export async function fetchMemberVerifications(): Promise<MemberVerification[]> 
       .order("verified_at", { ascending: false });
 
     if (!error && data && data.length > 0) {
-      verifications = data;
+      for (const v of data) {
+        if (v.user_id) verificationsMap.set(v.user_id, v);
+      }
     }
   } catch (err) {
     console.error("Erro ao carregar membros verificados do Supabase:", err);
   }
 
-  // Fallback RTDB
-  if (verifications.length === 0) {
-    try {
-      const { rtdb } = await import("@/integrations/firebase/rtdb");
-      const rtdbList = await rtdb.getList<any>("member_verifications");
-      verifications = (rtdbList || []).filter((v: any) => v.is_verified);
-    } catch {}
-  }
-
-  // Se ainda vazio, carregar de profiles aqueles com is_verified === true
-  if (verifications.length === 0) {
-    try {
-      const { data: verifiedProfiles } = await supabase
-        .from("profiles" as any)
-        .select("id, user_id, nome, nickname, avatar_url, discord_username, discord_avatar_url, game_id, telefone, nivel, is_verified, updated_at")
-        .eq("is_verified", true);
-
-      if (verifiedProfiles && verifiedProfiles.length > 0) {
-        verifications = verifiedProfiles.map((p: any) => ({
-          id: `ver_${p.user_id || p.id}`,
-          user_id: p.user_id || p.id,
-          is_verified: true,
-          verified_at: p.updated_at || new Date().toISOString(),
-          custom_title: "Verificado Oficial",
-          created_at: p.updated_at || new Date().toISOString(),
-          updated_at: p.updated_at || new Date().toISOString(),
-          member: p,
-        }));
+  // 2. Mescla com member_verifications do Firebase RTDB
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    const rtdbList = await rtdb.getList<any>("member_verifications");
+    if (rtdbList && rtdbList.length > 0) {
+      for (const v of rtdbList) {
+        if (v && v.is_verified && v.user_id && !verificationsMap.has(v.user_id)) {
+          verificationsMap.set(v.user_id, v);
+        }
       }
-    } catch {}
-  }
+    }
+  } catch {}
 
-  if (verifications.length === 0) {
-    // Tenta RTDB profiles
-    try {
-      const { rtdb } = await import("@/integrations/firebase/rtdb");
-      const rtdbProfiles = await rtdb.getList<any>("profiles");
-      const verifiedList = (rtdbProfiles || []).filter((p: any) => p.is_verified);
-      if (verifiedList.length > 0) {
-        verifications = verifiedList.map((p: any) => ({
-          id: `ver_${p.user_id || p.id}`,
-          user_id: p.user_id || p.id,
-          is_verified: true,
-          verified_at: p.updated_at || new Date().toISOString(),
-          custom_title: "Verificado Oficial",
-          created_at: p.updated_at || new Date().toISOString(),
-          updated_at: p.updated_at || new Date().toISOString(),
-          member: p,
-        }));
+  // 3. Mescla com perfis marcados como is_verified === true do Supabase
+  try {
+    const { data: verifiedProfiles } = await supabase
+      .from("profiles" as any)
+      .select("id, user_id, nome, nickname, avatar_url, discord_username, discord_avatar_url, game_id, telefone, nivel, is_verified, updated_at")
+      .eq("is_verified", true);
+
+    if (verifiedProfiles && verifiedProfiles.length > 0) {
+      for (const p of verifiedProfiles) {
+        const uid = p.user_id || p.id;
+        if (uid && !verificationsMap.has(uid)) {
+          verificationsMap.set(uid, {
+            id: `ver_${uid}`,
+            user_id: uid,
+            is_verified: true,
+            verified_at: p.updated_at || new Date().toISOString(),
+            custom_title: "Verificado Oficial",
+            created_at: p.updated_at || new Date().toISOString(),
+            updated_at: p.updated_at || new Date().toISOString(),
+            member: p,
+          });
+        }
       }
-    } catch {}
-  }
+    }
+  } catch {}
 
-  if (!verifications || verifications.length === 0) return [];
+  // 4. Mescla com perfis do Firebase RTDB
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    const rtdbProfiles = await rtdb.getList<any>("profiles");
+    if (rtdbProfiles && rtdbProfiles.length > 0) {
+      for (const p of rtdbProfiles) {
+        if (p && p.is_verified) {
+          const uid = p.user_id || p.id;
+          if (uid && !verificationsMap.has(uid)) {
+            verificationsMap.set(uid, {
+              id: `ver_${uid}`,
+              user_id: uid,
+              is_verified: true,
+              verified_at: p.updated_at || new Date().toISOString(),
+              custom_title: "Verificado Oficial",
+              created_at: p.updated_at || new Date().toISOString(),
+              updated_at: p.updated_at || new Date().toISOString(),
+              member: p,
+            });
+          }
+        }
+      }
+    }
+  } catch {}
+
+  const verifications = Array.from(verificationsMap.values());
+  if (verifications.length === 0) return [];
 
   const userIds = Array.from(new Set(verifications.map((v: any) => v.user_id).filter(Boolean)));
   const verifierIds = Array.from(new Set(verifications.map((v: any) => v.verified_by).filter(Boolean)));
@@ -907,6 +947,42 @@ export async function fetchMemberVerifications(): Promise<MemberVerification[]> 
     member: v.member || profilesMap[v.user_id] || null,
     verifier: v.verified_by ? profilesMap[v.verified_by] || null : null,
   })) as unknown as MemberVerification[];
+}
+
+/**
+ * Atualiza o título ou personalização individual de um membro já verificado
+ */
+export async function updateMemberVerificationOverride(params: {
+  targetUserId: string;
+  customTitle?: string;
+  badgeColor?: string;
+  badgeIcon?: string;
+  notes?: string;
+}): Promise<void> {
+  const now = new Date().toISOString();
+  const updatePayload: Record<string, any> = {
+    updated_at: now,
+  };
+  if (params.customTitle !== undefined) updatePayload.custom_title = params.customTitle;
+  if (params.badgeColor !== undefined) updatePayload.badge_color_override = params.badgeColor || null;
+  if (params.badgeIcon !== undefined) updatePayload.badge_icon_override = params.badgeIcon || null;
+  if (params.notes !== undefined) updatePayload.notes = params.notes;
+
+  try {
+    await supabase
+      .from("member_verifications" as any)
+      .update(updatePayload as any)
+      .eq("user_id", params.targetUserId);
+  } catch {}
+
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    await rtdb.update(`member_verifications/${params.targetUserId}`, updatePayload);
+  } catch {}
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("tw_verifications_updated"));
+  }
 }
 
 /**

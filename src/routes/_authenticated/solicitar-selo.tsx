@@ -47,7 +47,7 @@ import {
   getMemberVerificationRequirementsStatus,
   type VerificationRequirementsEvaluation,
 } from "@/services/verificationBadgeService";
-import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
+import { VerifiedBadge, VERIFIED_ICONS_MAP } from "@/components/ui/VerifiedBadge";
 import { dateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { getLevelLabel, levelBadgeClass } from "@/lib/permissions";
@@ -58,7 +58,13 @@ export const Route = createFileRoute("/_authenticated/solicitar-selo")({
 
 function SolicitarSeloPageWrapper() {
   const { profile, hasPermission } = useAuth();
+  const { data: config } = useVerificationConfig();
   const isAlreadyVerified = Boolean(profile?.is_verified);
+
+  const badgeColor = config?.badge_color || "#38bdf8";
+  const badgeIconName = config?.badge_icon || "BadgeCheck";
+  const BadgeIconComponent = VERIFIED_ICONS_MAP[badgeIconName] || BadgeCheck;
+  const badgeTitle = config?.badge_name || "Membro Verificado";
 
   if (isAlreadyVerified) {
     return (
@@ -67,19 +73,47 @@ function SolicitarSeloPageWrapper() {
           title="Solicitar Verificação de Selo 🛡️"
           description="Página Oficial de Autenticação — Membro da Twin Wheels."
           actions={
-            <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-xs font-bold px-3 py-1 flex items-center gap-1.5 shadow-sm">
-              <BadgeCheck className="h-4 w-4 text-emerald-400" />
-              <span>Verificado Ativo</span>
+            <Badge
+              className="text-xs font-bold px-3 py-1 flex items-center gap-1.5 shadow-sm"
+              style={{
+                backgroundColor: `${badgeColor}20`,
+                borderColor: `${badgeColor}50`,
+                color: badgeColor,
+              }}
+            >
+              <BadgeIconComponent className="h-4 w-4" style={{ color: badgeColor }} />
+              <span>{badgeTitle} Ativo</span>
             </Badge>
           }
         />
-        <Card className="surface-card border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 via-card to-background shadow-xl overflow-hidden">
+        <Card
+          className="surface-card shadow-xl overflow-hidden"
+          style={{
+            borderColor: `${badgeColor}50`,
+            background: `linear-gradient(135deg, ${badgeColor}15 0%, var(--card) 60%, var(--background) 100%)`,
+          }}
+        >
           <CardContent className="p-6 sm:p-10 space-y-6 text-center">
-            <div className="mx-auto relative flex items-center justify-center h-24 w-24 rounded-3xl bg-emerald-500/20 border-2 border-emerald-500/50 text-emerald-400 shadow-xl shadow-emerald-500/10">
-              <BadgeCheck className="h-12 w-12 text-emerald-400" />
+            <div
+              className="mx-auto relative flex items-center justify-center h-24 w-24 rounded-3xl shadow-xl"
+              style={{
+                backgroundColor: `${badgeColor}20`,
+                borderColor: `${badgeColor}50`,
+                borderWidth: "2px",
+                color: badgeColor,
+                filter: `drop-shadow(0 0 12px ${badgeColor}66)`,
+              }}
+            >
+              <BadgeIconComponent className="h-12 w-12" style={{ color: badgeColor }} />
               <span className="absolute -top-1 -right-1 flex h-5 w-5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-5 w-5 bg-emerald-500" />
+                <span
+                  className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                  style={{ backgroundColor: badgeColor }}
+                />
+                <span
+                  className="relative inline-flex rounded-full h-5 w-5"
+                  style={{ backgroundColor: badgeColor }}
+                />
               </span>
             </div>
 
@@ -88,13 +122,20 @@ function SolicitarSeloPageWrapper() {
                 <h2 className="text-xl font-black text-foreground">
                   {profile?.nickname || profile?.nome || "Membro"}
                 </h2>
-                <VerifiedBadge isVerified={true} size="md" />
-                <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-xs font-extrabold">
-                  Oficial Verificado
+                <VerifiedBadge isVerified={true} userId={profile?.user_id} size="md" />
+                <Badge
+                  className="text-xs font-extrabold"
+                  style={{
+                    backgroundColor: `${badgeColor}20`,
+                    borderColor: `${badgeColor}40`,
+                    color: badgeColor,
+                  }}
+                >
+                  {badgeTitle}
                 </Badge>
               </div>
               <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                Você já possui o <strong className="text-emerald-400">Selo Oficial de Verificação</strong> ativo no seu perfil. Como você já é um membro autenticado pela Diretoria Executiva da Twin Wheels, a página e o formulário de novas solicitações não estão disponíveis para sua conta.
+                Você já possui o <strong style={{ color: badgeColor }}>{badgeTitle}</strong> ativo no seu perfil. Como você já é um membro autenticado pela Diretoria Executiva da Twin Wheels, a página e o formulário de novas solicitações não estão disponíveis para sua conta.
               </p>
             </div>
 
@@ -157,6 +198,11 @@ function SolicitarSeloContent() {
   const { data: config, isLoading: loadingConfig } = useVerificationConfig();
   const { data: myRequest, isLoading: loadingMyReq } = useMyVerificationRequest();
   const { submitRequestMutation, cancelRequestMutation } = useVerificationMutations();
+
+  const badgeColor = config?.badge_color || "#38bdf8";
+  const badgeIconName = config?.badge_icon || "BadgeCheck";
+  const BadgeIconComponent = VERIFIED_ICONS_MAP[badgeIconName] || BadgeCheck;
+  const badgeTitle = config?.badge_name || "Membro Verificado";
 
   const [reason, setReason] = useState("");
   const [documentUrl, setDocumentUrl] = useState("");
@@ -278,22 +324,50 @@ function SolicitarSeloContent() {
 
       {/* CASO 1: MEMBRO JÁ ESTÁ VERIFICADO */}
       {isAlreadyVerified && (
-        <Card className="surface-card border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 via-card to-background shadow-lg overflow-hidden">
+        <Card
+          className="surface-card shadow-lg overflow-hidden"
+          style={{
+            borderColor: `${badgeColor}50`,
+            background: `linear-gradient(135deg, ${badgeColor}15 0%, var(--card) 60%, var(--background) 100%)`,
+          }}
+        >
           <CardContent className="p-6 sm:p-8 space-y-5">
             <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
-              <div className="relative flex items-center justify-center h-20 w-20 rounded-3xl bg-emerald-500/20 border-2 border-emerald-500/50 text-emerald-400 shadow-inner">
-                <BadgeCheck className="h-10 w-10 text-emerald-400" />
+              <div
+                className="relative flex items-center justify-center h-20 w-20 rounded-3xl shadow-inner"
+                style={{
+                  backgroundColor: `${badgeColor}20`,
+                  borderColor: `${badgeColor}50`,
+                  borderWidth: "2px",
+                  color: badgeColor,
+                  filter: `drop-shadow(0 0 10px ${badgeColor}66)`,
+                }}
+              >
+                <BadgeIconComponent className="h-10 w-10" style={{ color: badgeColor }} />
                 <span className="absolute -top-1 -right-1 flex h-4 w-4">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500" />
+                  <span
+                    className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                    style={{ backgroundColor: badgeColor }}
+                  />
+                  <span
+                    className="relative inline-flex rounded-full h-4 w-4"
+                    style={{ backgroundColor: badgeColor }}
+                  />
                 </span>
               </div>
               <div className="space-y-1.5 min-w-0 flex-1">
                 <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
                   <h3 className="text-lg font-black text-foreground">{memberDisplayName}</h3>
-                  <VerifiedBadge isVerified={true} size="md" />
-                  <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-xs font-extrabold">
-                    Membro Oficial Verificado
+                  <VerifiedBadge isVerified={true} userId={user?.id} size="md" />
+                  <Badge
+                    className="text-xs font-extrabold"
+                    style={{
+                      backgroundColor: `${badgeColor}20`,
+                      borderColor: `${badgeColor}40`,
+                      color: badgeColor,
+                    }}
+                  >
+                    {badgeTitle} Oficial
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">

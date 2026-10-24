@@ -381,8 +381,9 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
                   {(ticket?.creator_name || ticket?.creator_nickname || "TC").slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-foreground font-medium">
-                {ticket.creator_nickname || ticket.creator_name}
+              <span className="text-foreground font-medium inline-flex items-center gap-1">
+                <span>{ticket.creator_nickname || ticket.creator_name}</span>
+                <VerifiedBadge userId={ticket.creator_id || ticket.user_id} isVerified={ticket.creator_is_verified} size="xs" />
               </span>
               <span className="text-[10px] text-muted-foreground">
                 ({LEVEL_LABEL[ticket.creator_role] || ticket.creator_role})
@@ -400,8 +401,9 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
               <User className="h-3 w-3" />
               Responsável:{" "}
               {ticket.assigned_to_name ? (
-                <span className="text-sky-400 font-medium">
-                  {ticket.assigned_to_nickname || ticket.assigned_to_name}
+                <span className="text-sky-400 font-medium inline-flex items-center gap-1">
+                  <span>{ticket.assigned_to_nickname || ticket.assigned_to_name}</span>
+                  <VerifiedBadge userId={ticket.assigned_to_id} size="xs" />
                 </span>
               ) : (
                 <span className="text-muted-foreground italic">Não atribuído</span>
@@ -653,7 +655,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
                   <span className="text-xs font-semibold text-foreground">
                     {ticket.creator_nickname || ticket.creator_name}
                   </span>
-                  <VerifiedBadge isVerified={members.find((m) => m.user_id === (ticket.user_id || (ticket as any).creator_id))?.is_verified} size="xs" />
+                  <VerifiedBadge userId={ticket.user_id || (ticket as any).creator_id} isVerified={members.find((m) => m.user_id === (ticket.user_id || (ticket as any).creator_id))?.is_verified} size="xs" />
                   <Badge
                     variant="outline"
                     className={cn("text-[10px] px-1.5 py-0", levelBadgeClass(ticket.creator_role))}
@@ -750,7 +752,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
                         <span className="text-xs font-semibold text-amber-300">
                           {msg.sender_nickname || msg.sender_name}
                         </span>
-                        <VerifiedBadge isVerified={members.find((m) => m.user_id === msg.sender_id)?.is_verified} size="xs" />
+                        <VerifiedBadge userId={msg.sender_id} isVerified={members.find((m) => m.user_id === msg.sender_id)?.is_verified} size="xs" />
                         <span className="text-[10px] text-amber-400/80">
                           ({LEVEL_LABEL[msg.sender_role] || msg.sender_role})
                         </span>
@@ -792,7 +794,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
                         <span className="font-semibold text-xs text-foreground">
                           {isMe ? "Você" : msg.sender_nickname || msg.sender_name}
                         </span>
-                        <VerifiedBadge isVerified={members.find((m) => m.user_id === msg.sender_id)?.is_verified} size="xs" />
+                        <VerifiedBadge userId={msg.sender_id} isVerified={members.find((m) => m.user_id === msg.sender_id)?.is_verified} size="xs" />
                         <Badge
                           variant="outline"
                           className={cn("text-[9px] px-1 py-0", levelBadgeClass(msg.sender_role))}

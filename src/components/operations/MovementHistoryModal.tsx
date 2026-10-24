@@ -43,6 +43,7 @@ import {
 } from "@/hooks/useData";
 import { dateTime, num, errorMessage } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import type { Movement } from "@/lib/app-types";
 
 export interface MovementHistoryModalProps {
@@ -370,7 +371,10 @@ export function MovementHistoryModal({
                         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono flex-wrap">
                           <span>🕒 {dateTime(m.created_at)}</span>
                           <span>•</span>
-                          <span>👤 {uName}</span>
+                          <span className="inline-flex items-center gap-1 font-sans">
+                            <span>👤 {uName}</span>
+                            <VerifiedBadge userId={m.user_id} size="xs" />
+                          </span>
                           {m.reason && (
                             <>
                               <span>•</span>

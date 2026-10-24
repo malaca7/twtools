@@ -94,6 +94,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 
 export const Route = createFileRoute("/_authenticated/metas")({
   component: MetasWrapper,
@@ -1252,8 +1253,9 @@ export function MetasPage() {
                           <span className="font-mono font-extrabold text-sm text-emerald-400">
                             {sub.unit_name === "R$" ? currency(sub.amount) : `${num(sub.amount)} ${sub.unit_name || "itens"}`}
                           </span>
-                          <span className="text-xs font-bold text-foreground">
-                            • {sub.member_nickname || sub.member_name}
+                          <span className="text-xs font-bold text-foreground inline-flex items-center gap-1">
+                            <span>• {sub.member_nickname || sub.member_name}</span>
+                            <VerifiedBadge userId={sub.user_id} isVerified={sub.member_is_verified} size="xs" />
                           </span>
                           {sub.member_role && (
                             <Badge className={cn("text-[9px] font-mono py-0 px-1.5", levelBadgeClass(sub.member_role as AppLevel))}>
@@ -1464,8 +1466,9 @@ export function MetasPage() {
 
                   <div className="space-y-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-extrabold text-sm text-foreground">
-                        {sub.member_name}
+                      <span className="font-extrabold text-sm text-foreground inline-flex items-center gap-1.5">
+                        <span>{sub.member_name}</span>
+                        <VerifiedBadge userId={sub.user_id} isVerified={sub.member_is_verified} size="xs" />
                       </span>
                       {sub.member_role && (
                         <Badge className={cn("text-[9px] font-mono py-0 px-1.5", levelBadgeClass(sub.member_role as AppLevel))}>

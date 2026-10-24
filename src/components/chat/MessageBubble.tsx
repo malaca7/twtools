@@ -52,6 +52,7 @@ import { formatTimeOnly } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { ChatMessage, ParticipantRole, PollData, EventData } from "@/types/chat";
 import { toast } from "sonner";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -483,6 +484,7 @@ function MessageBubbleBase({
                 className="text-[12px] font-bold hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <span>{message.sender_name || "Membro"}</span>
+                <VerifiedBadge userId={message.sender_id} size="xs" />
               </button>
               {message.sender_game_id && (
                 <span className="text-[10px] font-mono text-[#8696a0]">

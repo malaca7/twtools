@@ -561,7 +561,7 @@ export function HierarquiaPage() {
                                     <p className="text-xs font-black text-foreground truncate">
                                       {nameOf(members, member.user_id)}
                                     </p>
-                                    <VerifiedBadge isVerified={member.is_verified} size="xs" />
+                                    <VerifiedBadge isVerified={member.is_verified} userId={member.user_id} size="xs" />
                                     {isDeveloper && (
                                       <Badge
                                         variant="outline"
@@ -775,7 +775,7 @@ export function HierarquiaPage() {
                                     <span className="text-xs font-bold text-foreground block truncate">
                                       {nameOf(members, m.user_id)}
                                     </span>
-                                    <VerifiedBadge isVerified={m.is_verified} size="xs" />
+                                    <VerifiedBadge isVerified={m.is_verified} userId={m.user_id} size="xs" />
                                     <Badge
                                       variant="outline"
                                       className="text-[9px] font-mono py-0 px-1 border-primary/40 text-primary bg-primary/10"

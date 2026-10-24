@@ -58,6 +58,7 @@ import {
   TICKET_PRIORITIES,
   TICKET_STATUSES,
 } from "@/types/tickets";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { dateTime, formatTimeOnly } from "@/lib/format";
 import { LEVEL_LABEL, levelBadgeClass, type Permission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
@@ -548,8 +549,9 @@ export function AtendimentoTicketsContent() {
                               {(ticket?.creator_name || ticket?.creator_nickname || "TC").slice(0, 2).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
-                          <span className="truncate font-semibold text-foreground/90">
-                            {ticket.creator_nickname || ticket.creator_name}
+                          <span className="truncate font-semibold text-foreground/90 inline-flex items-center gap-1">
+                            <span>{ticket.creator_nickname || ticket.creator_name}</span>
+                            <VerifiedBadge userId={ticket.creator_id} isVerified={ticket.creator_is_verified} size="xs" />
                           </span>
                         </div>
 
@@ -559,6 +561,7 @@ export function AtendimentoTicketsContent() {
                             <span className="inline-flex items-center gap-1 text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
                               <UserCheck className="h-3 w-3" />
                               <span className="truncate max-w-[100px]">{ticket.assigned_to_name}</span>
+                              <VerifiedBadge userId={ticket.assigned_to_id} size="xs" />
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">

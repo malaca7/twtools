@@ -24,6 +24,7 @@ import { createAnnouncement, deleteAnnouncement, updateAnnouncement } from "@/li
 import { dateTime, errorMessage } from "@/lib/format";
 import type { Announcement } from "@/lib/app-types";
 import { cn } from "@/lib/utils";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 
 export const Route = createFileRoute("/_authenticated/avisos")({
   component: AvisosPage,
@@ -246,8 +247,13 @@ export function AvisosPage() {
 
                   <p className="text-xs text-foreground whitespace-pre-wrap">{a.content}</p>
 
-                  <p className="text-[0.65rem] text-muted-foreground">
-                    Publicado por <span className="text-foreground font-semibold">{nameOf(members, a.author_id)}</span> · {dateTime(a.created_at)}
+                  <p className="text-[0.65rem] text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                    <span>Publicado por</span>
+                    <span className="text-foreground font-semibold inline-flex items-center gap-1">
+                      <span>{nameOf(members, a.author_id)}</span>
+                      <VerifiedBadge userId={a.author_id} size="xs" />
+                    </span>
+                    <span>· {dateTime(a.created_at)}</span>
                   </p>
                 </div>
               ))}

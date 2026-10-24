@@ -74,6 +74,7 @@ import {
   type PageCardConfig,
 } from "@/lib/permissionCards";
 import { cn } from "@/lib/utils";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 
 export const Route = createFileRoute("/_authenticated/dev/permissoes")({
   component: DevPermissoesPageWrapper,
@@ -2002,6 +2003,7 @@ function DevPermissoesContent() {
                                   <span className="text-xs font-bold text-foreground truncate">
                                     {member.nickname || member.nome}
                                   </span>
+                                  <VerifiedBadge isVerified={member.is_verified} userId={member.user_id} size="xs" />
                                   {isDev && <DevBadge size="xs" />}
                                   {isCeo && <CeoBadge size="xs" />}
                                 </div>
@@ -2594,6 +2596,7 @@ function DevPermissoesContent() {
                                   <span className="text-xs font-bold text-foreground truncate">
                                     {member.nickname || member.nome}
                                   </span>
+                                  <VerifiedBadge isVerified={member.is_verified} userId={member.user_id} size="xs" />
                                   {isCeo && <CeoBadge size="xs" />}
                                   {isDev && <DevBadge size="xs" />}
                                 </div>

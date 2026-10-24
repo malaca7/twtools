@@ -447,7 +447,7 @@ function RankingsContent() {
                       <h3 className="font-bold text-foreground text-base truncate max-w-[200px]">
                         {xpSecond?.nickname || xpSecond?.nome || "—"}
                       </h3>
-                      <VerifiedBadge isVerified={members.find(mb => mb.user_id === xpSecond?.user_id)?.is_verified} size="xs" />
+                      <VerifiedBadge isVerified={members.find(mb => mb.user_id === xpSecond?.user_id)?.is_verified} userId={xpSecond?.user_id} size="xs" />
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {xpSecond?.nivel ? getLevelLabel(xpSecond.nivel) : "Membro"}
@@ -528,7 +528,7 @@ function RankingsContent() {
                       <h3 className="text-lg font-black text-foreground truncate max-w-[220px]">
                         {xpFirst?.nickname || xpFirst?.nome || "—"}
                       </h3>
-                      <VerifiedBadge isVerified={members.find(mb => mb.user_id === xpFirst?.user_id)?.is_verified} size="sm" />
+                      <VerifiedBadge isVerified={members.find(mb => mb.user_id === xpFirst?.user_id)?.is_verified} userId={xpFirst?.user_id} size="sm" />
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {xpFirst?.nivel ? getLevelLabel(xpFirst.nivel) : "Membro"}
@@ -606,7 +606,7 @@ function RankingsContent() {
                       <h3 className="font-bold text-foreground text-base truncate max-w-[200px]">
                         {xpThird?.nickname || xpThird?.nome || "—"}
                       </h3>
-                      <VerifiedBadge isVerified={members.find(mb => mb.user_id === xpThird?.user_id)?.is_verified} size="xs" />
+                      <VerifiedBadge isVerified={members.find(mb => mb.user_id === xpThird?.user_id)?.is_verified} userId={xpThird?.user_id} size="xs" />
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {xpThird?.nivel ? getLevelLabel(xpThird.nivel) : "Membro"}
@@ -1024,7 +1024,10 @@ function RankingsContent() {
                     <Badge variant="outline" className="mb-1 border-slate-500 text-slate-300">
                       2º Lugar
                     </Badge>
-                    <h3 className="font-semibold text-foreground">{legacySecond?.nickname || legacySecond?.nome || "—"}</h3>
+                    <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                      <h3 className="font-semibold text-foreground">{legacySecond?.nickname || legacySecond?.nome || "—"}</h3>
+                      <VerifiedBadge isVerified={legacySecond?.is_verified} userId={legacySecond?.user_id} size="xs" />
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       {legacySecond?.nivel ? getLevelLabel(legacySecond.nivel) : "Membro"}
                     </p>
@@ -1080,7 +1083,10 @@ function RankingsContent() {
                     <Badge className="mb-1 bg-amber-500 text-slate-950 font-bold hover:bg-amber-400">
                       1º Lugar · Campeão
                     </Badge>
-                    <h3 className="text-lg font-bold text-foreground">{legacyFirst?.nickname || legacyFirst?.nome || "—"}</h3>
+                    <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                      <h3 className="text-lg font-bold text-foreground">{legacyFirst?.nickname || legacyFirst?.nome || "—"}</h3>
+                      <VerifiedBadge isVerified={legacyFirst?.is_verified} userId={legacyFirst?.user_id} size="sm" />
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       {legacyFirst?.nivel ? getLevelLabel(legacyFirst.nivel) : "Membro"}
                     </p>
@@ -1133,7 +1139,10 @@ function RankingsContent() {
                     <Badge variant="outline" className="mb-1 border-amber-700 text-amber-600">
                       3º Lugar
                     </Badge>
-                    <h3 className="font-semibold text-foreground">{legacyThird?.nickname || legacyThird?.nome || "—"}</h3>
+                    <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                      <h3 className="font-semibold text-foreground">{legacyThird?.nickname || legacyThird?.nome || "—"}</h3>
+                      <VerifiedBadge isVerified={legacyThird?.is_verified} userId={legacyThird?.user_id} size="xs" />
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       {legacyThird?.nivel ? getLevelLabel(legacyThird.nivel) : "Membro"}
                     </p>
@@ -1204,9 +1213,12 @@ function RankingsContent() {
                                     {pos === 1 ? "🥇" : pos === 2 ? "🥈" : pos === 3 ? "🥉" : `${pos}º`}
                                   </span>
                                   <div className="min-w-0">
-                                    <p className="font-bold text-xs text-foreground truncate">
-                                      {m.nickname || m.nome}
-                                    </p>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <p className="font-bold text-xs text-foreground truncate">
+                                        {m.nickname || m.nome}
+                                      </p>
+                                      <VerifiedBadge isVerified={m.is_verified} userId={m.user_id} size="xs" />
+                                    </div>
                                     <div className="flex items-center gap-1.5 pt-0.5">
                                       {m.nivel && (
                                         <Badge variant="outline" className={cn("text-[9px] px-1 py-0", levelBadgeClass(m.nivel as any))}>
@@ -1283,10 +1295,11 @@ function RankingsContent() {
                                     {pos === 1 ? "🥇 1º" : pos === 2 ? "🥈 2º" : pos === 3 ? "🥉 3º" : `${pos}º`}
                                   </TableCell>
                                   <TableCell>
-                                    <div>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
                                       <p className="font-medium text-foreground">
                                         {m.nickname ? `${m.nickname} (${m.nome})` : m.nome}
                                       </p>
+                                      <VerifiedBadge isVerified={m.is_verified} userId={m.user_id} size="xs" />
                                     </div>
                                   </TableCell>
                                   <TableCell>

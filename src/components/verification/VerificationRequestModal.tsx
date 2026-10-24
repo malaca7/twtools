@@ -42,7 +42,7 @@ import {
   getMemberVerificationRequirementsStatus,
   type VerificationRequirementsEvaluation,
 } from "@/services/verificationBadgeService";
-import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
+import { VerifiedBadge, VERIFIED_ICONS_MAP } from "@/components/ui/VerifiedBadge";
 import { dateTime } from "@/lib/format";
 import { getLevelLabel, levelBadgeClass } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
@@ -146,53 +146,102 @@ export function VerificationRequestModal({
     <Dialog open={isModalOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-lg surface-card border-border/80 shadow-2xl overflow-hidden p-0">
         {/* HEADER */}
-        <div className="p-5 bg-gradient-to-b from-sky-500/10 via-background/60 to-background border-b border-border/60">
-          <DialogHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-400">
-                  <BadgeCheck className="h-5 w-5" />
-                </div>
-                <div>
-                  <DialogTitle className="text-base font-bold flex items-center gap-1.5">
-                    <span>Selo de Verificado</span>
-                    <VerifiedBadge isVerified={isAlreadyVerified} size="sm" noTooltip />
-                  </DialogTitle>
-                  <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                    Autenticação e reconhecimento oficial na comunidade Twin Wheels.
-                  </DialogDescription>
-                </div>
-              </div>
+        {(() => {
+          const badgeIconName = config?.badge_icon || "BadgeCheck";
+          const badgeColor = config?.badge_color || "#38bdf8";
+          const HeaderIcon = VERIFIED_ICONS_MAP[badgeIconName] || BadgeCheck;
 
-              {isAlreadyVerified && (
-                <Badge className="bg-sky-500/15 text-sky-400 border border-sky-500/30 text-xs font-bold gap-1">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  <span>Verificado</span>
-                </Badge>
-              )}
+          return (
+            <div
+              className="p-5 border-b border-border/60 transition-colors"
+              style={{
+                background: `linear-gradient(to bottom, ${badgeColor}15, transparent)`,
+              }}
+            >
+              <DialogHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className="p-2 rounded-xl border shadow-xs"
+                      style={{
+                        backgroundColor: `${badgeColor}20`,
+                        borderColor: `${badgeColor}40`,
+                        color: badgeColor,
+                      }}
+                    >
+                      <HeaderIcon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <DialogTitle className="text-base font-bold flex items-center gap-1.5">
+                        <span>{config?.badge_name || "Selo de Verificado"}</span>
+                        <VerifiedBadge isVerified={isAlreadyVerified} size="sm" noTooltip />
+                      </DialogTitle>
+                      <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                        {config?.tooltip_text || "Autenticação e reconhecimento oficial na comunidade Twin Wheels."}
+                      </DialogDescription>
+                    </div>
+                  </div>
+
+                  {isAlreadyVerified && (
+                    <Badge
+                      className="text-xs font-bold gap-1"
+                      style={{
+                        backgroundColor: `${badgeColor}20`,
+                        borderColor: `${badgeColor}40`,
+                        color: badgeColor,
+                      }}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      <span>Verificado</span>
+                    </Badge>
+                  )}
+                </div>
+              </DialogHeader>
             </div>
-          </DialogHeader>
-        </div>
+          );
+        })()}
 
         {/* CORPO DO MODAL */}
         <div className="p-5 space-y-4 text-xs max-h-[75vh] overflow-y-auto">
           {/* CASO 1: JÁ É VERIFICADO */}
           {isAlreadyVerified ? (
-            <div className="p-6 rounded-2xl bg-sky-500/10 border border-sky-500/30 text-center space-y-3">
-              <div className="mx-auto w-12 h-12 rounded-2xl bg-sky-500/20 border border-sky-500/40 flex items-center justify-center text-sky-400 shadow-lg shadow-sky-500/20">
-                <BadgeCheck className="h-7 w-7" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-foreground">Você é um Membro Verificado!</h3>
-                <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-                  Seu perfil possui o selo oficial de verificação ativo e exibido em todas as áreas da plataforma.
-                </p>
-              </div>
-              <div className="pt-2 flex items-center justify-center gap-2">
-                <span className="text-xs text-muted-foreground">Exibição do seu selo:</span>
-                <VerifiedBadge isVerified size="md" showText />
-              </div>
-            </div>
+            (() => {
+              const badgeIconName = config?.badge_icon || "BadgeCheck";
+              const badgeColor = config?.badge_color || "#38bdf8";
+              const CardIcon = VERIFIED_ICONS_MAP[badgeIconName] || BadgeCheck;
+
+              return (
+                <div
+                  className="p-6 rounded-2xl border text-center space-y-3"
+                  style={{
+                    backgroundColor: `${badgeColor}10`,
+                    borderColor: `${badgeColor}30`,
+                  }}
+                >
+                  <div
+                    className="mx-auto w-12 h-12 rounded-2xl border flex items-center justify-center shadow-lg"
+                    style={{
+                      backgroundColor: `${badgeColor}20`,
+                      borderColor: `${badgeColor}45`,
+                      color: badgeColor,
+                      boxShadow: `0 8px 20px -4px ${badgeColor}35`,
+                    }}
+                  >
+                    <CardIcon className="h-7 w-7" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground">Você é um Membro Verificado!</h3>
+                    <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                      Seu perfil possui o selo oficial de verificação ativo e exibido em todas as áreas da plataforma.
+                    </p>
+                  </div>
+                  <div className="pt-2 flex items-center justify-center gap-2">
+                    <span className="text-xs text-muted-foreground">Exibição do seu selo:</span>
+                    <VerifiedBadge isVerified size="md" showText />
+                  </div>
+                </div>
+              );
+            })()
           ) : isPending ? (
             /* CASO 2: SOLICITAÇÃO PENDENTE */
             <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-3">

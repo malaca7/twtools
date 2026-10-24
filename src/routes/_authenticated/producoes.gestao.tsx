@@ -97,6 +97,7 @@ import {
 import { cn } from "@/lib/utils";
 import { currency } from "@/lib/format";
 import type { RawMaterial, Product, Production, WarehouseMovement } from "@/lib/app-types";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 
 export const Route = createFileRoute("/_authenticated/producoes/gestao")({
   component: GestaoProducaoPage,
@@ -1335,7 +1336,10 @@ export function GestaoProducaoPage() {
                           </td>
 
                           <td className="p-3 whitespace-nowrap font-medium text-foreground">
-                            {operatorName}
+                            <span className="inline-flex items-center gap-1.5">
+                              <span>{operatorName}</span>
+                              <VerifiedBadge userId={p.user_id} size="xs" />
+                            </span>
                           </td>
 
                           <td className="p-3 font-bold text-foreground">

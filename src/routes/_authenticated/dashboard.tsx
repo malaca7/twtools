@@ -92,7 +92,12 @@ function DashboardContent() {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <PageHeader
-        title={`Salve, ${memberName}! ✌🏼`}
+        title={
+          <span className="inline-flex items-center gap-2 flex-wrap">
+            <span>Salve, {memberName}! ✌🏼</span>
+            <VerifiedBadge isVerified={profile?.is_verified} userId={profile?.user_id || user?.id} size="sm" />
+          </span>
+        }
         description="Painel geral do grupo com comunicados e membros ativos sincronizados em tempo real."
       />
 
@@ -219,7 +224,7 @@ function DashboardContent() {
                     <div className="pt-2 border-t border-border/40 flex flex-wrap items-center justify-between gap-2">
                       <p className="text-[0.65rem] text-muted-foreground flex items-center gap-1">
                         <span className="font-semibold text-foreground">{nameOf(members, ann.author_id)}</span>
-                        <VerifiedBadge isVerified={members.find((m) => m.user_id === ann.author_id)?.is_verified} size="xs" />
+                        <VerifiedBadge isVerified={members.find((m) => m.user_id === ann.author_id)?.is_verified} userId={ann.author_id} size="xs" />
                         <span>· {dateTime(ann.created_at)}</span>
                       </p>
 

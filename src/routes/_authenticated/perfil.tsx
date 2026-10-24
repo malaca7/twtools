@@ -655,9 +655,12 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
                 </div>
 
                 <div>
-                  <h3 className="text-lg font-bold text-foreground">
-                    {nickname || nome || "Jogador"}
-                  </h3>
+                  <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                    <h3 className="text-lg font-bold text-foreground">
+                      {nickname || nome || "Jogador"}
+                    </h3>
+                    <VerifiedBadge isVerified={profile?.is_verified} userId={profile?.user_id} size="sm" />
+                  </div>
                   {nickname ? (
                     <p className="text-xs text-muted-foreground">{nome}</p>
                   ) : null}

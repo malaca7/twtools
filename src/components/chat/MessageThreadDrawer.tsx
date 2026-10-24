@@ -24,6 +24,7 @@ import { formatTimeOnly, dateOnly } from "@/lib/format";
 import type { ChatMessage } from "@/types/chat";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 
 interface MessageThreadDrawerProps {
   open: boolean;
@@ -117,7 +118,10 @@ export function MessageThreadDrawer({
                 {parentMessage.sender_name?.slice(0, 2).toUpperCase() || "M"}
               </AvatarFallback>
             </Avatar>
-            <span className="text-xs font-black text-foreground">{parentMessage.sender_name}</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs font-black text-foreground">{parentMessage.sender_name}</span>
+              <VerifiedBadge userId={parentMessage.sender_id} size="xs" />
+            </div>
             <span className="text-[10px] text-muted-foreground font-mono">
               {formatTimeOnly(parentMessage.created_at)}
             </span>
@@ -173,8 +177,9 @@ export function MessageThreadDrawer({
                     )}
                   >
                     {!isSelf && (
-                      <span className="text-[10px] font-bold text-primary block">
-                        {reply.sender_name}
+                      <span className="text-[10px] font-bold text-primary flex items-center gap-1">
+                        <span>{reply.sender_name}</span>
+                        <VerifiedBadge userId={reply.sender_id} size="xs" />
                       </span>
                     )}
                     <ChatMessageText content={reply.content} />

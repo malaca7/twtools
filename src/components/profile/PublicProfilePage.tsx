@@ -603,6 +603,7 @@ function PublicProfileContent({
 
               <VerifiedBadge
                 isVerified={Boolean(memberData.is_verified || (memberData as any).verified)}
+                userId={memberData.user_id || memberData.id}
                 size="md"
               />
 

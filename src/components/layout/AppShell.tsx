@@ -1610,7 +1610,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                         <p className="truncate text-xs sm:text-sm font-bold text-foreground leading-tight">
                           {mainName}
                         </p>
-                        <VerifiedBadge isVerified={profile?.is_verified} size="xs" />
+                        <VerifiedBadge isVerified={profile?.is_verified} userId={profile?.user_id || user?.id} size="xs" />
                       </div>
                       {subName ? (
                         <p className="truncate text-[0.65rem] text-muted-foreground leading-tight">
@@ -1630,7 +1630,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <div className="flex items-center justify-between gap-1.5">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <p className="text-xs font-bold text-foreground truncate">{mainName}</p>
-                        <VerifiedBadge isVerified={profile?.is_verified} size="xs" />
+                        <VerifiedBadge isVerified={profile?.is_verified} userId={profile?.user_id || user?.id} size="xs" />
                       </div>
                       <Badge variant="outline" className={cn("text-[9px] font-mono px-1 py-0", levelBadgeClass(level || "membro"))}>
                         {level ? LEVEL_LABEL[level] : "Membro"}

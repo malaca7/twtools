@@ -78,6 +78,7 @@ import { cn } from "@/lib/utils";
 import { MessageStatusIcon } from "./MessageStatusIcon";
 import type { ChatConversation, ChatUserFolder, MessageStatus } from "@/types/chat";
 import { toast } from "sonner";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 
 interface ConversationListProps {
   conversations: ChatConversation[];
@@ -694,6 +695,13 @@ export function ConversationList({
                       >
                         {title}
                       </span>
+                      {!isGroup && otherMember && (
+                        <VerifiedBadge
+                          userId={otherMember.user_id}
+                          isVerified={Boolean(liveOther?.is_verified ?? otherMember.is_verified)}
+                          size="xs"
+                        />
+                      )}
                       {unread > 0 && !isActive && (
                         <span
                           className="h-2 w-2 rounded-full bg-[#25d366] shrink-0 shadow-[0_0_6px_rgba(37,211,102,0.7)] animate-pulse"

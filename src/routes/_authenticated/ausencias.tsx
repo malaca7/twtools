@@ -76,6 +76,7 @@ import {
 import { levelBadgeClass, getLevelLabel, type AppLevel } from "@/lib/permissions";
 import type { AbsenceReason, MemberAbsence } from "@/lib/app-types";
 import { cn } from "@/lib/utils";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 
 export const Route = createFileRoute("/_authenticated/ausencias")({
   component: AusenciasWrapper,
@@ -936,8 +937,9 @@ export function AusenciasPage() {
                           </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
-                          <p className="text-xs font-extrabold text-foreground truncate">
-                            {item.member_nickname ? `${item.member_nickname} (${item.member_name})` : item.member_name}
+                          <p className="text-xs font-extrabold text-foreground truncate flex items-center gap-1.5">
+                            <span>{item.member_nickname ? `${item.member_nickname} (${item.member_name})` : item.member_name}</span>
+                            <VerifiedBadge userId={item.user_id} isVerified={item.member_is_verified} size="xs" />
                           </p>
                           <Badge
                             variant="outline"

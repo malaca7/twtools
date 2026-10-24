@@ -30,6 +30,11 @@ import {
   Calendar,
   ShieldAlert,
   Plus,
+  Gem,
+  Trophy,
+  Target,
+  CheckCheck,
+  Edit,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -92,8 +97,14 @@ const AVAILABLE_ICONS = [
   { id: "Sparkles", label: "Brilho Mágico", Icon: Sparkles },
   { id: "Crown", label: "Coroa Real", Icon: Crown },
   { id: "Star", label: "Estrela Dourada", Icon: Star },
+  { id: "Award", label: "Medalha Honra", Icon: Award },
   { id: "Flame", label: "Chama Fogo", Icon: Flame },
   { id: "Zap", label: "Raio Elétrico", Icon: Zap },
+  { id: "Shield", label: "Escudo Tático", Icon: Shield },
+  { id: "Gem", label: "Diamante Raro", Icon: Gem },
+  { id: "Trophy", label: "Troféu Campeão", Icon: Trophy },
+  { id: "Target", label: "Mira Tática", Icon: Target },
+  { id: "CheckCheck", label: "Duplo Check", Icon: CheckCheck },
 ];
 
 const PRESET_COLORS = [
@@ -102,6 +113,10 @@ const PRESET_COLORS = [
   { label: "Ouro", color: "#f59e0b", glow: "gold" },
   { label: "Púrpura", color: "#a855f7", glow: "purple" },
   { label: "Rosa Neon", color: "#f43f5e", glow: "rose" },
+  { label: "Ciano Cyber", color: "#06b6d4", glow: "cyan" },
+  { label: "Laranja Sunset", color: "#f97316", glow: "auto" },
+  { label: "Vermelho Carmim", color: "#ef4444", glow: "rose" },
+  { label: "Índigo Real", color: "#6366f1", glow: "purple" },
   { label: "Branco / Clean", color: "#f8fafc", glow: "none" },
 ];
 
@@ -139,6 +154,7 @@ export function CeoSelosPage() {
     updateConfigMutation,
     reviewRequestMutation,
     grantDirectMutation,
+    updateOverrideMutation,
     revokeMutation,
   } = useVerificationMutations();
 
@@ -163,6 +179,13 @@ export function CeoSelosPage() {
   const [directColor, setDirectColor] = useState("");
   const [directNotes, setDirectNotes] = useState("");
   const [directSearch, setDirectSearch] = useState("");
+
+  // Modal de Edição de Membro Verificado
+  const [editingVerifiedMember, setEditingVerifiedMember] = useState<MemberVerification | null>(null);
+  const [editMemberTitle, setEditMemberTitle] = useState("");
+  const [editMemberColor, setEditMemberColor] = useState("");
+  const [editMemberIcon, setEditMemberIcon] = useState("");
+  const [editMemberNotes, setEditMemberNotes] = useState("");
 
   // Modal de Revogação
   const [revokingMember, setRevokingMember] = useState<MemberVerification | null>(null);
@@ -366,6 +389,19 @@ export function CeoSelosPage() {
     });
     setRevokingMember(null);
     setRevokeReason("");
+  };
+
+  // Processar Edição de Personalização do Membro
+  const handleConfirmEditMember = async () => {
+    if (!editingVerifiedMember) return;
+    await updateOverrideMutation.mutateAsync({
+      targetUserId: editingVerifiedMember.user_id,
+      customTitle: editMemberTitle.trim() || undefined,
+      badgeColor: editMemberColor.trim() || undefined,
+      badgeIcon: editMemberIcon.trim() || undefined,
+      notes: editMemberNotes.trim() || undefined,
+    });
+    setEditingVerifiedMember(null);
   };
 
   // Garante que abas restritas não permaneçam ativas se o membro perder a permissão
@@ -859,23 +895,44 @@ export function CeoSelosPage() {
                             {v.verifier?.nome || "Administração"}
                           </TableCell>
 
-                          {canRevoke && (
-                            <TableCell className="text-right pr-4">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setRevokingMember(v);
-                                  setRevokeReason("");
-                                }}
-                                className="h-7 text-xs rounded-lg text-rose-400 hover:bg-rose-500/10 gap-1 font-semibold"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                                <span>Remover Selo</span>
-                              </Button>
-                            </TableCell>
-                          )}
+                          <TableCell className="text-right pr-4">
+                            <div className="flex items-center justify-end gap-1">
+                              {canGrant && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingVerifiedMember(v);
+                                    setEditMemberTitle(v.custom_title || config?.badge_name || "Verificado Oficial");
+                                    setEditMemberColor(v.badge_color_override || config?.badge_color || "");
+                                    setEditMemberIcon(v.badge_icon_override || config?.badge_icon || "");
+                                    setEditMemberNotes(v.notes || "");
+                                  }}
+                                  className="h-7 text-xs rounded-lg text-primary hover:bg-primary/10 gap-1 font-semibold cursor-pointer"
+                                  title="Editar personalização individual do selo deste membro"
+                                >
+                                  <Edit className="h-3.5 w-3.5" />
+                                  <span>Editar</span>
+                                </Button>
+                              )}
+                              {canRevoke && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setRevokingMember(v);
+                                    setRevokeReason("");
+                                  }}
+                                  className="h-7 text-xs rounded-lg text-rose-400 hover:bg-rose-500/10 gap-1 font-semibold cursor-pointer"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  <span>Remover Selo</span>
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
                         </TableRow>
                       );
                     })}
@@ -1045,6 +1102,7 @@ export function CeoSelosPage() {
                           onChange={(e) => setFormGlow(e.target.value)}
                           className="h-9 w-full rounded-xl border border-input bg-background px-3 text-xs font-semibold cursor-pointer shadow-xs"
                         >
+                          <option value="auto">Brilho Dinâmico (Cor do Selo)</option>
                           <option value="cyan">Ciano / Neon Blue</option>
                           <option value="emerald">Esmeralda / Verde</option>
                           <option value="gold">Dourado / Gold</option>
@@ -1723,6 +1781,151 @@ export function CeoSelosPage() {
               className="text-xs rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90"
             >
               Adicionar Requisito
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* DIALOG DE EDIÇÃO DE PERSONALIZAÇÃO INDIVIDUAL DO MEMBRO */}
+      <Dialog
+        open={Boolean(editingVerifiedMember)}
+        onOpenChange={(open) => !open && setEditingVerifiedMember(null)}
+      >
+        <DialogContent className="sm:max-w-lg surface-card border-border/80 shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Edit className="h-5 w-5 text-sky-400" />
+              <span>Editar Selo de {editingVerifiedMember?.member?.nickname || editingVerifiedMember?.member?.nome || "Membro"}</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Personalize o título, ícone ou cor de destaque individual deste integrante ou deixe em branco para seguir o padrão global.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2 text-xs">
+            {/* PRÉ-VISUALIZAÇÃO EM TEMPO REAL */}
+            <div
+              className="p-3.5 rounded-2xl border space-y-2 flex items-center justify-between"
+              style={{
+                backgroundColor: `${editMemberColor || config?.badge_color || "#38bdf8"}10`,
+                borderColor: `${editMemberColor || config?.badge_color || "#38bdf8"}30`,
+              }}
+            >
+              <div className="flex items-center gap-2.5">
+                <Avatar className="h-10 w-10 border border-border/60">
+                  <AvatarImage src={editingVerifiedMember?.member?.discord_avatar_url || editingVerifiedMember?.member?.avatar_url || ""} />
+                  <AvatarFallback className="font-bold text-xs">
+                    {(editingVerifiedMember?.member?.nickname || editingVerifiedMember?.member?.nome || "MB").slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-sm text-foreground">
+                      {editingVerifiedMember?.member?.nickname || editingVerifiedMember?.member?.nome}
+                    </span>
+                    <VerifiedBadge
+                      preview
+                      size="sm"
+                      iconName={editMemberIcon || config?.badge_icon}
+                      color={editMemberColor || config?.badge_color}
+                      glowStyle={config?.glow_style}
+                      tooltip={editMemberTitle || config?.tooltip_text}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {editMemberTitle || config?.badge_name || "Verificado Oficial"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* TÍTULO PERSONALIZADO */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Título do Selo no Perfil</Label>
+              <Input
+                value={editMemberTitle}
+                onChange={(e) => setEditMemberTitle(e.target.value)}
+                placeholder={config?.badge_name || "Ex: Verificado Oficial / Líder de Equipe"}
+                className="h-8 text-xs rounded-xl"
+              />
+            </div>
+
+            {/* COR PERSONALIZADA */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">Cor de Destaque Individual</Label>
+                {editMemberColor && (
+                  <button
+                    type="button"
+                    onClick={() => setEditMemberColor("")}
+                    className="text-[10px] text-sky-400 hover:underline cursor-pointer"
+                  >
+                    Restaurar cor padrão global
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {PRESET_COLORS.map((preset) => (
+                  <button
+                    key={preset.color}
+                    type="button"
+                    onClick={() => setEditMemberColor(preset.color)}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg text-[11px] font-bold border flex items-center gap-1.5 transition-all cursor-pointer",
+                      editMemberColor === preset.color
+                        ? "border-white bg-white/10 shadow-sm scale-105"
+                        : "border-border/60 bg-secondary/20 hover:border-border"
+                    )}
+                  >
+                    <span
+                      className="h-2.5 w-2.5 rounded-full inline-block border border-white/20"
+                      style={{ backgroundColor: preset.color }}
+                    />
+                    <span>{preset.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* NOTAS / MOTIVO */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Notas / Observação Interna</Label>
+              <Input
+                value={editMemberNotes}
+                onChange={(e) => setEditMemberNotes(e.target.value)}
+                placeholder="Ex: Título concedido por mérito operacional"
+                className="h-8 text-xs rounded-xl"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 pt-2 border-t border-border/60">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setEditingVerifiedMember(null)}
+              className="text-xs rounded-xl"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleConfirmEditMember}
+              disabled={updateOverrideMutation.isPending}
+              className="text-xs rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-md"
+            >
+              {updateOverrideMutation.isPending ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Salvando...</span>
+                </>
+              ) : (
+                <>
+                  <Check className="h-3.5 w-3.5" />
+                  <span>Salvar Alterações</span>
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

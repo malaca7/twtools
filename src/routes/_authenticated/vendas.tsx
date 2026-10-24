@@ -48,6 +48,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 
 export const Route = createFileRoute("/_authenticated/vendas")({
   component: VendasPage,
@@ -345,8 +346,9 @@ export function VendasPage() {
 
                         <div>
                           <span className="text-[10px] text-muted-foreground block">Vendedor</span>
-                          <span className="font-medium text-foreground truncate block">
-                            {nameOf(members, sale.seller_id)}
+                          <span className="font-medium text-foreground truncate flex items-center gap-1.5">
+                            <span>{nameOf(members, sale.seller_id)}</span>
+                            <VerifiedBadge userId={sale.seller_id} size="xs" />
                           </span>
                         </div>
 
@@ -425,7 +427,10 @@ export function VendasPage() {
                             )}
                           </TableCell>
                           <TableCell className="text-xs">
-                            {nameOf(members, sale.seller_id)}
+                            <span className="inline-flex items-center gap-1.5">
+                              <span>{nameOf(members, sale.seller_id)}</span>
+                              <VerifiedBadge userId={sale.seller_id} size="xs" />
+                            </span>
                           </TableCell>
                           <TableCell className="text-xs font-medium">
                             {sale.buyer_name || "—"}

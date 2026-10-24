@@ -90,6 +90,7 @@ import {
 } from "@/types/warnings";
 import { getProxiedImageUrl } from "@/services/postimagesService";
 import { cn } from "@/lib/utils";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 
 export const Route = createFileRoute("/_authenticated/advertencias")({
   component: AdvertenciasPage,
@@ -1272,8 +1273,9 @@ function AdvertenciasContent() {
 
                         <div className="space-y-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-bold text-sm text-foreground">
-                              {warn.member_nickname || warn.member_name}
+                            <span className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                              <span>{warn.member_nickname || warn.member_name}</span>
+                              <VerifiedBadge userId={warn.member_id} isVerified={warn.member_is_verified} size="xs" />
                             </span>
                             {warn.member_nickname && (
                               <span className="text-xs text-muted-foreground font-normal">
@@ -2153,8 +2155,9 @@ function AdvertenciasContent() {
                   <AvatarFallback className="font-bold">{viewingWarning.member_name.substring(0, 2)}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <div className="font-bold text-sm text-foreground">
-                    {viewingWarning.member_nickname || viewingWarning.member_name}
+                  <div className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                    <span>{viewingWarning.member_nickname || viewingWarning.member_name}</span>
+                    <VerifiedBadge userId={viewingWarning.member_id} isVerified={viewingWarning.member_is_verified} size="xs" />
                   </div>
                   <div className="text-muted-foreground">
                     Cargo: {viewingWarning.member_level || "Membro"} · ID: {viewingWarning.member_game_id || "N/A"}
