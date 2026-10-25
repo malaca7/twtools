@@ -734,7 +734,7 @@ function DynamicSidebarNavigation() {
         }
         return item;
       });
-      const canSeeCeo = Boolean(canAccessCeo);
+      const canSeeCeo = Boolean(isDevArea || canAccessCeo);
 
       const targetRole: "dev" | "ceo" = isDevArea ? "dev" : "ceo";
 
@@ -889,8 +889,8 @@ function DynamicSidebarNavigation() {
     if (isDevArea) {
       const devGroups = buildDevGroups();
 
-      // Menus do painel da tag CEO se o membro possuir a TAG CEO
-      const ceoGroups = canAccessCeo ? buildCeoGroups() : [];
+      // Menus do painel da tag CEO acessíveis conforme permissões da Tag Dev
+      const ceoGroups = buildCeoGroups();
 
       // Menus do painel admin / plataforma que o membro possui permissão na TAG DEV (soma dev + cargo)
       const visibleDevPlatform = allPlatformItems

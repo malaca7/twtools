@@ -989,7 +989,7 @@ export function isUserCeo(
 
   if (typeof window !== "undefined") {
     try {
-      const cfgRaw = localStorage.getItem("tw_ceo_config");
+      const cfgRaw = localStorage.getItem("tw_ceo_config") || localStorage.getItem(CEO_CONFIG_KEY);
       if (cfgRaw) {
         const cfg = JSON.parse(cfgRaw);
         const list: string[] = cfg.activeCeoUserIds || [];
@@ -1162,6 +1162,7 @@ export async function getCeoConfiguration(
       const merged = { ...DEFAULT_CEO_CONFIG, ...(data.permissions as any) };
       if (typeof window !== "undefined") {
         localStorage.setItem(CEO_CONFIG_KEY, JSON.stringify(merged));
+        localStorage.setItem("tw_ceo_config", JSON.stringify(merged));
       }
       return merged;
     }
@@ -1171,7 +1172,7 @@ export async function getCeoConfiguration(
 
   if (typeof window !== "undefined") {
     try {
-      const local = localStorage.getItem(CEO_CONFIG_KEY);
+      const local = localStorage.getItem(CEO_CONFIG_KEY) || localStorage.getItem("tw_ceo_config");
       if (local) {
         return { ...DEFAULT_CEO_CONFIG, ...JSON.parse(local) };
       }
@@ -1195,6 +1196,7 @@ export async function saveCeoConfiguration(
   try {
     if (typeof window !== "undefined") {
       localStorage.setItem(CEO_CONFIG_KEY, JSON.stringify(config));
+      localStorage.setItem("tw_ceo_config", JSON.stringify(config));
       window.dispatchEvent(new CustomEvent(CEO_CONFIG_EVENT, { detail: config }));
       window.dispatchEvent(new Event("storage"));
     }
@@ -1507,12 +1509,33 @@ export async function toggleMemberCeoTag(
     console.warn("Falha ao registrar auditoria de CEO:", auditErr);
   }
 
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    await rtdb.set("system_realtime_events/latest", {
+      type: "tag_toggle",
+      tag: "ceo",
+      status: enable,
+      userId: primaryTargetId,
+      candidateIds: uniqueCandidateIds,
+      timestamp: Date.now(),
+    }).catch(() => {});
+  } catch {}
+
+  void broadcastPermissionsRealtimeUpdate({
+    type: "tag_toggle",
+    tag: "ceo",
+    status: enable,
+    userId: primaryTargetId,
+    candidateIds: uniqueCandidateIds,
+  });
   void broadcastPermissionsRealtimeUpdate({
     type: "profiles",
     userId: primaryTargetId,
+    candidateIds: uniqueCandidateIds,
   });
   void broadcastPermissionsRealtimeUpdate({
     type: "ceo_config",
+    candidateIds: uniqueCandidateIds,
   });
 
   return { success: true, is_ceo: enable };
@@ -1766,9 +1789,33 @@ export async function toggleMemberDevTag(
     console.warn("Falha ao registrar auditoria de Dev:", auditErr);
   }
 
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    await rtdb.set("system_realtime_events/latest", {
+      type: "tag_toggle",
+      tag: "dev",
+      status: enable,
+      userId: primaryTargetId,
+      candidateIds: uniqueCandidateIds,
+      timestamp: Date.now(),
+    }).catch(() => {});
+  } catch {}
+
+  void broadcastPermissionsRealtimeUpdate({
+    type: "tag_toggle",
+    tag: "dev",
+    status: enable,
+    userId: primaryTargetId,
+    candidateIds: uniqueCandidateIds,
+  });
   void broadcastPermissionsRealtimeUpdate({
     type: "profiles",
     userId: primaryTargetId,
+    candidateIds: uniqueCandidateIds,
+  });
+  void broadcastPermissionsRealtimeUpdate({
+    type: "dev_config",
+    candidateIds: uniqueCandidateIds,
   });
 
   return { success: true, is_developer: enable };

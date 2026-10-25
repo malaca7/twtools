@@ -6,12 +6,19 @@ export type PermissionsRealtimeType =
   | "custom_roles"
   | "menu_config"
   | "ceo_config"
-  | "profiles";
+  | "dev_config"
+  | "profiles"
+  | "tag_toggle"
+  | "tags_updated"
+  | "member_tags_updated";
 
 export interface PermissionsRealtimePayload {
   type: PermissionsRealtimeType;
   level?: string | undefined;
   userId?: string | undefined;
+  candidateIds?: string[] | undefined;
+  tag?: string | undefined;
+  status?: boolean | undefined;
   timestamp?: number | undefined;
 }
 
@@ -54,9 +61,14 @@ export function dispatchLocalPermissionsSync(payload: PermissionsRealtimePayload
     if (
       payload.type === "user_roles" ||
       payload.type === "profiles" ||
-      payload.type === "custom_roles"
+      payload.type === "custom_roles" ||
+      payload.type === "tag_toggle" ||
+      payload.type === "tags_updated" ||
+      payload.type === "member_tags_updated"
     ) {
       window.dispatchEvent(new CustomEvent("tw_auth_reload", { detail: payload }));
+      window.dispatchEvent(new CustomEvent("tw_member_tags_updated", { detail: payload }));
+      window.dispatchEvent(new CustomEvent("tw_tags_updated", { detail: payload }));
     }
 
     if (payload.type === "menu_config") {
@@ -64,8 +76,13 @@ export function dispatchLocalPermissionsSync(payload: PermissionsRealtimePayload
       window.dispatchEvent(new Event("storage"));
     }
 
-    if (payload.type === "ceo_config") {
+    if (payload.type === "ceo_config" || payload.tag === "ceo") {
       window.dispatchEvent(new CustomEvent("tw_ceo_config_updated", { detail: payload }));
+      window.dispatchEvent(new Event("storage"));
+    }
+
+    if (payload.type === "dev_config" || payload.tag === "dev" || payload.tag === "desenvolvedor") {
+      window.dispatchEvent(new CustomEvent("tw_dev_config_updated", { detail: payload }));
       window.dispatchEvent(new Event("storage"));
     }
   } catch {}

@@ -90,10 +90,19 @@ export function useRealtimeSync() {
             }
           }
 
-          if (p.type === "user_roles" || p.type === "profiles" || p.type === "custom_roles") {
-            triggerInvalidations(["members", "user_roles", "auth", "auth_session"]);
+          if (
+            p.type === "user_roles" ||
+            p.type === "profiles" ||
+            p.type === "custom_roles" ||
+            p.type === "tag_toggle" ||
+            p.type === "tags_updated" ||
+            p.type === "member_tags_updated"
+          ) {
+            triggerInvalidations(["members", "user_roles", "auth", "auth_session", "member_tags", "member_tag_assignments", "profiles"]);
             if (typeof window !== "undefined") {
               window.dispatchEvent(new CustomEvent("tw_auth_reload", { detail: p }));
+              window.dispatchEvent(new CustomEvent("tw_member_tags_updated", { detail: p }));
+              window.dispatchEvent(new CustomEvent("tw_tags_updated", { detail: p }));
             }
           }
 
@@ -107,9 +116,16 @@ export function useRealtimeSync() {
             }
           }
 
-          if (p.type === "ceo_config") {
+          if (p.type === "ceo_config" || p.tag === "ceo") {
+            void getCeoConfiguration();
             if (typeof window !== "undefined") {
               window.dispatchEvent(new CustomEvent("tw_ceo_config_updated", { detail: p }));
+            }
+          }
+
+          if (p.type === "dev_config" || p.tag === "dev" || p.tag === "desenvolvedor") {
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("tw_dev_config_updated", { detail: p }));
             }
           }
         };
@@ -366,7 +382,33 @@ export function useRealtimeSync() {
           // Ignora dados residuais muito antigos (> 60 segundos)
           if (Date.now() - Number(eventData.timestamp) > 60000) return;
 
-          if (eventData.type === "cdc" && eventData.table) {
+          if (eventData.type === "tag_toggle" || eventData.type === "permissions_sync") {
+            const tagKeys = [
+              "members",
+              "user_roles",
+              "auth",
+              "auth_session",
+              "member_tags",
+              "member_tag_assignments",
+              "profiles",
+              "role_permissions",
+              "custom_roles",
+            ];
+            triggerInvalidations(tagKeys);
+            broadcastCrossTab(tagKeys);
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("tw_auth_reload", { detail: eventData }));
+              window.dispatchEvent(new CustomEvent("tw_member_tags_updated", { detail: eventData }));
+              window.dispatchEvent(new CustomEvent("tw_tags_updated", { detail: eventData }));
+              window.dispatchEvent(new CustomEvent("tw_permissions_synced", { detail: eventData }));
+              if (eventData.tag === "ceo") {
+                void getCeoConfiguration();
+                window.dispatchEvent(new CustomEvent("tw_ceo_config_updated", { detail: eventData }));
+              } else if (eventData.tag === "dev" || eventData.tag === "desenvolvedor") {
+                window.dispatchEvent(new CustomEvent("tw_dev_config_updated", { detail: eventData }));
+              }
+            }
+          } else if (eventData.type === "cdc" && eventData.table) {
             handleTableChange(eventData.table, {
               eventType: eventData.eventType || "UPDATE",
               new: eventData.record,
@@ -543,11 +585,29 @@ export function useRealtimeSync() {
             }
           }
 
-          if (p.type === "user_roles" || p.type === "profiles" || p.type === "custom_roles") {
-            triggerInvalidations(["members", "user_roles", "auth", "auth_session"]);
-            broadcastCrossTab(["members", "user_roles", "auth", "auth_session"]);
+          if (
+            p.type === "user_roles" ||
+            p.type === "profiles" ||
+            p.type === "custom_roles" ||
+            p.type === "tag_toggle" ||
+            p.type === "tags_updated" ||
+            p.type === "member_tags_updated"
+          ) {
+            const authKeys = [
+              "members",
+              "user_roles",
+              "auth",
+              "auth_session",
+              "member_tags",
+              "member_tag_assignments",
+              "profiles",
+            ];
+            triggerInvalidations(authKeys);
+            broadcastCrossTab(authKeys);
             if (typeof window !== "undefined") {
               window.dispatchEvent(new CustomEvent("tw_auth_reload", { detail: p }));
+              window.dispatchEvent(new CustomEvent("tw_member_tags_updated", { detail: p }));
+              window.dispatchEvent(new CustomEvent("tw_tags_updated", { detail: p }));
             }
           }
 
@@ -561,10 +621,18 @@ export function useRealtimeSync() {
             }
           }
 
-          if (p.type === "ceo_config") {
+          if (p.type === "ceo_config" || p.tag === "ceo") {
             void getCeoConfiguration();
             if (typeof window !== "undefined") {
               window.dispatchEvent(new CustomEvent("tw_ceo_config_updated", { detail: p }));
+              window.dispatchEvent(new CustomEvent("tw_auth_reload", { detail: p }));
+            }
+          }
+
+          if (p.type === "dev_config" || p.tag === "dev" || p.tag === "desenvolvedor") {
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("tw_dev_config_updated", { detail: p }));
+              window.dispatchEvent(new CustomEvent("tw_auth_reload", { detail: p }));
             }
           }
         })

@@ -119,15 +119,23 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
     return "dashboard";
   }, [initialTab, location.pathname, location.search]);
 
-  // Troca de aba com navegação reativa do TanStack Router
+  // Troca de aba com navegação reativa do TanStack Router mantendo o contexto Dev ou CEO
   const setTab = useCallback(
     (newTab: CeoTab) => {
-      navigate({
-        to: "/ceo/$tab",
-        params: { tab: newTab },
-      });
+      const isDevRoute = location.pathname.startsWith("/dev");
+      if (isDevRoute) {
+        navigate({
+          to: "/dev/$page/$tab",
+          params: { page: "ceo", tab: newTab },
+        });
+      } else {
+        navigate({
+          to: "/ceo/$tab",
+          params: { tab: newTab },
+        });
+      }
     },
-    [navigate]
+    [navigate, location.pathname]
   );
 
   // Métricas do Painel Executivo
@@ -161,10 +169,11 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
     return members.filter((m) => m.status === "ativo").length;
   }, [members]);
 
-  // Permissões granulares de módulos do Painel CEO (integradas com /dev/permissoes)
-  const canManageBot = isDevUser || (hasPermission("manage_ceo_bot") && ceoConfig.allowManageBot !== false);
-  const canUseWebhooks = isDevUser || (hasPermission("manage_ceo_webhooks") && ceoConfig.allowWebhooks !== false);
-  const canViewFinancials = isDevUser || (hasPermission("view_ceo_financials") && ceoConfig.allowFinancials !== false);
+  // Permissões granulares de módulos do Painel CEO (avaliadas no modo Dev ou CEO conforme contexto)
+  const targetMode = location.pathname.startsWith("/dev") || (!isCeoUser && isDevUser) ? "dev" : "ceo";
+  const canManageBot = hasPermission("manage_ceo_bot", targetMode) && ceoConfig.allowManageBot !== false;
+  const canUseWebhooks = hasPermission("manage_ceo_webhooks", targetMode) && ceoConfig.allowWebhooks !== false;
+  const canViewFinancials = hasPermission("view_ceo_financials", targetMode) && ceoConfig.allowFinancials !== false;
 
   const filteredMovements = useMemo(() => {
     if (financeFilter === "all") return cashMovements;

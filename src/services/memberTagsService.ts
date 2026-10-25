@@ -635,6 +635,29 @@ export async function toggleMemberTagAssignment(
   // Sincronização Discord em background
   void triggerAutoDiscordTagSync(memberId, tagId, isAssigned ? "add" : "remove");
 
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    await rtdb.set("system_realtime_events/latest", {
+      type: "tag_toggle",
+      tag: tagId,
+      status: isAssigned,
+      userId: memberId,
+      candidateIds: allIds,
+      timestamp: Date.now(),
+    }).catch(() => {});
+  } catch {}
+
+  try {
+    const { broadcastPermissionsRealtimeUpdate } = await import("@/lib/permissionsRealtimeSync");
+    void broadcastPermissionsRealtimeUpdate({
+      type: "tag_toggle",
+      tag: tagId,
+      status: isAssigned,
+      userId: memberId,
+      candidateIds: allIds,
+    });
+  } catch {}
+
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event("tw_tags_updated"));
     window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
@@ -715,6 +738,25 @@ export async function setMemberTags(
     void triggerAutoDiscordTagSync(memberId, tid, "add");
   }
 
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    await rtdb.set("system_realtime_events/latest", {
+      type: "tags_updated",
+      userId: memberId,
+      candidateIds: [memberId],
+      timestamp: Date.now(),
+    }).catch(() => {});
+  } catch {}
+
+  try {
+    const { broadcastPermissionsRealtimeUpdate } = await import("@/lib/permissionsRealtimeSync");
+    void broadcastPermissionsRealtimeUpdate({
+      type: "tags_updated",
+      userId: memberId,
+      candidateIds: [memberId],
+    });
+  } catch {}
+
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event("tw_tags_updated"));
     window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
@@ -791,6 +833,25 @@ export async function setTagMembers(
   for (const mid of addedMemberIds) {
     void triggerAutoDiscordTagSync(mid, tagId, "add");
   }
+
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    await rtdb.set("system_realtime_events/latest", {
+      type: "tag_toggle",
+      tag: tagId,
+      candidateIds: memberIds,
+      timestamp: Date.now(),
+    }).catch(() => {});
+  } catch {}
+
+  try {
+    const { broadcastPermissionsRealtimeUpdate } = await import("@/lib/permissionsRealtimeSync");
+    void broadcastPermissionsRealtimeUpdate({
+      type: "tag_toggle",
+      tag: tagId,
+      candidateIds: memberIds,
+    });
+  } catch {}
 
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event("tw_tags_updated"));

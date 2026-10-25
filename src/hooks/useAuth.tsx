@@ -410,25 +410,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const handleAuthReload = (e?: Event) => {
       const customEvent = e as CustomEvent;
-      const targetUserId = customEvent?.detail?.userId || customEvent?.detail?.new?.user_id;
-      const currentUserId = profile?.user_id || session?.user?.id;
-      if (!targetUserId || targetUserId === currentUserId) {
+      const detail = customEvent?.detail;
+      const eventTargetIds: string[] = [
+        detail?.userId,
+        detail?.user_id,
+        detail?.memberId,
+        detail?.member_id,
+        detail?.id,
+        detail?.new?.user_id,
+        detail?.new?.id,
+        detail?.new?.member_id,
+        detail?.old?.user_id,
+        detail?.old?.id,
+        ...(Array.isArray(detail?.candidateIds) ? detail.candidateIds : []),
+      ]
+        .filter(Boolean)
+        .map((id) => String(id).trim().toLowerCase());
+
+      const myIds = new Set(
+        [
+          profile?.user_id,
+          session?.user?.id,
+          profile?.id,
+          profile?.discord_id,
+          (profile as any)?.game_id,
+        ]
+          .filter(Boolean)
+          .map((id) => String(id).trim().toLowerCase())
+      );
+
+      const isTargetForMe = eventTargetIds.length === 0 || eventTargetIds.some((id) => myIds.has(id));
+      if (isTargetForMe) {
         setPermissionsTick((t) => t + 1);
         void loadAuth();
         void queryClient.invalidateQueries({ queryKey: ["auth"], refetchType: "all" });
         void queryClient.invalidateQueries({ queryKey: ["auth_session"], refetchType: "all" });
         void queryClient.invalidateQueries({ queryKey: ["members"], refetchType: "all" });
+        void queryClient.invalidateQueries({ queryKey: ["member_tags"], refetchType: "all" });
+        void queryClient.invalidateQueries({ queryKey: ["member_tag_assignments"], refetchType: "all" });
+        void queryClient.invalidateQueries({ queryKey: ["profiles"], refetchType: "all" });
       }
     };
 
     const handleMenuOrCeoUpdate = () => {
       setPermissionsTick((t) => t + 1);
+      void loadAuth();
+      void queryClient.invalidateQueries({ queryKey: ["member_tags"], refetchType: "all" });
+      void queryClient.invalidateQueries({ queryKey: ["member_tag_assignments"], refetchType: "all" });
+      void queryClient.invalidateQueries({ queryKey: ["members"], refetchType: "all" });
+      void queryClient.invalidateQueries({ queryKey: ["auth"], refetchType: "all" });
+      void queryClient.invalidateQueries({ queryKey: ["profiles"], refetchType: "all" });
     };
 
     window.addEventListener("tw_permissions_synced", handlePermissionsSynced);
     window.addEventListener("tw_auth_reload", handleAuthReload);
     window.addEventListener("tw_menu_updated", handleMenuOrCeoUpdate);
     window.addEventListener("tw_ceo_config_updated", handleMenuOrCeoUpdate);
+    window.addEventListener("tw_dev_config_updated", handleMenuOrCeoUpdate);
     window.addEventListener("tw_tags_updated", handleMenuOrCeoUpdate);
     window.addEventListener("tw_member_tags_updated", handleMenuOrCeoUpdate);
     window.addEventListener("tw_verifications_updated", handleAuthReload);
@@ -438,11 +476,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("tw_auth_reload", handleAuthReload);
       window.removeEventListener("tw_menu_updated", handleMenuOrCeoUpdate);
       window.removeEventListener("tw_ceo_config_updated", handleMenuOrCeoUpdate);
+      window.removeEventListener("tw_dev_config_updated", handleMenuOrCeoUpdate);
       window.removeEventListener("tw_tags_updated", handleMenuOrCeoUpdate);
       window.removeEventListener("tw_member_tags_updated", handleMenuOrCeoUpdate);
       window.removeEventListener("tw_verifications_updated", handleAuthReload);
     };
-  }, [loadAuth, profile?.user_id, session?.user?.id, queryClient]);
+  }, [loadAuth, profile?.user_id, profile?.id, profile?.discord_id, session?.user?.id, queryClient]);
 
   // Realtime subscription para tags de membros e atribuições
   useEffect(() => {
@@ -515,7 +554,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (!hasCeoActive && typeof window !== "undefined") {
           try {
-            const ceoCfg = localStorage.getItem("tw_ceo_config");
+            const ceoCfg = localStorage.getItem("tw_ceo_config") || localStorage.getItem("tw_ceo_config_v1");
             if (ceoCfg) {
               const parsed = JSON.parse(ceoCfg);
               const list: string[] = parsed.activeCeoUserIds || [];
@@ -905,7 +944,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 3. Fallback adicional de activeCeoUserIds em localStorage caso memberTags ainda esteja sincronizando
     if (typeof window !== "undefined") {
       try {
-        const ceoCfg = localStorage.getItem("tw_ceo_config");
+        const ceoCfg = localStorage.getItem("tw_ceo_config") || localStorage.getItem("tw_ceo_config_v1");
         if (ceoCfg) {
           const parsed = JSON.parse(ceoCfg);
           const list: string[] = parsed.activeCeoUserIds || [];

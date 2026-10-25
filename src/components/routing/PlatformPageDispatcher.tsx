@@ -121,6 +121,10 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
   advertencias: "view_warnings",
   "ceo-advertencias": "view_warnings",
   "dev-advertencias": "view_warnings",
+  selos: "verification.manage",
+  "ceo-selos": "verification.manage",
+  "dev-selos": "verification.manage",
+  "gerenciar-selos": "verification.manage",
 
   // Módulos DEV
   "dev-notificacoes": "view_dev_notifications",
@@ -156,21 +160,39 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
   if (normalizedPage === "ceo") {
     const sub = effectiveTab || "dashboard";
     if (sub === "dashboard" || sub === "executivo") {
+      if (!hasPermission("view_ceo", mode) && !hasPermission("view_ceo_dashboard", mode)) {
+        return <NoAccess message="Você não possui permissão para acessar o Dashboard Executivo da Tag CEO." />;
+      }
       return <CeoPageContent initialTab="dashboard" />;
     }
     if (sub === "bot") {
+      if (!hasPermission("manage_ceo_bot", mode)) {
+        return <NoAccess message="Você não possui permissão para acessar o Gerenciador de Bot da Tag CEO." />;
+      }
       return <CeoPageContent initialTab="bot" />;
     }
     if (sub === "webhooks") {
+      if (!hasPermission("manage_ceo_webhooks", mode)) {
+        return <NoAccess message="Você não possui permissão para acessar os Webhooks da Tag CEO." />;
+      }
       return <CeoPageContent initialTab="webhooks" />;
     }
     if (sub === "financas") {
+      if (!hasPermission("view_ceo_financials", mode)) {
+        return <NoAccess message="Você não possui permissão para acessar as Finanças da Tag CEO." />;
+      }
       return <CeoPageContent initialTab="financas" />;
     }
     if (sub === "ajustes-estoque" || sub === "ceo-ajustes-estoque" || sub === "estoque-ajustes") {
+      if (!hasPermission("view_ceo_stock_adjustments", mode)) {
+        return <NoAccess message="Você não possui permissão para acessar os Ajustes de Estoque da Tag CEO." />;
+      }
       return <CeoAjustesEstoqueContent />;
     }
     if (sub === "notificacoes" || sub === "ceo-notificacoes") {
+      if (!hasPermission("view_ceo_notifications", mode)) {
+        return <NoAccess message="Você não possui permissão para acessar as Notificações da Tag CEO." />;
+      }
       return <CeoNotificationsPage />;
     }
     if (
@@ -180,13 +202,25 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       sub === "permissoes-tags" ||
       sub === "ceo-permissoes-tags"
     ) {
+      if (!hasPermission("view_ceo_tag_permissions", mode)) {
+        return <NoAccess message="Você não possui permissão para gerenciar Tags Executivas da Tag CEO." />;
+      }
       return <CeoGerenciarTagsPage />;
     }
     if (sub === "selos" || sub === "ceo-selos" || sub === "gerenciar-selos") {
+      if (!hasPermission("verification.manage", mode)) {
+        return <NoAccess message="Você não possui permissão para gerenciar Selos de Verificação da Tag CEO." />;
+      }
       return <CeoSelosPage />;
     }
     if (sub === "advertencias" || sub === "ceo-advertencias" || sub === "suspensoes") {
+      if (!hasPermission("view_warnings", mode)) {
+        return <NoAccess message="Você não possui permissão para acessar as Advertências da Tag CEO." />;
+      }
       return <AdvertenciasPage />;
+    }
+    if (!hasPermission("view_ceo", mode) && !hasPermission("view_ceo_dashboard", mode)) {
+      return <NoAccess message="Você não possui permissão para acessar este módulo da Tag CEO." />;
     }
     return <CeoPageContent initialTab={sub} />;
   }
@@ -255,18 +289,33 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       return <DevCoinsPage />;
     }
     if (normalizedPage === "tags" || normalizedPage === "dev-tags" || normalizedPage === "gerenciar-tags") {
+      if (!hasPermission("view_ceo_tag_permissions", mode) && !hasPermission("view_dev_tags", mode)) {
+        return <NoAccess message="Você não possui permissão para gerenciar Tags." />;
+      }
       return <CeoGerenciarTagsPage />;
     }
     if (normalizedPage === "selos" || normalizedPage === "dev-selos" || normalizedPage === "ceo-selos" || normalizedPage === "gerenciar-selos") {
+      if (!hasPermission("verification.manage", mode)) {
+        return <NoAccess message="Você não possui permissão para gerenciar Selos." />;
+      }
       return <CeoSelosPage />;
     }
     if (normalizedPage === "ajustes-estoque" || normalizedPage === "ceo-ajustes-estoque" || normalizedPage === "estoque-ajustes") {
+      if (!hasPermission("view_ceo_stock_adjustments", mode)) {
+        return <NoAccess message="Você não possui permissão para realizar Ajustes de Estoque." />;
+      }
       return <CeoAjustesEstoqueContent />;
     }
     if (normalizedPage === "webhooks" || normalizedPage === "ceo-webhooks") {
+      if (!hasPermission("manage_ceo_webhooks", mode)) {
+        return <NoAccess message="Você não possui permissão para gerenciar Webhooks." />;
+      }
       return <CeoPageContent initialTab="webhooks" />;
     }
     if (normalizedPage === "financas" || normalizedPage === "ceo-financas") {
+      if (!hasPermission("view_ceo_financials", mode)) {
+        return <NoAccess message="Você não possui permissão para visualizar Finanças." />;
+      }
       return <CeoPageContent initialTab="financas" />;
     }
   }
