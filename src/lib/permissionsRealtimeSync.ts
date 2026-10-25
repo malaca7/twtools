@@ -110,7 +110,15 @@ export async function broadcastPermissionsRealtimeUpdate(
     }
   } catch {}
 
-  // 3. Supabase Realtime WebSocket broadcast para todos os outros usuários conectados
+  // 3. Persistência e Broadcast Global via Firebase RTDB (chega a 100% de todos os navegadores de todos os membros)
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    await rtdb.set("system_realtime_events/latest", fullPayload);
+  } catch (err) {
+    console.warn("RTDB realtime events broadcast warning:", err);
+  }
+
+  // 4. Supabase Realtime WebSocket broadcast para todos os outros usuários conectados
   try {
     const ch = getPermissionsRealtimeChannel();
     await ch.send({

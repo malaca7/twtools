@@ -439,16 +439,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .map((id) => String(id).trim().toLowerCase())
       );
 
+      // Invalidação global mandatória de consultas para todos os membros conectados na plataforma
+      setPermissionsTick((t) => t + 1);
+      void queryClient.invalidateQueries({ queryKey: ["members"], refetchType: "all" });
+      void queryClient.invalidateQueries({ queryKey: ["user_roles"], refetchType: "all" });
+      void queryClient.invalidateQueries({ queryKey: ["member_tags"], refetchType: "all" });
+      void queryClient.invalidateQueries({ queryKey: ["member_tag_assignments"], refetchType: "all" });
+      void queryClient.invalidateQueries({ queryKey: ["profiles"], refetchType: "all" });
+      void queryClient.invalidateQueries({ queryKey: ["role_permissions"], refetchType: "all" });
+      void queryClient.invalidateQueries({ queryKey: ["custom_roles"], refetchType: "all" });
+
       const isTargetForMe = eventTargetIds.length === 0 || eventTargetIds.some((id) => myIds.has(id));
       if (isTargetForMe) {
-        setPermissionsTick((t) => t + 1);
         void loadAuth();
         void queryClient.invalidateQueries({ queryKey: ["auth"], refetchType: "all" });
         void queryClient.invalidateQueries({ queryKey: ["auth_session"], refetchType: "all" });
-        void queryClient.invalidateQueries({ queryKey: ["members"], refetchType: "all" });
-        void queryClient.invalidateQueries({ queryKey: ["member_tags"], refetchType: "all" });
-        void queryClient.invalidateQueries({ queryKey: ["member_tag_assignments"], refetchType: "all" });
-        void queryClient.invalidateQueries({ queryKey: ["profiles"], refetchType: "all" });
       }
     };
 

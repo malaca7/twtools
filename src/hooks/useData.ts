@@ -108,6 +108,8 @@ export function useMembers() {
   return useQuery({
     queryKey: ["members"],
     queryFn: async (): Promise<Member[]> => getMembers(),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 }
 

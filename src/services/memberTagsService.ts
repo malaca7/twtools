@@ -263,23 +263,48 @@ export async function getMemberTags(): Promise<MemberTag[]> {
  * Busca todas as atribuições de tags aos membros
  */
 export async function getMemberTagAssignments(): Promise<MemberTagAssignment[]> {
-  const { data, error } = await supabase
-    .from("member_tag_assignments" as any)
-    .select("*")
-    .order("assigned_at", { ascending: false });
+  try {
+    const { data, error } = await supabase
+      .from("member_tag_assignments" as any)
+      .select("*")
+      .order("assigned_at", { ascending: false });
 
-  if (error) {
-    console.error("Erro ao buscar member_tag_assignments:", error);
+    if (!error && Array.isArray(data) && data.length > 0) {
+      return (data || []).map((d: any) => ({
+        id: d.id,
+        member_id: d.member_id || d.user_id,
+        tag_id: d.tag_id,
+        assigned_by: d.assigned_by,
+        assigned_at: d.assigned_at,
+      }));
+    }
+
+    // Fallback de ultra-baixa latência ao Firebase RTDB
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    const rtdbList = await rtdb.getList<any>("member_tag_assignments");
+    if (Array.isArray(rtdbList) && rtdbList.length > 0) {
+      return rtdbList
+        .filter((r) => r && (r.member_id || r.user_id) && r.tag_id)
+        .map((r: any) => ({
+          id: r.id || `${r.member_id || r.user_id}_${r.tag_id}`,
+          member_id: r.member_id || r.user_id,
+          tag_id: r.tag_id,
+          assigned_by: r.assigned_by || null,
+          assigned_at: r.created_at || r.assigned_at || new Date().toISOString(),
+        }));
+    }
+
+    return (data || []).map((d: any) => ({
+      id: d.id,
+      member_id: d.member_id || d.user_id,
+      tag_id: d.tag_id,
+      assigned_by: d.assigned_by,
+      assigned_at: d.assigned_at,
+    }));
+  } catch (err) {
+    console.error("Erro ao buscar member_tag_assignments:", err);
     return [];
   }
-
-  return (data || []).map((d: any) => ({
-    id: d.id,
-    member_id: d.member_id,
-    tag_id: d.tag_id,
-    assigned_by: d.assigned_by,
-    assigned_at: d.assigned_at,
-  }));
 }
 
 /**
@@ -405,6 +430,30 @@ export async function saveMemberTag(tag: {
     throw new Error(error.message || "Erro ao salvar tag");
   }
 
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    await rtdb.set(`member_tags/${cleanId}`, payload).catch(() => {});
+    await rtdb.set("system_realtime_events/latest", {
+      type: "member_tags",
+      tagId: cleanId,
+      timestamp: Date.now(),
+    }).catch(() => {});
+  } catch {}
+
+  try {
+    const { broadcastPermissionsRealtimeUpdate } = await import("@/lib/permissionsRealtimeSync");
+    void broadcastPermissionsRealtimeUpdate({
+      type: "member_tags",
+      tagId: cleanId,
+    });
+  } catch {}
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("tw_tags_updated"));
+    window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
+    window.dispatchEvent(new Event("tw_permissions_synced"));
+  }
+
   return {
     id: (data as any).id,
     name: (data as any).name,
@@ -446,6 +495,25 @@ export async function updateMemberTagsOrder(orderedTagIds: string[]): Promise<vo
         .eq("id", orderedTagIds[i]);
     }
   }
+
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    await rtdb.set("system_realtime_events/latest", {
+      type: "member_tags",
+      timestamp: Date.now(),
+    }).catch(() => {});
+  } catch {}
+
+  try {
+    const { broadcastPermissionsRealtimeUpdate } = await import("@/lib/permissionsRealtimeSync");
+    void broadcastPermissionsRealtimeUpdate({
+      type: "member_tags",
+    });
+  } catch {}
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("tw_tags_updated"));
+  }
 }
 
 /**
@@ -470,6 +538,34 @@ export async function updateTagPermissionsAndRules(
     console.error("Erro ao atualizar permissões e regras da tag:", error);
     throw new Error(error.message || "Erro ao salvar permissões e regras da tag");
   }
+
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    await rtdb.update(`member_tags/${tagId}`, {
+      permissions,
+      rules: safeRules,
+      updated_at: new Date().toISOString(),
+    }).catch(() => {});
+    await rtdb.set("system_realtime_events/latest", {
+      type: "role_permissions",
+      tagId,
+      timestamp: Date.now(),
+    }).catch(() => {});
+  } catch {}
+
+  try {
+    const { broadcastPermissionsRealtimeUpdate } = await import("@/lib/permissionsRealtimeSync");
+    void broadcastPermissionsRealtimeUpdate({
+      type: "role_permissions",
+      tagId,
+    });
+  } catch {}
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("tw_tags_updated"));
+    window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
+    window.dispatchEvent(new Event("tw_permissions_synced"));
+  }
 }
 
 /**
@@ -487,6 +583,32 @@ export async function toggleMemberTagSystem(tagId: string, isSystem: boolean): P
   if (error) {
     console.error("Erro ao alternar status de tag de sistema:", error);
     throw new Error(error.message || "Erro ao atualizar status da tag");
+  }
+
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    await rtdb.update(`member_tags/${tagId}`, {
+      is_system: isSystem,
+      updated_at: new Date().toISOString(),
+    }).catch(() => {});
+    await rtdb.set("system_realtime_events/latest", {
+      type: "member_tags",
+      tagId,
+      timestamp: Date.now(),
+    }).catch(() => {});
+  } catch {}
+
+  try {
+    const { broadcastPermissionsRealtimeUpdate } = await import("@/lib/permissionsRealtimeSync");
+    void broadcastPermissionsRealtimeUpdate({
+      type: "member_tags",
+      tagId,
+    });
+  } catch {}
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("tw_tags_updated"));
+    window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
   }
 }
 
@@ -511,6 +633,30 @@ export async function deleteMemberTag(tagId: string): Promise<void> {
   if (error) {
     console.error("Erro ao excluir tag:", error);
     throw new Error(error.message || "Erro ao remover tag");
+  }
+
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    await rtdb.remove(`member_tags/${tagId}`).catch(() => {});
+    await rtdb.set("system_realtime_events/latest", {
+      type: "member_tags",
+      tagId,
+      timestamp: Date.now(),
+    }).catch(() => {});
+  } catch {}
+
+  try {
+    const { broadcastPermissionsRealtimeUpdate } = await import("@/lib/permissionsRealtimeSync");
+    void broadcastPermissionsRealtimeUpdate({
+      type: "member_tags",
+      tagId,
+    });
+  } catch {}
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("tw_tags_updated"));
+    window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
+    window.dispatchEvent(new Event("tw_permissions_synced"));
   }
 }
 

@@ -33,6 +33,12 @@ export function useRealtimeSync() {
   const unsubRtdbWeeklyGoalsRef = useRef<(() => void) | null>(null);
   const unsubRtdbProductionsRef = useRef<(() => void) | null>(null);
   const unsubRtdbWarehouseStockRef = useRef<(() => void) | null>(null);
+  const unsubRtdbUserRolesRef = useRef<(() => void) | null>(null);
+  const unsubRtdbMemberTagsRef = useRef<(() => void) | null>(null);
+  const unsubRtdbTagAssignmentsRef = useRef<(() => void) | null>(null);
+  const unsubRtdbRolePermissionsRef = useRef<(() => void) | null>(null);
+  const unsubRtdbCustomRolesRef = useRef<(() => void) | null>(null);
+  const unsubRtdbProfilesRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -387,7 +393,16 @@ export function useRealtimeSync() {
           // Ignora dados residuais muito antigos (> 60 segundos)
           if (Date.now() - Number(eventData.timestamp) > 60000) return;
 
-          if (eventData.type === "tag_toggle" || eventData.type === "permissions_sync") {
+          if (
+            eventData.type === "tag_toggle" ||
+            eventData.type === "permissions_sync" ||
+            eventData.type === "user_roles" ||
+            eventData.type === "role_permissions" ||
+            eventData.type === "custom_roles" ||
+            eventData.type === "profiles" ||
+            eventData.type === "tags_updated" ||
+            eventData.type === "member_tags_updated"
+          ) {
             const tagKeys = [
               "members",
               "user_roles",
@@ -406,11 +421,13 @@ export function useRealtimeSync() {
               window.dispatchEvent(new CustomEvent("tw_member_tags_updated", { detail: eventData }));
               window.dispatchEvent(new CustomEvent("tw_tags_updated", { detail: eventData }));
               window.dispatchEvent(new CustomEvent("tw_permissions_synced", { detail: eventData }));
-              if (eventData.tag === "ceo") {
+              if (eventData.tag === "ceo" || eventData.level === "ceo") {
                 void getCeoConfiguration();
                 window.dispatchEvent(new CustomEvent("tw_ceo_config_updated", { detail: eventData }));
-              } else if (eventData.tag === "dev" || eventData.tag === "desenvolvedor") {
-                window.dispatchEvent(new CustomEvent("tw_dev_config_updated", { detail: eventData }));
+              } else if (eventData.tag === "dev" || eventData.tag === "desenvolvedor" || eventData.level === "desenvolvedor") {
+                void fetchRemoteDevConfiguration(true).then((newCfg) => {
+                  window.dispatchEvent(new CustomEvent("tw_dev_config_updated", { detail: newCfg }));
+                });
               }
             }
           } else if (eventData.type === "cdc" && eventData.table) {
@@ -453,6 +470,71 @@ export function useRealtimeSync() {
             }
           });
           triggerInvalidations(["role_permissions"]);
+        });
+
+        // Subscrições diretas para Cargos, Permissões e Tags em Tempo Real Instantâneo (<50ms)
+        if (unsubRtdbUserRolesRef.current) unsubRtdbUserRolesRef.current();
+        unsubRtdbUserRolesRef.current = rtdb.subscribe("user_roles", () => {
+          const authKeys = ["user_roles", "members", "auth", "auth_session", "profiles"];
+          triggerInvalidations(authKeys);
+          broadcastCrossTab(authKeys);
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_auth_reload"));
+            window.dispatchEvent(new CustomEvent("tw_permissions_synced"));
+          }
+        });
+
+        if (unsubRtdbTagAssignmentsRef.current) unsubRtdbTagAssignmentsRef.current();
+        unsubRtdbTagAssignmentsRef.current = rtdb.subscribe("member_tag_assignments", () => {
+          const tagKeys = ["member_tag_assignments", "member_tags", "members", "auth"];
+          triggerInvalidations(tagKeys);
+          broadcastCrossTab(tagKeys);
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
+            window.dispatchEvent(new CustomEvent("tw_auth_reload"));
+          }
+        });
+
+        if (unsubRtdbMemberTagsRef.current) unsubRtdbMemberTagsRef.current();
+        unsubRtdbMemberTagsRef.current = rtdb.subscribe("member_tags", () => {
+          const tagKeys = ["member_tags", "member_tag_assignments", "members", "auth"];
+          triggerInvalidations(tagKeys);
+          broadcastCrossTab(tagKeys);
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_tags_updated"));
+            window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
+          }
+        });
+
+        if (unsubRtdbRolePermissionsRef.current) unsubRtdbRolePermissionsRef.current();
+        unsubRtdbRolePermissionsRef.current = rtdb.subscribe("role_permissions", () => {
+          const permKeys = ["role_permissions", "custom_roles"];
+          triggerInvalidations(permKeys);
+          broadcastCrossTab(permKeys);
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_permissions_synced"));
+          }
+        });
+
+        if (unsubRtdbCustomRolesRef.current) unsubRtdbCustomRolesRef.current();
+        unsubRtdbCustomRolesRef.current = rtdb.subscribe("custom_roles", () => {
+          const roleKeys = ["custom_roles", "role_permissions", "members", "user_roles"];
+          triggerInvalidations(roleKeys);
+          broadcastCrossTab(roleKeys);
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_permissions_synced"));
+            window.dispatchEvent(new CustomEvent("tw_auth_reload"));
+          }
+        });
+
+        if (unsubRtdbProfilesRef.current) unsubRtdbProfilesRef.current();
+        unsubRtdbProfilesRef.current = rtdb.subscribe("profiles", () => {
+          const profKeys = ["profiles", "members", "auth", "auth_session"];
+          triggerInvalidations(profKeys);
+          broadcastCrossTab(profKeys);
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("tw_auth_reload"));
+          }
         });
 
         if (unsubRtdbAnnouncementsRef.current) unsubRtdbAnnouncementsRef.current();
@@ -754,6 +836,12 @@ export function useRealtimeSync() {
       if (unsubRtdbWeeklyGoalsRef.current) unsubRtdbWeeklyGoalsRef.current();
       if (unsubRtdbProductionsRef.current) unsubRtdbProductionsRef.current();
       if (unsubRtdbWarehouseStockRef.current) unsubRtdbWarehouseStockRef.current();
+      if (unsubRtdbUserRolesRef.current) unsubRtdbUserRolesRef.current();
+      if (unsubRtdbMemberTagsRef.current) unsubRtdbMemberTagsRef.current();
+      if (unsubRtdbTagAssignmentsRef.current) unsubRtdbTagAssignmentsRef.current();
+      if (unsubRtdbRolePermissionsRef.current) unsubRtdbRolePermissionsRef.current();
+      if (unsubRtdbCustomRolesRef.current) unsubRtdbCustomRolesRef.current();
+      if (unsubRtdbProfilesRef.current) unsubRtdbProfilesRef.current();
       cleanupChannels();
     };
   }, [queryClient]);

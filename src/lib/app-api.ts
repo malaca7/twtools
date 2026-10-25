@@ -64,6 +64,31 @@ export async function getCurrentAuth(): Promise<AuthState> {
       if (devRaw) {
         try {
           const dev = JSON.parse(devRaw);
+          const currentUserId = dev.user_id || dev.id;
+
+          // Sincroniza em tempo real com os dados mais recentes do banco / RTDB para refletir mudanças instantâneas
+          try {
+            const { rtdb } = await import("@/integrations/firebase/rtdb");
+            const roles = await rtdb.getList<any>("user_roles");
+            const userRole = roles.find(r => r && (r.user_id === currentUserId || r.user_id === dev.id));
+            if (userRole && userRole.nivel) {
+              dev.nivel = userRole.nivel;
+            }
+
+            const fbProfiles = await rtdb.getList<any>("profiles");
+            const userProf = fbProfiles.find(p => p && (p.user_id === currentUserId || p.id === currentUserId || (dev.discord_id && String(p.discord_id) === String(dev.discord_id))));
+            if (userProf) {
+              if (userProf.status) dev.status = userProf.status;
+              if (userProf.is_developer !== undefined) dev.is_developer = Boolean(userProf.is_developer);
+              if (userProf.is_ceo !== undefined) dev.is_ceo = Boolean(userProf.is_ceo);
+              if (userProf.custom_theme) dev.custom_theme = userProf.custom_theme;
+              if (userProf.nome) dev.nome = userProf.nome;
+              if (userProf.nickname !== undefined) dev.nickname = userProf.nickname;
+              if (userProf.avatar_url) dev.avatar_url = userProf.avatar_url;
+              if (userProf.is_verified !== undefined) dev.is_verified = Boolean(userProf.is_verified);
+            }
+            localStorage.setItem("tw_dev_impersonate", JSON.stringify(dev));
+          } catch {}
           const user: AppUser = {
             id: dev.user_id || dev.id,
             email: dev.discord_email || null,

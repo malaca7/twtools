@@ -27,7 +27,8 @@ export function useMemberTags() {
   return useQuery({
     queryKey: ["member_tags"],
     queryFn: getMemberTags,
-    staleTime: 2000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -37,7 +38,8 @@ export function useMemberTagAssignments() {
   return useQuery({
     queryKey: ["member_tag_assignments"],
     queryFn: getMemberTagAssignments,
-    staleTime: 2000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 }
 
