@@ -313,18 +313,6 @@ export async function getCurrentAuth(): Promise<AuthState> {
     );
     let isCeo = Boolean(pAny?.is_ceo === true || pAny?.custom_theme?.is_ceo === true || roleRow?.nivel === "ceo");
 
-    if (typeof window !== "undefined") {
-      try {
-        const ceoCfg = localStorage.getItem("tw_ceo_config");
-        if (ceoCfg) {
-          const list = JSON.parse(ceoCfg)?.activeCeoUserIds || [];
-          if (list.some((id: string) => candidateUids.includes(String(id)))) {
-            isCeo = true;
-          }
-        }
-      } catch {}
-    }
-
     const profile: Profile | null = profileRow ? {
       id: pAny.id,
       user_id: session.user.id,

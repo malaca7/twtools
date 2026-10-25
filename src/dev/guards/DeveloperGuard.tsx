@@ -1,31 +1,26 @@
-import { type ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
+import { type ReactNode, useEffect } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { ShieldAlert, ArrowLeft, Lock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
-import { isUserDeveloper } from "@/services/devService";
 
 interface DeveloperGuardProps {
   children: ReactNode;
 }
 
 export function DeveloperGuard({ children }: DeveloperGuardProps) {
-  const { user, profile, level, isDevUser, loading } = useAuth();
+  const { isDevUser, loading } = useAuth();
+  const navigate = useNavigate();
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center p-6">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          <p className="text-xs text-muted-foreground font-medium">Verificando credenciais de desenvolvedor...</p>
-        </div>
-      </div>
-    );
-  }
+  const isDev = Boolean(isDevUser);
 
-  const isDev = Boolean(isDevUser || isUserDeveloper(user, profile, level));
+  useEffect(() => {
+    if (!loading && !isDev) {
+      void navigate({ to: "/dashboard", replace: true });
+    }
+  }, [loading, isDev, navigate]);
 
   if (!isDev) {
     return (

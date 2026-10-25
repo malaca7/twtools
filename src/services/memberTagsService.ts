@@ -842,6 +842,17 @@ export async function toggleMemberTagAssignment(
   } catch {}
 
   if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent("tw_auth_reload", {
+        detail: {
+          type: "tag_toggle",
+          tag: tagId,
+          status: isAssigned,
+          userId: memberId,
+          candidateIds: allIds,
+        },
+      })
+    );
     window.dispatchEvent(new Event("tw_tags_updated"));
     window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
     window.dispatchEvent(new Event("tw_permissions_synced"));
@@ -1064,6 +1075,46 @@ export async function assignMemberTag(
       assigned_by: assignedBy || null,
     });
     void triggerAutoDiscordTagSync(memberId, tagId, "add");
+
+    try {
+      const { rtdb } = await import("@/integrations/firebase/rtdb");
+      await rtdb.set("system_realtime_events/latest", {
+        type: "tag_toggle",
+        tag: tagId,
+        status: true,
+        userId: memberId,
+        candidateIds: [memberId],
+        timestamp: Date.now(),
+      }).catch(() => {});
+    } catch {}
+
+    try {
+      const { broadcastPermissionsRealtimeUpdate } = await import("@/lib/permissionsRealtimeSync");
+      void broadcastPermissionsRealtimeUpdate({
+        type: "tag_toggle",
+        tag: tagId,
+        status: true,
+        userId: memberId,
+        candidateIds: [memberId],
+      });
+    } catch {}
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("tw_auth_reload", {
+          detail: {
+            type: "tag_toggle",
+            tag: tagId,
+            status: true,
+            userId: memberId,
+            candidateIds: [memberId],
+          },
+        })
+      );
+      window.dispatchEvent(new Event("tw_tags_updated"));
+      window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
+      window.dispatchEvent(new Event("tw_permissions_synced"));
+    }
   }
 }
 
@@ -1081,5 +1132,45 @@ export async function removeMemberTagAssignment(
     .eq("tag_id", tagId);
 
   void triggerAutoDiscordTagSync(memberId, tagId, "remove");
+
+  try {
+    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    await rtdb.set("system_realtime_events/latest", {
+      type: "tag_toggle",
+      tag: tagId,
+      status: false,
+      userId: memberId,
+      candidateIds: [memberId],
+      timestamp: Date.now(),
+    }).catch(() => {});
+  } catch {}
+
+  try {
+    const { broadcastPermissionsRealtimeUpdate } = await import("@/lib/permissionsRealtimeSync");
+    void broadcastPermissionsRealtimeUpdate({
+      type: "tag_toggle",
+      tag: tagId,
+      status: false,
+      userId: memberId,
+      candidateIds: [memberId],
+    });
+  } catch {}
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent("tw_auth_reload", {
+        detail: {
+          type: "tag_toggle",
+          tag: tagId,
+          status: false,
+          userId: memberId,
+          candidateIds: [memberId],
+        },
+      })
+    );
+    window.dispatchEvent(new Event("tw_tags_updated"));
+    window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
+    window.dispatchEvent(new Event("tw_permissions_synced"));
+  }
 }
 

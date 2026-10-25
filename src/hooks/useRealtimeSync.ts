@@ -421,10 +421,10 @@ export function useRealtimeSync() {
               window.dispatchEvent(new CustomEvent("tw_member_tags_updated", { detail: eventData }));
               window.dispatchEvent(new CustomEvent("tw_tags_updated", { detail: eventData }));
               window.dispatchEvent(new CustomEvent("tw_permissions_synced", { detail: eventData }));
-              if (eventData.tag === "ceo" || eventData.level === "ceo") {
+              if (eventData.tag === "ceo" || eventData.level === "ceo" || eventData.type === "ceo_config") {
                 void getCeoConfiguration();
                 window.dispatchEvent(new CustomEvent("tw_ceo_config_updated", { detail: eventData }));
-              } else if (eventData.tag === "dev" || eventData.tag === "desenvolvedor" || eventData.level === "desenvolvedor") {
+              } else if (eventData.tag === "dev" || eventData.tag === "desenvolvedor" || eventData.level === "desenvolvedor" || eventData.type === "dev_config") {
                 void fetchRemoteDevConfiguration(true).then((newCfg) => {
                   window.dispatchEvent(new CustomEvent("tw_dev_config_updated", { detail: newCfg }));
                 });

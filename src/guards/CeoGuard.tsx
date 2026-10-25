@@ -1,5 +1,5 @@
-import { type ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
+import { type ReactNode, useEffect } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Lock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,42 +8,22 @@ import { CeoBadge, DevBadge } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
 import { usePanelTheme } from "@/lib/panelTheme";
 
-import { isUserCeo } from "@/services/devService";
-
 interface CeoGuardProps {
   children: ReactNode;
 }
 
 export function CeoGuard({ children }: CeoGuardProps) {
-  const { isCeoUser, isDevUser, loading, hasPermission, profile, memberTags } = useAuth();
-  const { ceoStyle, devStyle, CeoIcon, DevIcon } = usePanelTheme();
+  const { isCeoUser, loading } = useAuth();
+  const { ceoStyle, CeoIcon } = usePanelTheme();
+  const navigate = useNavigate();
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center p-6">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <div
-            className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
-            style={{ borderColor: `${ceoStyle.primaryHex}40`, borderTopColor: ceoStyle.primaryHex }}
-          />
-          <p className="text-xs text-muted-foreground font-medium">Verificando credenciais executivas (Tag CEO)...</p>
-        </div>
-      </div>
-    );
-  }
+  const hasAccess = Boolean(isCeoUser);
 
-  const isDirectCeo = Boolean(
-    isCeoUser ||
-    profile?.is_ceo === true ||
-    profile?.custom_theme?.is_ceo === true ||
-    (profile as any)?.role === "ceo" ||
-    (profile as any)?.cargo === "ceo" ||
-    (profile as any)?.nivel === "ceo" ||
-    isUserCeo(profile) ||
-    memberTags?.some((t) => (t.id || "").toLowerCase() === "ceo" || t.rules?.can_access_ceo || t.rules?.is_ceo)
-  );
-
-  const hasAccess = Boolean(isDirectCeo);
+  useEffect(() => {
+    if (!loading && !hasAccess) {
+      void navigate({ to: "/dashboard", replace: true });
+    }
+  }, [loading, hasAccess, navigate]);
 
   if (!hasAccess) {
     return (

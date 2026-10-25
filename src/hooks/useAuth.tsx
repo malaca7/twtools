@@ -439,6 +439,143 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .map((id) => String(id).trim().toLowerCase())
       );
 
+      const isTargetForMe = eventTargetIds.length === 0 || eventTargetIds.some((id) => myIds.has(id));
+
+      // 1. AÇÃO SÍNCRONA INSTANTÂNEA SE A TAG FOI REMOVIDA (0ms)
+      if (detail?.type === "tag_toggle" && detail?.status === false) {
+        const removedTag = String(detail?.tag || "").toLowerCase().trim();
+
+        // Se a tag removida foi para este usuário conectado, limpa na hora o estado local
+        if (isTargetForMe) {
+          setMemberTagsState((prev) =>
+            prev.filter((t) => {
+              if (removedTag === "ceo" && isCeoTagItem(t)) return false;
+              if ((removedTag === "dev" || removedTag === "desenvolvedor") && isDevTagItem(t)) return false;
+              return t.id.toLowerCase() !== removedTag;
+            })
+          );
+
+          setProfile((prev) => {
+            if (!prev) return prev;
+            const updated = { ...prev };
+            if (removedTag === "ceo") {
+              updated.is_ceo = false;
+              if (updated.custom_theme) {
+                updated.custom_theme = { ...updated.custom_theme, is_ceo: false };
+              }
+            }
+            if (removedTag === "dev" || removedTag === "desenvolvedor") {
+              updated.is_developer = false;
+            }
+            return updated;
+          });
+
+          if (removedTag === "ceo") {
+            try {
+              const raw = localStorage.getItem("tw_ceo_config");
+              if (raw) {
+                const cfg = JSON.parse(raw);
+                cfg.activeCeoUserIds = (cfg.activeCeoUserIds || []).filter(
+                  (id: string) => !myIds.has(String(id).toLowerCase())
+                );
+                localStorage.setItem("tw_ceo_config", JSON.stringify(cfg));
+                localStorage.setItem("tw_ceo_config_v1", JSON.stringify(cfg));
+              }
+              const devRaw = localStorage.getItem("tw_dev_impersonate");
+              if (devRaw) {
+                const dev = JSON.parse(devRaw);
+                dev.is_ceo = false;
+                if (dev.custom_theme) dev.custom_theme.is_ceo = false;
+                localStorage.setItem("tw_dev_impersonate", JSON.stringify(dev));
+                sessionStorage.setItem("tw_dev_impersonate", JSON.stringify(dev));
+              }
+            } catch {}
+
+            setPanelModeState("member");
+            try {
+              localStorage.setItem("tw_panel_mode", "member");
+              sessionStorage.setItem("tw_panel_mode", "member");
+            } catch {}
+
+            if (typeof window !== "undefined") {
+              const currentPath = (window.location.pathname || "").toLowerCase();
+              if (currentPath.startsWith("/ceo")) {
+                toast.error("Seu acesso à Tag CEO foi revogado pela liderança.", { id: "ceo-tag-revoked" });
+                window.location.replace("/dashboard");
+              }
+            }
+          }
+
+          if (removedTag === "dev" || removedTag === "desenvolvedor") {
+            try {
+              localStorage.removeItem("tw_dev_auth");
+              const devRaw = localStorage.getItem("tw_dev_impersonate");
+              if (devRaw) {
+                const dev = JSON.parse(devRaw);
+                dev.is_developer = false;
+                localStorage.setItem("tw_dev_impersonate", JSON.stringify(dev));
+                sessionStorage.setItem("tw_dev_impersonate", JSON.stringify(dev));
+              }
+            } catch {}
+
+            setPanelModeState("member");
+            try {
+              localStorage.setItem("tw_panel_mode", "member");
+              sessionStorage.setItem("tw_panel_mode", "member");
+            } catch {}
+
+            if (typeof window !== "undefined") {
+              const currentPath = (window.location.pathname || "").toLowerCase();
+              if (currentPath.startsWith("/dev")) {
+                toast.error("Seu acesso à Tag Dev foi revogado pela liderança.", { id: "dev-tag-revoked" });
+                window.location.replace("/dashboard");
+              }
+            }
+          }
+        }
+      }
+
+      // 2. Atualização otimista imediata nas listas em cache do React Query para TODOS os membros conectados
+      queryClient.setQueryData<any[]>(["member_tag_assignments"], (old) => {
+        if (!Array.isArray(old)) return old;
+        if (detail?.type === "tag_toggle" && detail?.status === false) {
+          const removedTag = String(detail?.tag || "").toLowerCase().trim();
+          return old.filter((item) => {
+            const itemMemberId = String(item.member_id || item.user_id || "").toLowerCase();
+            const itemTagId = String(item.tag_id || "").toLowerCase();
+            if (itemTagId === removedTag && eventTargetIds.includes(itemMemberId)) {
+              return false;
+            }
+            return true;
+          });
+        }
+        return old;
+      });
+
+      queryClient.setQueryData<any[]>(["members"], (old) => {
+        if (!Array.isArray(old)) return old;
+        if (detail?.type === "tag_toggle" && detail?.status === false) {
+          const removedTag = String(detail?.tag || "").toLowerCase().trim();
+          return old.map((m) => {
+            const mIds = [m.user_id, m.id].filter(Boolean).map((id) => String(id).toLowerCase());
+            if (mIds.some((id) => eventTargetIds.includes(id))) {
+              const copy = { ...m };
+              if (removedTag === "ceo") {
+                copy.is_ceo = false;
+                if (copy.custom_theme) copy.custom_theme = { ...copy.custom_theme, is_ceo: false };
+              }
+              if (removedTag === "dev" || removedTag === "desenvolvedor") {
+                copy.is_developer = false;
+                if (copy.nivel === "desenvolvedor") copy.nivel = "membro";
+              }
+              return copy;
+            }
+            return m;
+          });
+        }
+        return old;
+      });
+
       // Invalidação global mandatória de consultas para todos os membros conectados na plataforma
       setPermissionsTick((t) => t + 1);
       void queryClient.invalidateQueries({ queryKey: ["members"], refetchType: "all" });
@@ -449,7 +586,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       void queryClient.invalidateQueries({ queryKey: ["role_permissions"], refetchType: "all" });
       void queryClient.invalidateQueries({ queryKey: ["custom_roles"], refetchType: "all" });
 
-      const isTargetForMe = eventTargetIds.length === 0 || eventTargetIds.some((id) => myIds.has(id));
       if (isTargetForMe) {
         void loadAuth();
         void queryClient.invalidateQueries({ queryKey: ["auth"], refetchType: "all" });
@@ -549,35 +685,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        // Se o usuário está na lista de CEOs do sistema ou tem is_ceo no perfil, garante a tag 'ceo'
+        // Se o usuário tem a tag 'ceo' atribuída ou está explicitamente com is_ceo no perfil
         let hasCeoActive = Boolean(
           myTagIds.has("ceo") ||
-          profile?.is_ceo === true ||
-          profile?.custom_theme?.is_ceo === true ||
-          isUserCeo(profile)
+          (profile?.is_ceo === true && (profile as any)?.is_ceo !== false) ||
+          profile?.custom_theme?.is_ceo === true
         );
 
-        if (!hasCeoActive && typeof window !== "undefined") {
-          try {
-            const ceoCfg = localStorage.getItem("tw_ceo_config") || localStorage.getItem("tw_ceo_config_v1");
-            if (ceoCfg) {
-              const parsed = JSON.parse(ceoCfg);
-              const list: string[] = parsed.activeCeoUserIds || [];
-              if (list.some((id) => candidateIds.has(String(id).trim().toLowerCase()))) {
-                hasCeoActive = true;
-                myTagIds.add("ceo");
-              }
-            }
-          } catch {}
+        // Se explicitamente revogado, garante falso
+        if (profile && profile.is_ceo === false && !myTagIds.has("ceo")) {
+          hasCeoActive = false;
         }
 
+        const isExplicitlyRevokedDev = profile && (profile as any).is_developer === false && !myTagIds.has("dev") && !myTagIds.has("desenvolvedor");
+
         const hasDevActive = Boolean(
-          myTagIds.has("dev") ||
-          myTagIds.has("desenvolvedor") ||
-          profile?.is_developer === true ||
-          level === "desenvolvedor" ||
-          (profile as any)?.role === "desenvolvedor" ||
-          isUserDeveloper(session?.user ? { id: session.user.id, email: session.user.email ?? null } : null, profile, level)
+          !isExplicitlyRevokedDev &&
+          (
+            myTagIds.has("dev") ||
+            myTagIds.has("desenvolvedor") ||
+            profile?.is_developer === true ||
+            level === "desenvolvedor" ||
+            (profile as any)?.role === "desenvolvedor" ||
+            isUserDeveloper(session?.user ? { id: session.user.id, email: session.user.email ?? null } : null, profile, level)
+          )
         );
 
         const myTags = tagsData.filter(
@@ -899,20 +1030,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Checagem se o membro é Desenvolvedor (base ou concedido por tag ativa)
   const isDevUser = useMemo(() => {
-    // 1. Base (flag is_developer no perfil ou cargo desenvolvedor)
-    const baseDev = isUserDeveloper(
-      session?.user ? { id: session.user.id, email: session.user.email ?? null } : null,
-      profile,
-      level
-    );
-    if (baseDev) return true;
-    if (level === "desenvolvedor" || (profile as any)?.role === "desenvolvedor") return true;
-    if (profile?.discord_id && DEV_DISCORD_IDS.includes(String(profile.discord_id))) return true;
-    if ((session?.user as any)?.discord_id && DEV_DISCORD_IDS.includes(String((session?.user as any).discord_id))) return true;
-    if (session?.user?.id === "c5ef6dc6-e126-4027-80c3-319f0a870315") return true;
-
-    // 2. Concedido por qualquer tag ativa que o membro possua
-    return memberTags.some((t) => {
+    // 1. Tags ativas atribuídas ao membro
+    const hasActiveDevTag = memberTags.some((t) => {
       if (t.is_active === false) return false;
       if (isDevTagItem(t)) return true;
       const cleanId = t.id.toLowerCase().trim();
@@ -926,17 +1045,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return false;
     });
+
+    if (hasActiveDevTag) return true;
+
+    // Se o perfil tem explicitamente is_developer === false e não é fundador permanente, NÃO é dev
+    if (profile && (profile as any).is_developer === false && level !== "desenvolvedor") {
+      const isPermanentFounder =
+        (profile?.discord_id && DEV_DISCORD_IDS.includes(String(profile.discord_id))) ||
+        ((session?.user as any)?.discord_id && DEV_DISCORD_IDS.includes(String((session?.user as any).discord_id))) ||
+        session?.user?.id === "c5ef6dc6-e126-4027-80c3-319f0a870315";
+      if (!isPermanentFounder) return false;
+    }
+
+    // 2. Base (flag is_developer no perfil ou cargo desenvolvedor)
+    const baseDev = isUserDeveloper(
+      session?.user ? { id: session.user.id, email: session.user.email ?? null } : null,
+      profile,
+      level
+    );
+    if (baseDev) return true;
+    if (level === "desenvolvedor" || (profile as any)?.role === "desenvolvedor") return true;
+    if (profile?.discord_id && DEV_DISCORD_IDS.includes(String(profile.discord_id))) return true;
+    if ((session?.user as any)?.discord_id && DEV_DISCORD_IDS.includes(String((session?.user as any).discord_id))) return true;
+    if (session?.user?.id === "c5ef6dc6-e126-4027-80c3-319f0a870315") return true;
+
+    return false;
   }, [session?.user, profile, level, memberTags, isDevTagItem]);
 
   // Checagem se o membro é CEO (base ou concedido por tag ativa)
   const isCeoUser = useMemo(() => {
-    // 1. Base (flag is_ceo no perfil ou checagem isUserCeo)
-    if (isUserCeo(profile, session?.user ? { id: session.user.id } : null)) return true;
-    if (profile?.is_ceo === true || profile?.custom_theme?.is_ceo === true) return true;
-    if (level === "ceo" || (profile as any)?.role === "ceo" || (profile as any)?.cargo === "ceo") return true;
-
-    // 2. Concedido por qualquer tag ativa que o membro possua
-    const tagCeo = memberTags.some((t) => {
+    // 1. Tags ativas atribuídas ao membro
+    const hasActiveCeoTag = memberTags.some((t) => {
       if (t.is_active === false) return false;
       if (isCeoTagItem(t)) return true;
       const cleanId = t.id.toLowerCase().trim();
@@ -944,28 +1083,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (t.rules?.can_access_ceo === true || t.rules?.is_ceo === true) return true;
       return false;
     });
-    if (tagCeo) return true;
 
-    // 3. Fallback adicional de activeCeoUserIds em localStorage caso memberTags ainda esteja sincronizando
-    if (typeof window !== "undefined") {
-      try {
-        const ceoCfg = localStorage.getItem("tw_ceo_config") || localStorage.getItem("tw_ceo_config_v1");
-        if (ceoCfg) {
-          const parsed = JSON.parse(ceoCfg);
-          const list: string[] = parsed.activeCeoUserIds || [];
-          const ids = [
-            profile?.id,
-            profile?.user_id,
-            session?.user?.id,
-            profile?.discord_id,
-          ].filter(Boolean).map(String);
-          if (ids.some((id) => list.includes(id))) return true;
-        }
-      } catch {}
-    }
+    if (hasActiveCeoTag) return true;
 
-    // Observação: possuir a Tag Dev NÃO torna o membro CEO automaticamente.
-    // O desenvolvedor só recebe permissões da Tag CEO se realmente possuir a Tag CEO.
+    // Se o perfil tem explicitamente is_ceo === false, NUNCA é CEO
+    if (profile && profile.is_ceo === false) return false;
+
+    // 2. Base (flag is_ceo no perfil ou checagem isUserCeo)
+    if (isUserCeo(profile, session?.user ? { id: session.user.id } : null)) return true;
+    if (profile?.is_ceo === true || profile?.custom_theme?.is_ceo === true) return true;
+    if (level === "ceo" || (profile as any)?.role === "ceo" || (profile as any)?.cargo === "ceo") return true;
+
     return false;
   }, [session?.user, profile, level, memberTags, isCeoTagItem]);
 
@@ -986,7 +1114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const isCeoMode = Boolean(
-    (isCeoUser || isDevUser) &&
+    isCeoUser &&
       !isDevMode &&
       (typeof window !== "undefined"
         ? (window.location.pathname.toLowerCase().startsWith("/ceo") || window.location.hash.toLowerCase().includes("/ceo"))
@@ -1042,7 +1170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }, [memberTags, activeSuspension, isPlatformLocked]);
 
-  // Garante que membros comuns sem Tag Dev ou Tag CEO nunca fiquem travados em panelMode dev ou ceo
+  // Garante que membros comuns sem Tag Dev ou Tag CEO nunca fiquem travados em rotas ou modos de painel desautorizados
   useEffect(() => {
     if (!loading) {
       if (!isDevUser && panelMode === "dev") {
@@ -1054,13 +1182,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             sessionStorage.setItem("tw_panel_mode", nextMode);
           } catch {}
         }
-      } else if (!isCeoUser && !isDevUser && panelMode === "ceo") {
-        setPanelModeState("member");
+      } else if (!isCeoUser && panelMode === "ceo") {
+        const nextMode = isDevUser ? "dev" : "member";
+        setPanelModeState(nextMode);
         if (typeof window !== "undefined") {
           try {
-            localStorage.setItem("tw_panel_mode", "member");
-            sessionStorage.setItem("tw_panel_mode", "member");
+            localStorage.setItem("tw_panel_mode", nextMode);
+            sessionStorage.setItem("tw_panel_mode", nextMode);
           } catch {}
+        }
+      }
+
+      // Redirecionamento instantâneo caso o usuário esteja em rota restrita sem a devida tag
+      if (typeof window !== "undefined") {
+        const path = (window.location.pathname || "").toLowerCase();
+        const hash = (window.location.hash || "").toLowerCase();
+        if (!isDevUser && (path.startsWith("/dev") || hash.includes("/dev"))) {
+          window.location.replace("/dashboard");
+        } else if (!isCeoUser && (path.startsWith("/ceo") || hash.includes("/ceo"))) {
+          window.location.replace("/dashboard");
         }
       }
     }
@@ -1081,7 +1221,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const hash = (window.location.hash || "").toLowerCase();
         if (isDevUser && (path.startsWith("/dev") || hash.includes("/dev"))) {
           activePanel = "dev";
-        } else if ((isCeoUser || isDevUser) && (path.startsWith("/ceo") || hash.includes("/ceo"))) {
+        } else if (isCeoUser && (path.startsWith("/ceo") || hash.includes("/ceo"))) {
           activePanel = "ceo";
         } else {
           activePanel = "member";

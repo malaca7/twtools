@@ -256,8 +256,7 @@ export function isUserDeveloper(
   profile?: Profile | null,
   level?: AppLevel | null
 ): boolean {
-  if (level === "desenvolvedor") return true;
-  if ((profile as any)?.is_developer === true) return true;
+  // Fundador permanente
   if (profile?.discord_id && DEV_DISCORD_IDS.includes(String(profile.discord_id))) return true;
   if ((user as any)?.discord_id && DEV_DISCORD_IDS.includes(String((user as any).discord_id))) return true;
   if (
@@ -267,25 +266,23 @@ export function isUserDeveloper(
   ) {
     return true;
   }
+
+  // Se o perfil tem explicitamente is_developer === false, NUNCA conceder por localStorage
+  if (profile && (profile as any).is_developer === false && level !== "desenvolvedor") {
+    return false;
+  }
+
+  if (level === "desenvolvedor") return true;
+  if ((profile as any)?.is_developer === true) return true;
+
   if (typeof window !== "undefined") {
-    if (localStorage.getItem("tw_dev_auth") === "true") return true;
     try {
-      const cfg = localStorage.getItem(DEV_CONFIG_KEY);
-      if (cfg && JSON.parse(cfg)?.developerBypassMode) return true;
-    } catch {}
-    try {
-      const assigned = localStorage.getItem("tw_member_tags_assignment");
-      if (assigned) {
-        const parsed = JSON.parse(assigned);
-        const myTags = parsed[user?.id || profile?.id || ""] || [];
-        if (
-          Array.isArray(myTags) &&
-          myTags.some((t: any) => {
-            const id = String(t.tag_id || t.id || "").toLowerCase();
-            return id === "dev" || id === "desenvolvedor";
-          })
-        ) {
-          return true;
+      const devRaw = sessionStorage.getItem("tw_dev_impersonate") || localStorage.getItem("tw_dev_impersonate");
+      if (devRaw) {
+        const dev = JSON.parse(devRaw);
+        if (dev.is_developer === true) {
+          const ids = [profile?.id, profile?.user_id, user?.id].filter(Boolean).map(String);
+          if (ids.length === 0 || ids.includes(String(dev.user_id)) || ids.includes(String(dev.id))) return true;
         }
       }
     } catch {}
@@ -302,11 +299,7 @@ export function assertDeveloperAccess(
   level?: AppLevel | null
 ): void {
   if (isUserDeveloper(user, profile, level)) return;
-  if (typeof window !== "undefined") {
-    if (window.location.pathname.includes("/dev") || window.location.hash.includes("/dev") || localStorage.getItem("tw_dev_auth") === "true") {
-      return;
-    }
-  }
+  throw new Error("Acesso Negado: Apenas membros com a Tag Dev têm permissão.");
 }
 
 /**
@@ -324,11 +317,8 @@ export function assertDeveloperOrCeoAccess(
     if (!permission) return;
     const ceoPerms = getCeoTagPermissionsSync();
     if (ceoPerms.includes(permission)) return;
-    return;
   }
-  if (typeof window !== "undefined") {
-    if (window.location.pathname.includes("/dev") || window.location.pathname.includes("/ceo")) return;
-  }
+  throw new Error("Acesso Negado: Apenas membros com a Tag CEO ou Tag Dev têm permissão.");
 }
 
 /**
@@ -1011,6 +1001,10 @@ export function isUserCeo(
   profile?: Profile | null | undefined,
   member?: any
 ): boolean {
+  // Se explicitamente falso, NÃO é CEO
+  if (profile && profile.is_ceo === false && (profile as any)?.cargo !== "ceo" && (profile as any)?.nivel !== "ceo") return false;
+  if (member && member.is_ceo === false && member.cargo !== "ceo" && member.nivel !== "ceo") return false;
+
   if (profile?.is_ceo === true || profile?.custom_theme?.is_ceo === true) return true;
   if (member?.is_ceo === true || member?.custom_theme?.is_ceo === true) return true;
   if ((profile as any)?.role === "ceo" || (profile as any)?.cargo === "ceo" || (profile as any)?.nivel === "ceo") return true;
@@ -1018,24 +1012,7 @@ export function isUserCeo(
 
   if (typeof window !== "undefined") {
     try {
-      const cfgRaw = localStorage.getItem("tw_ceo_config") || localStorage.getItem(CEO_CONFIG_KEY);
-      if (cfgRaw) {
-        const cfg = JSON.parse(cfgRaw);
-        const list: string[] = cfg.activeCeoUserIds || [];
-        const ids = [
-          profile?.id,
-          profile?.user_id,
-          profile?.discord_id,
-          member?.id,
-          member?.user_id,
-          member?.discord_id,
-        ].filter(Boolean).map(String);
-        if (ids.some((id) => list.includes(id))) return true;
-      }
-    } catch {}
-
-    try {
-      const devRaw = localStorage.getItem("tw_dev_impersonate") || sessionStorage.getItem("tw_dev_impersonate");
+      const devRaw = sessionStorage.getItem("tw_dev_impersonate") || localStorage.getItem("tw_dev_impersonate");
       if (devRaw) {
         const dev = JSON.parse(devRaw);
         if (dev.is_ceo === true || dev.custom_theme?.is_ceo === true) {
@@ -1387,6 +1364,19 @@ export async function toggleMemberCeoTag(
         }
       }
     }
+
+    // Se estiver desativando, sincroniza user_roles no Supabase caso estivesse como ceo
+    if (!enable) {
+      for (const cid of uniqueCandidateIds) {
+        if (isValidUuid(cid)) {
+          await (supabase.from("user_roles" as any))
+            .update({ nivel: "membro" })
+            .eq("user_id", cid)
+            .eq("nivel", "ceo")
+            .catch(() => {});
+        }
+      }
+    }
   } catch (err) {
     console.warn("Aviso ao atualizar profiles no Supabase:", err);
   }
@@ -1510,7 +1500,17 @@ export async function toggleMemberCeoTag(
     } catch {}
 
     for (const cid of uniqueCandidateIds) {
-      window.dispatchEvent(new CustomEvent("tw_auth_reload", { detail: { userId: cid } }));
+      window.dispatchEvent(
+        new CustomEvent("tw_auth_reload", {
+          detail: {
+            type: "tag_toggle",
+            tag: "ceo",
+            status: enable,
+            userId: cid,
+            candidateIds: uniqueCandidateIds,
+          },
+        })
+      );
     }
     window.dispatchEvent(new Event("tw_permissions_synced"));
     window.dispatchEvent(new Event("tw_ceo_config_updated"));
@@ -1790,7 +1790,17 @@ export async function toggleMemberDevTag(
     } catch {}
 
     for (const cid of uniqueCandidateIds) {
-      window.dispatchEvent(new CustomEvent("tw_auth_reload", { detail: { userId: cid } }));
+      window.dispatchEvent(
+        new CustomEvent("tw_auth_reload", {
+          detail: {
+            type: "tag_toggle",
+            tag: "dev",
+            status: enable,
+            userId: cid,
+            candidateIds: uniqueCandidateIds,
+          },
+        })
+      );
     }
     window.dispatchEvent(new Event("tw_permissions_synced"));
     window.dispatchEvent(new Event("tw_dev_config_updated"));

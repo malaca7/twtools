@@ -471,25 +471,22 @@ function DynamicSidebarNavigation() {
     [storageKey]
   );
 
-  const canAccessCeo = Boolean(
-    isCeoUser ||
-    profile?.is_ceo === true ||
-    profile?.custom_theme?.is_ceo === true ||
-    (profile as any)?.role === "ceo" ||
-    (profile as any)?.cargo === "ceo" ||
-    (profile as any)?.nivel === "ceo" ||
-    isUserCeo(profile)
-  );
+  const canAccessCeo = Boolean(isCeoUser);
+  const canAccessDev = Boolean(isDevUser);
 
   // Sincroniza o modo de painel com base na rota acessada (/dev/* -> dev, /ceo/* -> ceo, outras -> member)
   useEffect(() => {
     const p = (pathname || "").toLowerCase();
     if (p.startsWith("/dev")) {
-      if (isDevUser && panelMode !== "dev") {
+      if (!isDevUser) {
+        navigate({ to: "/dashboard", replace: true });
+      } else if (panelMode !== "dev") {
         setPanelMode("dev");
       }
     } else if (p.startsWith("/ceo")) {
-      if (canAccessCeo && panelMode !== "ceo") {
+      if (!canAccessCeo) {
+        navigate({ to: "/dashboard", replace: true });
+      } else if (panelMode !== "ceo") {
         setPanelMode("ceo");
       }
     } else {
@@ -497,7 +494,7 @@ function DynamicSidebarNavigation() {
         setPanelMode("member");
       }
     }
-  }, [pathname, isDevUser, canAccessCeo, panelMode, setPanelMode]);
+  }, [pathname, isDevUser, canAccessCeo, panelMode, setPanelMode, navigate]);
 
   const lowerPath = (pathname || "").toLowerCase();
   const isDevArea = Boolean(isDevUser && lowerPath.startsWith("/dev"));
@@ -1324,18 +1321,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
 
   // Permissões e cálculo de acesso a múltiplos painéis
-  const canAccessCeo = Boolean(
-    isCeoUser ||
-    profile?.is_ceo === true ||
-    profile?.custom_theme?.is_ceo === true ||
-    (profile as any)?.role === "ceo" ||
-    (profile as any)?.cargo === "ceo" ||
-    (profile as any)?.nivel === "ceo" ||
-    isUserCeo(profile) ||
-    myTags.some((t) => (t.id || "").toLowerCase() === "ceo" || t.rules?.can_access_ceo || t.rules?.is_ceo)
-  );
-  const canAccessDev = isDevUser;
-  const hasMultiplePanels = canAccessCeo || canAccessDev;
+  const canAccessCeo = Boolean(isCeoUser);
+  const canAccessDev = Boolean(isDevUser);
+  const hasMultiplePanels = Boolean(canAccessCeo || canAccessDev);
 
   const lowerCurrentPath = (pathname || "").toLowerCase();
   const isDevActive = Boolean(isDevUser && lowerCurrentPath.startsWith("/dev"));
