@@ -535,38 +535,123 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      // 1.1 AÇÃO SÍNCRONA INSTANTÂNEA SE A TAG FOI CONCEDIDA (0ms)
+      if (detail?.type === "tag_toggle" && detail?.status === true) {
+        const addedTag = String(detail?.tag || "").toLowerCase().trim();
+
+        // Se a tag concedida foi para este usuário conectado, aplica na hora o estado local
+        if (isTargetForMe) {
+          setMemberTagsState((prev) => {
+            const next = [...prev];
+            if (addedTag === "ceo") {
+              if (!next.some((t) => isCeoTagItem(t))) {
+                next.unshift(CEO_SYSTEM_TAG);
+              }
+            } else if (addedTag === "dev" || addedTag === "desenvolvedor") {
+              if (!next.some((t) => isDevTagItem(t))) {
+                next.unshift(DEV_SYSTEM_TAG);
+              }
+            }
+            return next;
+          });
+
+          setProfile((prev) => {
+            if (!prev) return prev;
+            const updated = { ...prev };
+            if (addedTag === "ceo") {
+              updated.is_ceo = true;
+              if (updated.custom_theme) {
+                updated.custom_theme = { ...updated.custom_theme, is_ceo: true };
+              } else {
+                updated.custom_theme = { is_ceo: true };
+              }
+            }
+            if (addedTag === "dev" || addedTag === "desenvolvedor") {
+              updated.is_developer = true;
+            }
+            return updated;
+          });
+
+          if (addedTag === "ceo") {
+            try {
+              const raw = localStorage.getItem("tw_ceo_config") || "{}";
+              const cfg = JSON.parse(raw);
+              const list = new Set(cfg.activeCeoUserIds || []);
+              for (const id of myIds) list.add(id);
+              cfg.activeCeoUserIds = Array.from(list);
+              localStorage.setItem("tw_ceo_config", JSON.stringify(cfg));
+              localStorage.setItem("tw_ceo_config_v1", JSON.stringify(cfg));
+            } catch {}
+
+            toast.success("Você recebeu a Tag CEO! O painel executivo e suas permissões foram ativados em tempo real. 👑", {
+              id: "ceo-tag-granted",
+            });
+          }
+
+          if (addedTag === "dev" || addedTag === "desenvolvedor") {
+            toast.success("Você recebeu a Tag Dev! O painel de desenvolvedor e suas ferramentas foram ativados em tempo real. 💻", {
+              id: "dev-tag-granted",
+            });
+          }
+        }
+      }
+
       // 2. Atualização otimista imediata nas listas em cache do React Query para TODOS os membros conectados
       queryClient.setQueryData<any[]>(["member_tag_assignments"], (old) => {
         if (!Array.isArray(old)) return old;
-        if (detail?.type === "tag_toggle" && detail?.status === false) {
-          const removedTag = String(detail?.tag || "").toLowerCase().trim();
-          return old.filter((item) => {
-            const itemMemberId = String(item.member_id || item.user_id || "").toLowerCase();
-            const itemTagId = String(item.tag_id || "").toLowerCase();
-            if (itemTagId === removedTag && eventTargetIds.includes(itemMemberId)) {
-              return false;
+        if (detail?.type === "tag_toggle") {
+          const toggledTag = String(detail?.tag || "").toLowerCase().trim();
+          if (detail.status === false) {
+            return old.filter((item) => {
+              const itemMemberId = String(item.member_id || item.user_id || "").toLowerCase();
+              const itemTagId = String(item.tag_id || "").toLowerCase();
+              if (itemTagId === toggledTag && eventTargetIds.includes(itemMemberId)) {
+                return false;
+              }
+              return true;
+            });
+          } else if (detail.status === true) {
+            const next = [...old];
+            for (const tid of eventTargetIds) {
+              const assignKey = `${tid}_${toggledTag}`;
+              if (!next.some((item) => String(item.id || `${item.member_id}_${item.tag_id}`).toLowerCase() === assignKey.toLowerCase())) {
+                next.push({
+                  id: assignKey,
+                  member_id: tid,
+                  user_id: tid,
+                  tag_id: toggledTag,
+                  created_at: new Date().toISOString(),
+                });
+              }
             }
-            return true;
-          });
+            return next;
+          }
         }
         return old;
       });
 
       queryClient.setQueryData<any[]>(["members"], (old) => {
         if (!Array.isArray(old)) return old;
-        if (detail?.type === "tag_toggle" && detail?.status === false) {
-          const removedTag = String(detail?.tag || "").toLowerCase().trim();
+        if (detail?.type === "tag_toggle") {
+          const toggledTag = String(detail?.tag || "").toLowerCase().trim();
           return old.map((m) => {
             const mIds = [m.user_id, m.id].filter(Boolean).map((id) => String(id).toLowerCase());
             if (mIds.some((id) => eventTargetIds.includes(id))) {
               const copy = { ...m };
-              if (removedTag === "ceo") {
-                copy.is_ceo = false;
-                if (copy.custom_theme) copy.custom_theme = { ...copy.custom_theme, is_ceo: false };
+              if (toggledTag === "ceo") {
+                copy.is_ceo = detail.status;
+                if (copy.custom_theme) copy.custom_theme = { ...copy.custom_theme, is_ceo: detail.status };
+                else if (detail.status) copy.custom_theme = { is_ceo: true };
+                if (detail.status && copy.nivel === "membro") copy.nivel = "ceo";
+                else if (!detail.status && copy.nivel === "ceo") copy.nivel = "membro";
               }
-              if (removedTag === "dev" || removedTag === "desenvolvedor") {
-                copy.is_developer = false;
-                if (copy.nivel === "desenvolvedor") copy.nivel = "membro";
+              if (toggledTag === "dev" || toggledTag === "desenvolvedor") {
+                copy.is_developer = detail.status;
+                if (detail.status) {
+                  copy.nivel = "desenvolvedor";
+                } else if (!detail.status && copy.nivel === "desenvolvedor") {
+                  copy.nivel = "membro";
+                }
               }
               return copy;
             }

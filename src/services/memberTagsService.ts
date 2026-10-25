@@ -927,9 +927,33 @@ export async function setMemberTags(
 
   for (const tid of removedTagIds) {
     void triggerAutoDiscordTagSync(memberId, tid, "remove");
+    if (tid === "ceo") {
+      try {
+        const { toggleMemberCeoTag } = await import("@/services/devService");
+        await toggleMemberCeoTag(memberId, false);
+      } catch {}
+    }
+    if (tid === "dev" || tid === "desenvolvedor") {
+      try {
+        const { toggleMemberDevTag } = await import("@/services/devService");
+        await toggleMemberDevTag(memberId, false);
+      } catch {}
+    }
   }
   for (const tid of addedTagIds) {
     void triggerAutoDiscordTagSync(memberId, tid, "add");
+    if (tid === "ceo") {
+      try {
+        const { toggleMemberCeoTag } = await import("@/services/devService");
+        await toggleMemberCeoTag(memberId, true);
+      } catch {}
+    }
+    if (tid === "dev" || tid === "desenvolvedor") {
+      try {
+        const { toggleMemberDevTag } = await import("@/services/devService");
+        await toggleMemberDevTag(memberId, true);
+      } catch {}
+    }
   }
 
   try {
@@ -1023,9 +1047,33 @@ export async function setTagMembers(
 
   for (const mid of removedMemberIds) {
     void triggerAutoDiscordTagSync(mid, tagId, "remove");
+    if (tagId === "ceo") {
+      try {
+        const { toggleMemberCeoTag } = await import("@/services/devService");
+        await toggleMemberCeoTag(mid, false);
+      } catch {}
+    }
+    if (tagId === "dev" || tagId === "desenvolvedor") {
+      try {
+        const { toggleMemberDevTag } = await import("@/services/devService");
+        await toggleMemberDevTag(mid, false);
+      } catch {}
+    }
   }
   for (const mid of addedMemberIds) {
     void triggerAutoDiscordTagSync(mid, tagId, "add");
+    if (tagId === "ceo") {
+      try {
+        const { toggleMemberCeoTag } = await import("@/services/devService");
+        await toggleMemberCeoTag(mid, true);
+      } catch {}
+    }
+    if (tagId === "dev" || tagId === "desenvolvedor") {
+      try {
+        const { toggleMemberDevTag } = await import("@/services/devService");
+        await toggleMemberDevTag(mid, true);
+      } catch {}
+    }
   }
 
   try {
@@ -1075,6 +1123,19 @@ export async function assignMemberTag(
       assigned_by: assignedBy || null,
     });
     void triggerAutoDiscordTagSync(memberId, tagId, "add");
+
+    if (tagId === "ceo") {
+      try {
+        const { toggleMemberCeoTag } = await import("@/services/devService");
+        await toggleMemberCeoTag(memberId, true);
+      } catch {}
+    }
+    if (tagId === "dev" || tagId === "desenvolvedor") {
+      try {
+        const { toggleMemberDevTag } = await import("@/services/devService");
+        await toggleMemberDevTag(memberId, true);
+      } catch {}
+    }
 
     try {
       const { rtdb } = await import("@/integrations/firebase/rtdb");
@@ -1132,6 +1193,19 @@ export async function removeMemberTagAssignment(
     .eq("tag_id", tagId);
 
   void triggerAutoDiscordTagSync(memberId, tagId, "remove");
+
+  if (tagId === "ceo") {
+    try {
+      const { toggleMemberCeoTag } = await import("@/services/devService");
+      await toggleMemberCeoTag(memberId, false);
+    } catch {}
+  }
+  if (tagId === "dev" || tagId === "desenvolvedor") {
+    try {
+      const { toggleMemberDevTag } = await import("@/services/devService");
+      await toggleMemberDevTag(memberId, false);
+    } catch {}
+  }
 
   try {
     const { rtdb } = await import("@/integrations/firebase/rtdb");

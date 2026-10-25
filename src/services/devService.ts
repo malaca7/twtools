@@ -1376,6 +1376,16 @@ export async function toggleMemberCeoTag(
             .catch(() => {});
         }
       }
+    } else {
+      for (const cid of uniqueCandidateIds) {
+        if (isValidUuid(cid)) {
+          await (supabase.from("user_roles" as any))
+            .update({ nivel: "ceo" })
+            .eq("user_id", cid)
+            .eq("nivel", "membro")
+            .catch(() => {});
+        }
+      }
     }
   } catch (err) {
     console.warn("Aviso ao atualizar profiles no Supabase:", err);
@@ -1393,22 +1403,15 @@ export async function toggleMemberCeoTag(
           member_id: cid,
           user_id: cid,
           tag_id: "ceo",
-          assigned_by: user?.id || null,
+          assigned_by: isValidUuid(user?.id) ? user?.id : null,
           created_at: now,
         };
         await rtdb.set(`member_tag_assignments/${assignmentKey}`, assignmentData).catch(() => {});
         await (supabase.from("member_tag_assignments" as any))
-          .upsert(
-            {
-              member_id: cid,
-              user_id: cid,
-              tag_id: "ceo",
-              assigned_by: isValidUuid(user?.id) ? user?.id : null,
-              created_at: now,
-            },
-            { onConflict: "member_id,tag_id" }
-          )
-          .catch(() => {});
+          .upsert(assignmentData, { onConflict: "id" })
+          .catch(async () => {
+            await (supabase.from("member_tag_assignments" as any)).insert(assignmentData).catch(() => {});
+          });
       }
     } else {
       // Remove de RTDB member_tag_assignments
@@ -1689,6 +1692,15 @@ export async function toggleMemberDevTag(
             .catch(() => {});
         }
       }
+    } else {
+      for (const cid of uniqueCandidateIds) {
+        if (isValidUuid(cid)) {
+          await (supabase.from("user_roles" as any))
+            .update({ nivel: "desenvolvedor" })
+            .eq("user_id", cid)
+            .catch(() => {});
+        }
+      }
     }
   } catch (err) {
     console.warn("Aviso ao atualizar profiles no Supabase:", err);
@@ -1708,22 +1720,15 @@ export async function toggleMemberDevTag(
           member_id: cid,
           user_id: cid,
           tag_id: "dev",
-          assigned_by: user?.id || null,
+          assigned_by: isValidUuid(user?.id) ? user?.id : null,
           created_at: now,
         };
         await rtdb.set(`member_tag_assignments/${assignmentKey}`, assignmentData).catch(() => {});
         await (supabase.from("member_tag_assignments" as any))
-          .upsert(
-            {
-              member_id: cid,
-              user_id: cid,
-              tag_id: "dev",
-              assigned_by: isValidUuid(user?.id) ? user?.id : null,
-              created_at: now,
-            },
-            { onConflict: "member_id,tag_id" }
-          )
-          .catch(() => {});
+          .upsert(assignmentData, { onConflict: "id" })
+          .catch(async () => {
+            await (supabase.from("member_tag_assignments" as any)).insert(assignmentData).catch(() => {});
+          });
       }
     } else {
       // Remove de RTDB member_tag_assignments todas as variantes
