@@ -975,17 +975,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isDevMode = Boolean(
     isDevUser &&
-      (panelMode === "dev" ||
-        (typeof window !== "undefined" &&
-          (window.location.pathname.startsWith("/dev") || window.location.hash.includes("/dev"))))
+      (typeof window !== "undefined"
+        ? (window.location.pathname.toLowerCase().startsWith("/dev") || window.location.hash.toLowerCase().includes("/dev"))
+        : panelMode === "dev")
   );
 
   const isCeoMode = Boolean(
     (isCeoUser || isDevUser) &&
       !isDevMode &&
-      (panelMode === "ceo" ||
-        (typeof window !== "undefined" &&
-          (window.location.pathname.startsWith("/ceo") || window.location.hash.includes("/ceo"))))
+      (typeof window !== "undefined"
+        ? (window.location.pathname.toLowerCase().startsWith("/ceo") || window.location.hash.toLowerCase().includes("/ceo"))
+        : panelMode === "ceo")
   );
 
   const setPanelMode = useCallback((mode: "member" | "dev" | "ceo") => {
@@ -1065,26 +1065,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     (permission: Permission, panelOverride?: "member" | "dev" | "ceo") => {
       const bypassActive = isDevBypassActive();
 
-      // Determinação do painel ativo:
-      // Se panelOverride for informado (ex: do Dispatcher ou de menu), usa-o diretamente.
-      // Caso contrário, respeita o modo de painel ativo do usuário (panelMode / isDevMode / isCeoMode),
-      // garantindo que ao navegar em páginas de CEO e Membro o usuário acesse como Tag Dev (se em dev)
-      // ou como Tag CEO (se em ceo).
-      let activePanel: "member" | "dev" | "ceo" = panelOverride ?? (
-        isDevUser && panelMode === "dev"
-          ? "dev"
-          : isDevUser && (typeof window !== "undefined" && (window.location.pathname.startsWith("/dev") || window.location.hash.includes("/dev")))
-          ? "dev"
-          : (isCeoUser || isDevUser) && (panelMode === "ceo" || (typeof window !== "undefined" && (window.location.pathname.startsWith("/ceo") || window.location.hash.includes("/ceo"))))
-            ? "ceo"
-            : "member"
-      );
-
-      // Se o usuário desenvolvedor estiver expressamente com o modo Dev ativo (panelMode === "dev"),
-      // qualquer acesso (inclusive rotas executivas como /ceo/selos) avalia com as permissões da Tag Dev,
-      // a menos que um panelOverride específico não-dev tenha sido solicitado explicitamente em um subcomponente isolado.
-      if (isDevUser && panelMode === "dev" && (!panelOverride || panelOverride === "ceo")) {
-        activePanel = "dev";
+      // Determinação estrita do painel ativo:
+      // Se panelOverride for informado (ex: do Dispatcher ou de menu), usa-o diretamente com prioridade máxima.
+      // Caso contrário, respeita a rota atual da janela (/dev/* -> dev, /ceo/* -> ceo, outras -> member).
+      let activePanel: "member" | "dev" | "ceo" = "member";
+      if (panelOverride) {
+        activePanel = panelOverride;
+      } else if (typeof window !== "undefined") {
+        const path = (window.location.pathname || "").toLowerCase();
+        const hash = (window.location.hash || "").toLowerCase();
+        if (isDevUser && (path.startsWith("/dev") || hash.includes("/dev"))) {
+          activePanel = "dev";
+        } else if ((isCeoUser || isDevUser) && (path.startsWith("/ceo") || hash.includes("/ceo"))) {
+          activePanel = "ceo";
+        } else {
+          activePanel = "member";
+        }
+      } else {
+        activePanel = panelMode ?? "member";
       }
 
       // =========================================================================
@@ -1247,32 +1245,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Avaliação base de membro: permissões configuradas no cargo do membro (+ tags de sistema)
+      // Avaliação base de membro: apenas permissões configuradas no cargo do membro (+ tags normais do sistema)
       const evaluateAsMember = () => {
         if (can(level, permission, customRolePermissions)) return true;
         if (satisfiesPermission(systemTagPermissions, permission)) return true;
         return false;
       };
 
-      // REGRA MESTRA: Membros com a Tag Dev ativa possuem os privilégios da Tag Dev (+ cargo)
-      if (isDevUser) {
-        if (bypassActive) return true;
-        if (permission === "view_dev_hub" || permission === "view_dev") return true;
-        if (satisfiesPermission(devTagPermissions, permission)) return true;
+      // =========================================================================
+      // 1. PAINEL MEMBRO: Apenas ver/visualizar e ter acesso aos menus/páginas/funções/opções
+      // em que o CARGO DO MEMBRO tem permissões. Jamais conceder permissões de Tag CEO ou Tag Dev.
+      // =========================================================================
+      if (activePanel === "member") {
+        return evaluateAsMember();
       }
 
-      // REGRA MESTRA: Membros com a Tag CEO ativa possuem os privilégios da Tag CEO (+ cargo)
-      if (isCeoUser) {
-        if (permission === "view_ceo" || permission === "view_ceo_dashboard") return true;
-        if (satisfiesPermission(ceoTagPermissions, permission)) return true;
+      // =========================================================================
+      // 2. PAINEL CEO: Apenas ver/visualizar e ter acesso aos menus/páginas/funções/opções
+      // em que o CARGO DO MEMBRO E a TAG CEO têm permissões.
+      // =========================================================================
+      if (activePanel === "ceo") {
+        if (isCeoUser || isDevUser) {
+          if (permission === "view_ceo" || permission === "view_ceo_dashboard") return true;
+          if (satisfiesPermission(ceoTagPermissions, permission)) return true;
+        }
+        return evaluateAsMember();
       }
 
-      // Privilégios do cargo e tags adicionais do membro
-      if (evaluateAsMember()) {
-        return true;
+      // =========================================================================
+      // 3. PAINEL DEV: Ver/visualizar e ter acesso aos menus/páginas/funções/opções
+      // em que o CARGO DO MEMBRO, a TAG CEO e a TAG DEV têm permissões.
+      // =========================================================================
+      if (activePanel === "dev") {
+        if (isDevUser) {
+          if (bypassActive) return true;
+          if (
+            permission === "view_dev_hub" ||
+            permission === "view_dev" ||
+            permission.startsWith("manage_dev_") ||
+            permission === "view_ceo" ||
+            permission === "view_ceo_dashboard"
+          ) {
+            return true;
+          }
+          if (satisfiesPermission(devTagPermissions, permission)) return true;
+          if (satisfiesPermission(ceoTagPermissions, permission)) return true;
+        }
+        return evaluateAsMember();
       }
 
-      return false;
+      return evaluateAsMember();
     },
     [
       level,

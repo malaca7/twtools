@@ -311,6 +311,7 @@ const DEV_MODULE_NAV_ITEMS: BaseNavItem[] = [
   { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", icon: Code2, defaultCat: "DEV", defaultOrder: 9 },
   { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", icon: Sliders, defaultCat: "DEV", defaultOrder: 10 },
   { id: "dev-notificacoes", title: "Central de Notificações", url: "/dev/notificacoes", icon: BellRing, defaultCat: "DEV", defaultOrder: 11 },
+  { id: "dev-advertencias", title: "Advertências & Suspensões", url: "/dev/advertencias", icon: ShieldAlert, defaultCat: "DEV", defaultOrder: 12 },
 ];
 
 const CEO_MODULE_NAV_ITEMS: BaseNavItem[] = [
@@ -482,11 +483,12 @@ function DynamicSidebarNavigation() {
 
   // Sincroniza o modo de painel com base na rota acessada (/dev/* -> dev, /ceo/* -> ceo, outras -> member)
   useEffect(() => {
-    if (pathname.startsWith("/dev")) {
+    const p = (pathname || "").toLowerCase();
+    if (p.startsWith("/dev")) {
       if (isDevUser && panelMode !== "dev") {
         setPanelMode("dev");
       }
-    } else if (pathname.startsWith("/ceo")) {
+    } else if (p.startsWith("/ceo")) {
       if (canAccessCeo && panelMode !== "ceo") {
         setPanelMode("ceo");
       }
@@ -497,11 +499,12 @@ function DynamicSidebarNavigation() {
     }
   }, [pathname, isDevUser, canAccessCeo, panelMode, setPanelMode]);
 
-  const isDevArea = Boolean(isDevUser && (pathname.startsWith("/dev") || panelMode === "dev"));
+  const lowerPath = (pathname || "").toLowerCase();
+  const isDevArea = Boolean(isDevUser && lowerPath.startsWith("/dev"));
   const isCeoArea = Boolean(
     canAccessCeo &&
       !isDevArea &&
-      (pathname.startsWith("/ceo") || panelMode === "ceo")
+      lowerPath.startsWith("/ceo")
   );
 
   const activePanelStyle = useMemo(() => {
@@ -838,6 +841,8 @@ function DynamicSidebarNavigation() {
       const allDevItems = [...customizedDev, ...customDevItems];
       const visibleDev = allDevItems.filter((item) => {
         if (!item.visible) return false;
+        // No painel DEV, todos os menus e módulos nativos do painel dev (rotas /dev/*) aparecem para o usuário dev
+        if (item.url.startsWith("/dev")) return true;
         const reqPerm = item.perm || resolveRequiredPermission(item.id, item.url);
         if (reqPerm && !hasPermission(reqPerm, "dev")) return false;
         return true;
@@ -1332,8 +1337,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const canAccessDev = isDevUser;
   const hasMultiplePanels = canAccessCeo || canAccessDev;
 
-  const isDevActive = Boolean(isDevUser && (panelMode === "dev" || pathname.startsWith("/dev")));
-  const isCeoActive = Boolean(canAccessCeo && !isDevActive && (panelMode === "ceo" || pathname.startsWith("/ceo")));
+  const lowerCurrentPath = (pathname || "").toLowerCase();
+  const isDevActive = Boolean(isDevUser && lowerCurrentPath.startsWith("/dev"));
+  const isCeoActive = Boolean(canAccessCeo && !isDevActive && lowerCurrentPath.startsWith("/ceo"));
 
   const { devStyle, ceoStyle, memberStyle, DevIcon, CeoIcon, MemberIcon } = usePanelTheme();
 

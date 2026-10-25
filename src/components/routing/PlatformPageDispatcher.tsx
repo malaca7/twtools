@@ -227,7 +227,7 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
 
   // CEO Specific modules
   if (mode === "ceo") {
-    if (normalizedPage === "executivo" || normalizedPage === "dashboard") {
+    if (normalizedPage === "executivo") {
       return <CeoPageContent initialTab="dashboard" />;
     }
     if (normalizedPage === "bot") {
@@ -385,16 +385,16 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       if (effectiveTab === "produzir") {
         return <ProduzirPage />;
       }
-      if (hasPermission("raw_materials.view")) {
+      if (hasPermission("raw_materials.view", mode)) {
         return <MateriasPrimasPage />;
       }
-      if (hasPermission("productions.view") || hasPermission("productions.create") || mode === "dev") {
+      if (hasPermission("productions.view", mode) || hasPermission("productions.create", mode) || mode === "dev") {
         return <ProduzirPage />;
       }
-      if (hasPermission("warehouse.view") || hasPermission("warehouse.transfer")) {
+      if (hasPermission("warehouse.view", mode) || hasPermission("warehouse.transfer", mode)) {
         return <ArmazemPage />;
       }
-      if (hasPermission("production_management.view")) {
+      if (hasPermission("production_management.view", mode)) {
         return <GestaoProducaoPage />;
       }
       return <ProduzirPage />;
