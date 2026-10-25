@@ -391,6 +391,7 @@ function resolveRequiredPermission(id?: string, url?: string): Permission | unde
 function DynamicSidebarNavigation() {
   const routerState = useRouterState();
   const pathname = routerState.location.pathname;
+  const navigate = useNavigate();
   const { hasPermission, user, profile, level, isDevMode, isCeoMode, panelMode, setPanelMode, isCeoUser, isDevUser, isPlatformLocked } = useAuth();
   const { config: menuConfig } = useMenuConfig();
   const { config: devMenuConfig } = useDevMenuConfig();
