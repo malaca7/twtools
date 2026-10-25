@@ -164,6 +164,43 @@ export const DEV_SYSTEM_TAG: MemberTag = {
   assigned_count: 0,
 };
 
+export function syncSystemTagsWithPanelTheme(config?: any) {
+  try {
+    let raw = config;
+    if (!raw && typeof window !== "undefined") {
+      const stored = localStorage.getItem("tw_dev_module_config_v1");
+      if (stored) raw = JSON.parse(stored);
+    }
+    if (raw) {
+      if (raw.devThemeColor) {
+        DEV_SYSTEM_TAG.color = raw.devThemeColor;
+      }
+      if (raw.devPanelIcon) {
+        DEV_SYSTEM_TAG.icon = raw.devPanelIcon;
+      }
+      if (raw.ceoThemeColor) {
+        CEO_SYSTEM_TAG.color = raw.ceoThemeColor;
+      }
+      if (raw.ceoPanelIcon) {
+        CEO_SYSTEM_TAG.icon = raw.ceoPanelIcon;
+      }
+    }
+  } catch {}
+}
+
+if (typeof window !== "undefined") {
+  syncSystemTagsWithPanelTheme();
+  window.addEventListener("tw_dev_config_updated", (e: any) => {
+    syncSystemTagsWithPanelTheme(e?.detail);
+  });
+  window.addEventListener("tw_dev_config_updated_v1", (e: any) => {
+    syncSystemTagsWithPanelTheme(e?.detail);
+  });
+  window.addEventListener("storage", () => {
+    syncSystemTagsWithPanelTheme();
+  });
+}
+
 /**
  * Busca todas as tags de membros cadastradas ordenadas por ordem hierárquica (order_index)
  */

@@ -22,6 +22,16 @@ function getMemberThemeColor(): PanelColor {
   return "cyan";
 }
 
+function getCeoThemeColor(): PanelColor {
+  try {
+    if (typeof window !== "undefined") {
+      const cfg = localStorage.getItem("tw_dev_module_config_v1");
+      if (cfg) return (JSON.parse(cfg)?.ceoThemeColor as PanelColor) || "amber";
+    }
+  } catch {}
+  return "amber";
+}
+
 export const LEVELS: AppLevel[] = ["01", "02", "gerente", "motoqueiro", "membro", "novato"];
 export const ALL_LEVELS: AppLevel[] = LEVELS;
 
@@ -2898,9 +2908,15 @@ export function canPromote(
 }
 
 export function levelBadgeClass(level: AppLevel | null | undefined): string {
-  switch (level) {
-    case "desenvolvedor": {
+  const norm = String(level || "").toLowerCase().trim();
+  switch (norm) {
+    case "desenvolvedor":
+    case "dev": {
       const style = getPanelColorStyle(getDevThemeColor(), "rose");
+      return style.badgeClass;
+    }
+    case "ceo": {
+      const style = getPanelColorStyle(getCeoThemeColor(), "amber");
       return style.badgeClass;
     }
     case "01":

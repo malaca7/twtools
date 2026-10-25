@@ -31,10 +31,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 import { triggerForceCachePurge } from "@/services/devService";
 import { DevMaintenanceManagerModal } from "@/components/maintenance/DevMaintenanceManagerModal";
+import { usePanelTheme } from "@/lib/panelTheme";
 
 export function DevToolsMenu() {
   const { user, profile, level, isDevUser } = useAuth();
   const { settings } = usePlatformSettings();
+  const { devStyle, DevIcon } = usePanelTheme();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [maintenanceModalOpen, setMaintenanceModalOpen] = useState(false);
   const [reason, setReason] = useState("");
@@ -84,19 +86,31 @@ export function DevToolsMenu() {
           <Button
             type="button"
             variant="outline"
-            className="h-8 sm:h-9 px-2 sm:px-3 rounded-lg border-cyan-500/30 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 hover:text-cyan-300 font-bold text-[10px] sm:text-xs transition-all shadow-sm gap-1.5"
+            className="h-8 sm:h-9 px-2 sm:px-3 rounded-lg font-bold text-[10px] sm:text-xs transition-all shadow-sm gap-1.5 border"
+            style={{
+              borderColor: `${devStyle.primaryHex}45`,
+              backgroundColor: `${devStyle.primaryHex}18`,
+              color: devStyle.primaryHex,
+            }}
             aria-label="Dev Tools"
           >
-            <Wrench className="h-3.5 w-3.5" />
+            <DevIcon className="h-3.5 w-3.5 shrink-0" />
             <span className="hidden sm:inline">Dev Tools</span>
           </Button>
         </DropdownMenuTrigger>
 
-        <DropdownMenuContent align="end" className="w-60 bg-slate-950 border-cyan-500/30">
-          <DropdownMenuLabel className="text-xs font-black text-cyan-400 flex items-center gap-2">
-            <Sparkles className="h-3.5 w-3.5" /> Acesso Rápido Dev
+        <DropdownMenuContent
+          align="end"
+          className="w-60 bg-slate-950 border"
+          style={{ borderColor: `${devStyle.primaryHex}35` }}
+        >
+          <DropdownMenuLabel
+            className="text-xs font-black flex items-center gap-2"
+            style={{ color: devStyle.primaryHex }}
+          >
+            <DevIcon className="h-3.5 w-3.5" /> Acesso Rápido Dev
           </DropdownMenuLabel>
-          <DropdownMenuSeparator className="bg-cyan-500/20" />
+          <DropdownMenuSeparator style={{ backgroundColor: `${devStyle.primaryHex}20` }} />
 
           <DropdownMenuItem
             onClick={() => setMaintenanceModalOpen(true)}

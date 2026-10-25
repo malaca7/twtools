@@ -4,6 +4,7 @@ import {
   ShoppingCart,
   ShieldAlert,
   Code2,
+  Terminal,
   Lock,
   Sparkles,
   Zap,
@@ -14,17 +15,20 @@ import {
   UserCheck,
   Star,
   Settings,
+  Users,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { MemberTag } from "@/services/memberTagsService";
+import { usePanelTheme, resolveCategoryIcon } from "@/lib/panelTheme";
 
 const TAG_ICONS: Record<string, LucideIcon> = {
   Tag: TagIcon,
   ShoppingCart,
   ShieldAlert,
   Code2,
+  Terminal,
   Lock,
   Sparkles,
   Zap,
@@ -35,11 +39,13 @@ const TAG_ICONS: Record<string, LucideIcon> = {
   UserCheck,
   Star,
   Settings,
+  Users,
 };
 
 export function resolveTagIcon(iconName?: string | null): LucideIcon {
   if (!iconName) return TagIcon;
-  return TAG_ICONS[iconName] || TagIcon;
+  if (TAG_ICONS[iconName]) return TAG_ICONS[iconName];
+  return resolveCategoryIcon(iconName, TagIcon);
 }
 
 interface MemberTagBadgeProps {
@@ -59,8 +65,47 @@ export function MemberTagBadge({
   className,
   style,
 }: MemberTagBadgeProps) {
-  const Icon = resolveTagIcon(tag.icon);
-  const color = tag.color || "#3b82f6";
+  const { devStyle, ceoStyle, memberStyle, DevIcon, CeoIcon, MemberIcon } = usePanelTheme();
+
+  const normalizedId = String(tag.id || "").toLowerCase().trim();
+  const normalizedName = String(tag.name || "").toLowerCase().trim();
+
+  const isDevTag =
+    normalizedId === "dev" ||
+    normalizedId === "desenvolvedor" ||
+    normalizedName === "dev" ||
+    normalizedName === "desenvolvedor" ||
+    normalizedName.includes("desenvolvedor");
+
+  const isCeoTag =
+    !isDevTag &&
+    (normalizedId === "ceo" ||
+      normalizedName === "ceo" ||
+      normalizedName === "diretoria" ||
+      normalizedName === "executivo");
+
+  const isMemberTag =
+    !isDevTag &&
+    !isCeoTag &&
+    (normalizedId === "membro" ||
+      normalizedName === "membro" ||
+      normalizedName === "member");
+
+  let activePanelStyle = null;
+  let Icon: LucideIcon = resolveTagIcon(tag.icon);
+
+  if (isDevTag) {
+    activePanelStyle = devStyle;
+    Icon = DevIcon;
+  } else if (isCeoTag) {
+    activePanelStyle = ceoStyle;
+    Icon = CeoIcon;
+  } else if (isMemberTag) {
+    activePanelStyle = memberStyle;
+    Icon = MemberIcon;
+  }
+
+  const primaryColor = activePanelStyle ? activePanelStyle.primaryHex : tag.color || "#3b82f6";
 
   const sizeClasses = {
     xs: "text-[9px] px-1.5 py-0 h-4 gap-1",
@@ -74,17 +119,26 @@ export function MemberTagBadge({
     md: "h-3.5 w-3.5",
   }[size];
 
+  const dynamicBg =
+    activePanelStyle?.isGradient && activePanelStyle.previewGradient
+      ? `color-mix(in srgb, ${primaryColor} 18%, transparent)`
+      : `${primaryColor}18`;
+
+  const dynamicBorder = `${primaryColor}45`;
+
   return (
     <span
       className={cn(
-        "inline-flex items-center font-bold rounded-lg border transition-all select-none",
+        "inline-flex items-center font-bold rounded-lg border transition-all select-none shadow-2xs",
+        activePanelStyle?.badgeClass,
         sizeClasses,
         className
       )}
       style={{
-        backgroundColor: `${color}18`,
-        borderColor: `${color}45`,
-        color: color,
+        backgroundColor: dynamicBg,
+        borderColor: dynamicBorder,
+        color: primaryColor,
+        boxShadow: `0 0 10px -2px ${primaryColor}25`,
         ...style,
       }}
       title={tag.description || tag.name}

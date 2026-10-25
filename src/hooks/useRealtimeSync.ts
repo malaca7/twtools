@@ -14,7 +14,7 @@ import { fetchRemoteCeoMenuConfig } from "@/hooks/useCeoMenuConfig";
 import { fetchRemoteDevMenuConfig } from "@/hooks/useDevMenuConfig";
 import { fetchRemotePlatformSettings, getPlatformSettings } from "@/hooks/usePlatformSettings";
 import { playGamerSuccessSound } from "@/lib/sound-effects";
-import { getCeoTagPermissions, getCeoConfiguration } from "@/services/devService";
+import { getCeoTagPermissions, getCeoConfiguration, fetchRemoteDevConfiguration } from "@/services/devService";
 import { CLIENT_INSTANCE_ID } from "@/integrations/supabase/client";
 
 export function useRealtimeSync() {
@@ -123,10 +123,13 @@ export function useRealtimeSync() {
             }
           }
 
-          if (p.type === "dev_config" || p.tag === "dev" || p.tag === "desenvolvedor") {
-            if (typeof window !== "undefined") {
-              window.dispatchEvent(new CustomEvent("tw_dev_config_updated", { detail: p }));
-            }
+          if (p.type === "dev_config" || p.tag === "dev" || p.tag === "desenvolvedor" || p.level === "system_dev_config") {
+            void fetchRemoteDevConfiguration(true).then((newCfg) => {
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("tw_dev_config_updated", { detail: newCfg }));
+                window.dispatchEvent(new CustomEvent("tw_permissions_synced", { detail: { level: "desenvolvedor" } }));
+              }
+            });
           }
         };
       } catch {}
@@ -188,11 +191,13 @@ export function useRealtimeSync() {
             }
             break;
           }
-          if (changedLevel === "desenvolvedor") {
-            if (typeof window !== "undefined") {
-              window.dispatchEvent(new CustomEvent("tw_dev_config_updated"));
-              window.dispatchEvent(new CustomEvent("tw_permissions_synced", { detail: { level: "desenvolvedor" } }));
-            }
+          if (changedLevel === "desenvolvedor" || changedLevel === "system_dev_config") {
+            void fetchRemoteDevConfiguration(true).then((newCfg) => {
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("tw_dev_config_updated", { detail: newCfg }));
+                window.dispatchEvent(new CustomEvent("tw_permissions_synced", { detail: { level: "desenvolvedor" } }));
+              }
+            });
             break;
           }
           if (changedLevel === "system_ceo_config") {
@@ -441,10 +446,12 @@ export function useRealtimeSync() {
 
         if (unsubRtdbDevConfigRef.current) unsubRtdbDevConfigRef.current();
         unsubRtdbDevConfigRef.current = rtdb.subscribe("role_permissions/system_dev_config", () => {
-          if (typeof window !== "undefined") {
-            window.dispatchEvent(new CustomEvent("tw_dev_config_updated"));
-            window.dispatchEvent(new CustomEvent("tw_permissions_synced", { detail: { level: "desenvolvedor" } }));
-          }
+          void fetchRemoteDevConfiguration(true).then((newCfg) => {
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("tw_dev_config_updated", { detail: newCfg }));
+              window.dispatchEvent(new CustomEvent("tw_permissions_synced", { detail: { level: "desenvolvedor" } }));
+            }
+          });
           triggerInvalidations(["role_permissions"]);
         });
 

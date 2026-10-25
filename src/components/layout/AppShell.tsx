@@ -523,22 +523,8 @@ function DynamicSidebarNavigation() {
     root.style.setProperty("--panel-ceo-primary", ceoStyle.primaryHex);
     root.style.setProperty("--panel-member-primary", memberStyle.primaryHex);
 
-    const userThemeRaw = localStorage.getItem("tw_user_theme");
-    let customPrimaryColor: string | null = null;
-    if (userThemeRaw) {
-      try {
-        const parsed = JSON.parse(userThemeRaw);
-        if (parsed.customPrimaryColor) customPrimaryColor = parsed.customPrimaryColor;
-      } catch {}
-    }
-
-    // No modo Membro, respeita customPrimaryColor individual caso exista;
-    // Nos modos Dev e CEO (ou no modo Membro sem cor customizada), usa estritamente a cor oficial do painel ativo.
-    const isOverriddenByMemberTheme = !isDevArea && !isCeoArea && Boolean(customPrimaryColor);
-    const solidColor = isOverriddenByMemberTheme ? (customPrimaryColor as string) : activePanelStyle.primaryHex;
-    const gradient = isOverriddenByMemberTheme
-      ? `linear-gradient(105deg, ${solidColor} 0%, color-mix(in srgb, ${solidColor} 60%, #ffffff 40%) 100%)`
-      : (activePanelStyle.gradient || activePanelStyle.previewGradient || solidColor);
+    const solidColor = activePanelStyle.primaryHex;
+    const gradient = activePanelStyle.gradient || activePanelStyle.previewGradient || solidColor;
 
     root.style.setProperty("--primary", solidColor);
     root.style.setProperty("--ring", solidColor);
@@ -1173,7 +1159,7 @@ function DynamicSidebarNavigation() {
                         ? cn(devStyle.bgSubtleClass, devStyle.iconClass || devStyle.textClass, devStyle.borderSubtleClass)
                         : isCeoCategory
                         ? cn(ceoStyle.bgSubtleClass, ceoStyle.iconClass || ceoStyle.textClass, ceoStyle.borderSubtleClass)
-                        : "bg-primary/10 border-primary/25 text-primary group-hover/label:bg-primary/20 group-hover/label:border-primary/40"
+                        : cn(memberStyle.bgSubtleClass, memberStyle.iconClass || memberStyle.textClass, memberStyle.borderSubtleClass)
                     )}
                   >
                     <CatIcon className="h-3 w-3 shrink-0" />
@@ -1185,7 +1171,7 @@ function DynamicSidebarNavigation() {
                         ? devStyle.textClass
                         : isCeoCategory
                         ? ceoStyle.textClass
-                        : "text-sidebar-foreground group-hover/label:text-foreground"
+                        : memberStyle.textClass
                     )}
                   >
                     {category}
@@ -1216,24 +1202,24 @@ function DynamicSidebarNavigation() {
                       linkSearch = Object.fromEntries(new URLSearchParams(q));
                     }
 
-                    // Estilo de item ativo sincronizado com o tema ativo
-                    const activeItemClass = isDevCategory
+                    // Estilo de item ativo sincronizado com o tema ativo do painel
+                    const activeItemClass = isDevCategory || pathname.startsWith("/dev")
                       ? devStyle.activeItemClass
-                      : isCeoCategory
+                      : isCeoCategory || pathname.startsWith("/ceo")
                       ? ceoStyle.activeItemClass
-                      : "bg-primary/15 text-primary border border-primary/30 shadow-xs shadow-primary/15 font-bold";
+                      : memberStyle.activeItemClass;
 
-                    const activeIconClass = isDevCategory
+                    const activeIconClass = isDevCategory || pathname.startsWith("/dev")
                       ? (devStyle.iconClass || devStyle.textClass)
-                      : isCeoCategory
+                      : isCeoCategory || pathname.startsWith("/ceo")
                       ? (ceoStyle.iconClass || ceoStyle.textClass)
-                      : "text-primary drop-shadow-[0_0_8px_var(--primary)]";
+                      : (memberStyle.iconClass || memberStyle.textClass);
 
-                    const hoverItemClass = isDevCategory
+                    const hoverItemClass = isDevCategory || pathname.startsWith("/dev")
                       ? devStyle.itemHoverClass
-                      : isCeoCategory
+                      : isCeoCategory || pathname.startsWith("/ceo")
                       ? ceoStyle.itemHoverClass
-                      : "hover:bg-sidebar-accent/70 hover:text-foreground";
+                      : memberStyle.itemHoverClass;
 
                     return (
                       <SidebarMenuItem key={item.id || item.url} className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
@@ -1453,6 +1439,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                             ? cn(memberStyle.bgSolidClass, "shadow-xs ring-1", memberStyle.ringClass, "font-bold")
                             : cn(memberStyle.textMutedClass, "hover:bg-secondary/60 hover:text-foreground")
                         )}
+                        style={
+                          !isDevActive && !isCeoActive && memberStyle.isGradient && memberStyle.previewGradient
+                            ? { background: memberStyle.previewGradient, color: "#fff" }
+                            : undefined
+                        }
                         aria-label="Painel Membro"
                       >
                         <MemberIcon className="h-3.5 w-3.5 shrink-0" />
@@ -1477,6 +1468,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                               ? cn(ceoStyle.bgSolidClass, "shadow-xs ring-1", ceoStyle.ringClass, "font-bold")
                               : cn(ceoStyle.textMutedClass, "hover:bg-secondary/60 hover:text-foreground")
                           )}
+                          style={
+                            isCeoActive && ceoStyle.isGradient && ceoStyle.previewGradient
+                              ? { background: ceoStyle.previewGradient, color: "#fff" }
+                              : undefined
+                          }
                           aria-label="Painel CEO"
                         >
                           <CeoIcon className="h-3.5 w-3.5 shrink-0" />
@@ -1502,6 +1498,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                               ? cn(devStyle.bgSolidClass, "shadow-xs ring-1", devStyle.ringClass, "font-bold")
                               : cn(devStyle.textMutedClass, "hover:bg-secondary/60 hover:text-foreground")
                           )}
+                          style={
+                            isDevActive && devStyle.isGradient && devStyle.previewGradient
+                              ? { background: devStyle.previewGradient, color: "#fff" }
+                              : undefined
+                          }
                           aria-label="Painel Dev Tools"
                         >
                           <DevIcon className="h-3.5 w-3.5 shrink-0" />

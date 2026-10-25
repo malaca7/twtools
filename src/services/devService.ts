@@ -513,50 +513,79 @@ export function isDevSystemNotificationsEnabled(): boolean {
   return getDevConfigurationSync().devSystemNotifications;
 }
 
+let activeDevConfigFetchPromise: Promise<DevConfiguration> | null = null;
+
 /**
  * Busca as configurações e cores dos painéis remotamente no Firebase RTDB / banco
  * e sincroniza no cache local de todos os membros e usuários conectados.
  */
-export async function fetchRemoteDevConfiguration(): Promise<DevConfiguration> {
-  let remoteConfig: any = null;
+export async function fetchRemoteDevConfiguration(forceFresh = false): Promise<DevConfiguration> {
+  if (!forceFresh && activeDevConfigFetchPromise) {
+    return activeDevConfigFetchPromise;
+  }
 
-  try {
-    const { rtdb } = await import("@/integrations/firebase/rtdb");
-    const rtdbData = await rtdb.get<any>("role_permissions/system_dev_config");
-    if (rtdbData) {
-      remoteConfig = rtdbData.permissions || rtdbData;
-    }
-  } catch {}
-
-  if (!remoteConfig) {
+  activeDevConfigFetchPromise = (async () => {
     try {
-      const { data } = await supabase
-        .from("role_permissions")
-        .select("permissions")
-        .eq("level", "system_dev_config")
-        .maybeSingle();
+      let remoteConfig: any = null;
 
-      if (data?.permissions && typeof data.permissions === "object") {
-        remoteConfig = data.permissions;
-      }
-    } catch {}
-  }
-
-  if (remoteConfig && typeof remoteConfig === "object") {
-    const merged: DevConfiguration = {
-      ...DEFAULT_DEV_CONFIG,
-      ...remoteConfig,
-    };
-    if (typeof window !== "undefined") {
       try {
-        localStorage.setItem(DEV_CONFIG_KEY, JSON.stringify(merged));
-        window.dispatchEvent(new CustomEvent(DEV_CONFIG_EVENT, { detail: merged }));
+        const { rtdb } = await import("@/integrations/firebase/rtdb");
+        const rtdbData = await rtdb.get<any>("role_permissions/system_dev_config");
+        if (rtdbData) {
+          remoteConfig = rtdbData.permissions || rtdbData;
+        }
       } catch {}
-    }
-    return merged;
-  }
 
-  return getDevConfigurationSync();
+      if (!remoteConfig) {
+        try {
+          const { data } = await supabase
+            .from("role_permissions")
+            .select("permissions")
+            .eq("level", "system_dev_config")
+            .maybeSingle();
+
+          if (data?.permissions && typeof data.permissions === "object") {
+            remoteConfig = data.permissions;
+          }
+        } catch {}
+      }
+
+      if (!remoteConfig) {
+        try {
+          const { data } = await (supabase.from as any)("platform_settings")
+            .select("value")
+            .eq("key", "dev_configuration")
+            .maybeSingle();
+
+          if (data?.value) {
+            remoteConfig = typeof data.value === "string" ? JSON.parse(data.value) : data.value;
+          }
+        } catch {}
+      }
+
+      if (remoteConfig && typeof remoteConfig === "object") {
+        const merged: DevConfiguration = {
+          ...DEFAULT_DEV_CONFIG,
+          ...remoteConfig,
+        };
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem(DEV_CONFIG_KEY, JSON.stringify(merged));
+            window.dispatchEvent(new CustomEvent(DEV_CONFIG_EVENT, { detail: merged }));
+          } catch {}
+        }
+        return merged;
+      }
+
+      return getDevConfigurationSync();
+    } finally {
+      setTimeout(() => {
+        activeDevConfigFetchPromise = null;
+      }, 600);
+    }
+  })();
+
+  return activeDevConfigFetchPromise;
 }
 
 /**

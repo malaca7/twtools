@@ -12,6 +12,7 @@ export interface RoleBadgeProps {
   label?: string;
   text?: string;
   children?: React.ReactNode;
+  style?: React.CSSProperties;
 }
 
 export function DevBadge({
@@ -21,6 +22,7 @@ export function DevBadge({
   label = "DEV",
   text,
   children,
+  style,
 }: RoleBadgeProps) {
   const { devStyle, DevIcon } = usePanelTheme();
   const badgeText = children ?? text ?? label;
@@ -37,15 +39,27 @@ export function DevBadge({
     md: "h-3.5 w-3.5",
   };
 
+  const dynamicBg =
+    devStyle.isGradient && devStyle.previewGradient
+      ? `color-mix(in srgb, ${devStyle.primaryHex} 18%, transparent)`
+      : `${devStyle.primaryHex}18`;
+
   return (
     <Badge
       variant="outline"
       className={cn(
-        "font-mono font-black border uppercase tracking-wider inline-flex items-center shrink-0 shadow-xs backdrop-blur-xs transition-colors",
+        "font-mono font-black border uppercase tracking-wider inline-flex items-center shrink-0 shadow-xs backdrop-blur-xs transition-colors select-none",
         devStyle.badgeClass,
         sizeClasses[size],
         className
       )}
+      style={{
+        borderColor: `${devStyle.primaryHex}55`,
+        backgroundColor: dynamicBg,
+        color: devStyle.primaryHex,
+        boxShadow: `0 0 10px -2px ${devStyle.primaryHex}25`,
+        ...style,
+      }}
     >
       {showIcon && <DevIcon className={cn("shrink-0", iconSizes[size])} />}
       <span>{badgeText}</span>
@@ -60,6 +74,7 @@ export function CeoBadge({
   label = "CEO",
   text,
   children,
+  style,
 }: RoleBadgeProps) {
   const { ceoStyle, CeoIcon } = usePanelTheme();
   const badgeText = children ?? text ?? label;
@@ -76,14 +91,27 @@ export function CeoBadge({
     md: "h-3.5 w-3.5",
   };
 
+  const dynamicBg =
+    ceoStyle.isGradient && ceoStyle.previewGradient
+      ? `color-mix(in srgb, ${ceoStyle.primaryHex} 18%, transparent)`
+      : `${ceoStyle.primaryHex}18`;
+
   return (
     <Badge
+      variant="outline"
       className={cn(
-        "font-bold uppercase tracking-wider inline-flex items-center shrink-0 shadow-xs backdrop-blur-xs transition-colors border",
+        "font-bold uppercase tracking-wider inline-flex items-center shrink-0 shadow-xs backdrop-blur-xs transition-colors border select-none",
         ceoStyle.badgeClass,
         sizeClasses[size],
         className
       )}
+      style={{
+        borderColor: `${ceoStyle.primaryHex}55`,
+        backgroundColor: dynamicBg,
+        color: ceoStyle.primaryHex,
+        boxShadow: `0 0 10px -2px ${ceoStyle.primaryHex}25`,
+        ...style,
+      }}
     >
       {showIcon && <CeoIcon className={cn("shrink-0", iconSizes[size])} />}
       <span>{badgeText}</span>
@@ -98,6 +126,7 @@ export function MemberBadge({
   label = "MEMBRO",
   text,
   children,
+  style,
 }: RoleBadgeProps) {
   const { memberStyle, MemberIcon } = usePanelTheme();
   const badgeText = children ?? text ?? label;
@@ -114,15 +143,27 @@ export function MemberBadge({
     md: "h-3.5 w-3.5",
   };
 
+  const dynamicBg =
+    memberStyle.isGradient && memberStyle.previewGradient
+      ? `color-mix(in srgb, ${memberStyle.primaryHex} 18%, transparent)`
+      : `${memberStyle.primaryHex}18`;
+
   return (
     <Badge
       variant="outline"
       className={cn(
-        "font-bold uppercase tracking-wider inline-flex items-center shrink-0 shadow-xs backdrop-blur-xs transition-colors border",
+        "font-bold uppercase tracking-wider inline-flex items-center shrink-0 shadow-xs backdrop-blur-xs transition-colors border select-none",
         memberStyle.badgeClass,
         sizeClasses[size],
         className
       )}
+      style={{
+        borderColor: `${memberStyle.primaryHex}55`,
+        backgroundColor: dynamicBg,
+        color: memberStyle.primaryHex,
+        boxShadow: `0 0 10px -2px ${memberStyle.primaryHex}25`,
+        ...style,
+      }}
     >
       {showIcon && <MemberIcon className={cn("shrink-0", iconSizes[size])} />}
       <span>{badgeText}</span>
@@ -143,30 +184,32 @@ export function PanelRoleBadge({
   size = "xs",
   showIcon = true,
   className,
+  style,
 }: PanelRoleBadgeProps) {
-  const { devStyle, ceoStyle, memberStyle, DevIcon, CeoIcon, MemberIcon } = usePanelTheme();
+  const norm = String(level || "").toLowerCase().trim();
 
-  if (isDev || level === "desenvolvedor") {
-    return <DevBadge size={size} showIcon={showIcon} className={className} />;
+  if (isDev || norm === "desenvolvedor" || norm === "dev") {
+    return <DevBadge size={size} showIcon={showIcon} className={className} style={style} />;
   }
 
-  if (isCeo) {
-    return <CeoBadge size={size} showIcon={showIcon} className={className} />;
+  if (isCeo || norm === "ceo") {
+    return <CeoBadge size={size} showIcon={showIcon} className={className} style={style} />;
   }
 
-  if (level === "membro") {
-    return <MemberBadge size={size} showIcon={showIcon} className={className} />;
+  if (norm === "membro") {
+    return <MemberBadge size={size} showIcon={showIcon} className={className} style={style} />;
   }
 
-  const roleLabel = level ? (LEVEL_LABEL[level as AppLevel] || level) : "Membro";
+  const roleLabel = level ? LEVEL_LABEL[level as AppLevel] || level : "Membro";
 
   return (
     <Badge
       variant="outline"
       className={cn(
-        "text-[9px] font-mono uppercase tracking-wider px-1.5 py-0 h-4",
+        "text-[9px] font-mono uppercase tracking-wider px-1.5 py-0 h-4 select-none",
         className
       )}
+      style={style}
     >
       {roleLabel}
     </Badge>

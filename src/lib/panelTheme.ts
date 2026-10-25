@@ -962,20 +962,44 @@ export function usePanelTheme() {
   const [config, setConfig] = useState<DevConfiguration>(() => getDevConfigurationSync());
 
   useEffect(() => {
+    let isMounted = true;
+
+    // Sincronização inicial remota para todos os membros e usuários (sem exigir permissão dev)
+    void fetchRemoteDevConfiguration()
+      .then((remote) => {
+        if (isMounted && remote) {
+          setConfig(remote);
+        }
+      })
+      .catch(() => {});
+
     const handleUpdate = (e?: Event) => {
       const detail = (e as CustomEvent)?.detail;
-      if (detail) {
+      if (
+        detail &&
+        typeof detail === "object" &&
+        ("devThemeColor" in detail || "memberThemeColor" in detail || "ceoThemeColor" in detail)
+      ) {
         setConfig(detail);
       } else {
-        setConfig(getDevConfigurationSync());
+        void fetchRemoteDevConfiguration(true)
+          .then((remote) => {
+            if (isMounted && remote) setConfig(remote);
+          })
+          .catch(() => {
+            if (isMounted) setConfig(getDevConfigurationSync());
+          });
       }
     };
 
     window.addEventListener(DEV_CONFIG_EVENT, handleUpdate);
     window.addEventListener("storage", handleUpdate);
+    window.addEventListener("tw_dev_config_updated", handleUpdate);
     return () => {
+      isMounted = false;
       window.removeEventListener(DEV_CONFIG_EVENT, handleUpdate);
       window.removeEventListener("storage", handleUpdate);
+      window.removeEventListener("tw_dev_config_updated", handleUpdate);
     };
   }, []);
 
