@@ -939,15 +939,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  // Coleta as permissões exclusivamente das TAGS DO SISTEMA (exclui Tag Dev e Tag CEO)
-  const systemTagPermissions = useMemo<Permission[]>(() => {
+  // Coleta as permissões de TODAS as tags ativas do membro (permissions[] + rules)
+  // As tags que o funcionário possuir somam permissões tanto no painel de membro quanto no painel CEO!
+  const memberTagsPermissions = useMemo<Permission[]>(() => {
     const permsSet = new Set<Permission>();
     for (const tag of memberTags) {
       if (tag.is_active === false) continue;
-      // Exclui explicitamente tags de Dev e de CEO das tags do sistema
-      if (isDevTagItem(tag) || isCeoTagItem(tag)) continue;
 
-      // Permissões explícitas no array permissions
+      // Permissões explícitas no array permissions da tag
       if (Array.isArray(tag.permissions)) {
         for (const p of tag.permissions) {
           if (p && typeof p === "string") {
@@ -955,113 +954,141 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
       }
+
       // Regras e permissões implícitas da tag do sistema
       const rules = tag.rules || {};
-      const isBlocked = Boolean(rules.is_blocked || rules.block_operations);
-      const cleanId = tag.id.toLowerCase().trim();
+      const cleanId = (tag.id || "").toLowerCase().trim();
 
-      if (!isBlocked && !rules.block_sales && (rules.can_sell || cleanId === "vendedor")) {
-        permsSet.add("sales.view" as Permission);
-        permsSet.add("sales.create" as Permission);
-        permsSet.add("sales.history" as Permission);
-        permsSet.add("view_sales" as Permission);
-        permsSet.add("create_sale" as Permission);
-        permsSet.add("view_products" as Permission);
-        permsSet.add("view_baus" as Permission);
-        permsSet.add("view_stock" as Permission);
+      // Comercial & Vendas
+      if (rules.can_sell || cleanId === "vendedor") {
+        permsSet.add("sales.view");
+        permsSet.add("sales.create");
+        permsSet.add("sales.history");
+        permsSet.add("view_sales");
+        permsSet.add("create_sale");
+        permsSet.add("view_products");
+        permsSet.add("view_baus");
+        permsSet.add("view_stock");
       }
-      if (!isBlocked && !rules.block_productions && rules.can_manage_raw_materials) {
-        permsSet.add("raw_materials.view" as Permission);
-        permsSet.add("raw_materials.create" as Permission);
-        permsSet.add("raw_materials.edit" as Permission);
-        permsSet.add("raw_materials.transfer_bau" as Permission);
-        permsSet.add("raw_materials.history" as Permission);
+      if (rules.can_reverse_sales) {
+        permsSet.add("reverse_sale");
+        permsSet.add("sales.cancel");
       }
-      if (!isBlocked && !rules.block_productions && rules.can_manage_productions) {
-        permsSet.add("productions.view" as Permission);
-        permsSet.add("productions.create" as Permission);
-        permsSet.add("productions.edit" as Permission);
-        permsSet.add("view_productions" as Permission);
-        permsSet.add("warehouse.view" as Permission);
+      if (rules.can_view_all_sales) {
+        permsSet.add("view_all_sales");
       }
-      if (!isBlocked && !rules.block_productions && rules.can_transfer_warehouse) {
-        permsSet.add("warehouse.view" as Permission);
-        permsSet.add("warehouse.transfer" as Permission);
-        permsSet.add("warehouse.transfer_storage" as Permission);
-        permsSet.add("warehouse.transfer_sale" as Permission);
+
+      // Produções, Armazém & Matérias-Primas
+      if (rules.can_manage_raw_materials) {
+        permsSet.add("raw_materials.view");
+        permsSet.add("raw_materials.create");
+        permsSet.add("raw_materials.edit");
+        permsSet.add("raw_materials.transfer_bau");
+        permsSet.add("raw_materials.history");
       }
-      if (!isBlocked && !rules.block_productions && rules.can_adjust_warehouse_stock) {
-        permsSet.add("warehouse.view" as Permission);
-        permsSet.add("warehouse.adjust" as Permission);
+      if (rules.can_manage_productions) {
+        permsSet.add("productions.view");
+        permsSet.add("productions.create");
+        permsSet.add("productions.edit");
+        permsSet.add("view_productions");
+        permsSet.add("create_production");
+        permsSet.add("warehouse.view");
       }
-      if (!isBlocked && !rules.block_productions && rules.can_manage_production_recipes) {
-        permsSet.add("production_management.view" as Permission);
-        permsSet.add("production_management.products" as Permission);
-        permsSet.add("production_management.raw_materials" as Permission);
-        permsSet.add("production_management.productions" as Permission);
-        permsSet.add("production_management.settings" as Permission);
+      if (rules.can_transfer_warehouse) {
+        permsSet.add("warehouse.view");
+        permsSet.add("warehouse.transfer");
+        permsSet.add("warehouse.transfer_storage");
+        permsSet.add("warehouse.transfer_sale");
       }
-      if (!isBlocked && rules.can_manage_members) {
-        permsSet.add("view_members" as Permission);
-        permsSet.add("approve_requests" as Permission);
-        permsSet.add("promote_members" as Permission);
-        permsSet.add("edit_members" as Permission);
+      if (rules.can_adjust_warehouse_stock) {
+        permsSet.add("warehouse.view");
+        permsSet.add("warehouse.adjust");
       }
-      if (!isBlocked && rules.can_view_sensitive_data) {
-        permsSet.add("view_sensitive_data" as Permission);
+      if (rules.can_manage_production_recipes) {
+        permsSet.add("production_management.view");
+        permsSet.add("production_management.products");
+        permsSet.add("production_management.raw_materials");
+        permsSet.add("production_management.productions");
+        permsSet.add("production_management.settings");
+        permsSet.add("production_management.reports");
       }
-      if (!isBlocked && rules.can_view_all_tickets) {
-        permsSet.add("view_tickets" as Permission);
-        permsSet.add("view_all_tickets" as Permission);
+
+      // Fundo de Caixa & Finanças
+      if (rules.can_deposit_cash_fund || rules.can_withdraw_cash_fund) {
+        permsSet.add("view_cash_fund");
+        permsSet.add("manage_cash_fund");
       }
-      if (!isBlocked && rules.can_create_announcements) {
-        permsSet.add("create_announcements" as Permission);
-        permsSet.add("manage_announcements" as Permission);
+      if (rules.can_view_financial_reports) {
+        permsSet.add("view_consolidated_financials");
+        permsSet.add("view_ceo_financials");
       }
-      if (!isBlocked && !rules.block_sales && rules.can_reverse_sales) {
-        permsSet.add("reverse_sale" as Permission);
-        permsSet.add("sales.cancel" as Permission);
+
+      // Gestão de Membros & Equipe
+      if (rules.can_manage_members) {
+        permsSet.add("view_members");
+        permsSet.add("approve_requests");
+        permsSet.add("promote_members");
+        permsSet.add("edit_members");
       }
-      if (!isBlocked && !rules.block_sales && rules.can_view_all_sales) {
-        permsSet.add("view_all_sales" as Permission);
+      if (rules.can_view_sensitive_data) {
+        permsSet.add("view_sensitive_data");
       }
-      if (!isBlocked && !rules.block_cash_fund && (rules.can_deposit_cash_fund || rules.can_withdraw_cash_fund)) {
-        permsSet.add("view_cash_fund" as Permission);
-        permsSet.add("manage_cash_fund" as Permission);
+      if (rules.can_view_all_tickets) {
+        permsSet.add("view_tickets");
+        permsSet.add("view_all_tickets");
+        permsSet.add("atendimento_tickets.view" as Permission);
+        permsSet.add("view_atendimento_tickets" as Permission);
       }
-      if (!isBlocked && rules.can_view_financial_reports) {
-        permsSet.add("view_consolidated_financials" as Permission);
+      if (rules.can_create_announcements) {
+        permsSet.add("create_announcements" as any);
+        permsSet.add("manage_announcements");
       }
-      if (!isBlocked && !rules.block_escalas && rules.can_manage_escalas) {
-        permsSet.add("escalas.view" as Permission);
-        permsSet.add("escalas.details" as Permission);
-        permsSet.add("escalas.create" as Permission);
-        permsSet.add("escalas.edit" as Permission);
-        permsSet.add("escalas.delete" as Permission);
-        permsSet.add("escalas.publish" as Permission);
-        permsSet.add("escalas.cancel" as Permission);
-        permsSet.add("escalas.manage_members" as Permission);
-        permsSet.add("escalas.add_participants" as Permission);
-        permsSet.add("escalas.remove_participants" as Permission);
-        permsSet.add("escalas.confirm_presence" as Permission);
-        permsSet.add("escalas.manage_slots" as Permission);
-        permsSet.add("escalas.substitute" as Permission);
-        permsSet.add("escalas.history" as Permission);
-        permsSet.add("escalas.settings" as Permission);
+
+      // Escala de Ação
+      if (rules.can_manage_escalas) {
+        permsSet.add("escalas.view");
+        permsSet.add("escalas.details");
+        permsSet.add("escalas.create");
+        permsSet.add("escalas.edit");
+        permsSet.add("escalas.delete");
+        permsSet.add("escalas.publish");
+        permsSet.add("escalas.cancel");
+        permsSet.add("escalas.manage_members");
+        permsSet.add("escalas.add_participants");
+        permsSet.add("escalas.remove_participants");
+        permsSet.add("escalas.confirm_presence");
+        permsSet.add("escalas.manage_slots");
+        permsSet.add("escalas.substitute");
+        permsSet.add("escalas.history");
+        permsSet.add("escalas.settings");
       }
-      if (!isBlocked && !rules.block_escalas && (rules.can_view_escalas || rules.can_participate_escalas)) {
-        permsSet.add("escalas.view" as Permission);
-        permsSet.add("escalas.details" as Permission);
+      if (rules.can_view_escalas || rules.can_participate_escalas) {
+        permsSet.add("escalas.view");
+        permsSet.add("escalas.details");
         if (rules.can_participate_escalas) {
-          permsSet.add("escalas.confirm_presence" as Permission);
+          permsSet.add("escalas.confirm_presence");
         }
         if (rules.can_view_escalas) {
-          permsSet.add("escalas.history" as Permission);
+          permsSet.add("escalas.history");
         }
+      }
+
+      // Acesso Executivo CEO
+      if (rules.can_access_ceo || rules.is_ceo) {
+        permsSet.add("view_ceo");
+        permsSet.add("view_ceo_dashboard");
+      }
+
+      // Acesso Desenvolvedor
+      if (rules.can_access_dev || rules.is_dev_test) {
+        permsSet.add("view_dev_hub");
+        permsSet.add("view_dev");
       }
     }
     return Array.from(permsSet);
-  }, [memberTags, isDevTagItem, isCeoTagItem]);
+  }, [memberTags]);
+
+  const systemTagPermissions = memberTagsPermissions;
 
   // Permissões específicas da TAG CEO (somente as marcadas em role_permissions["ceo"] + tags CEO ativas)
   const ceoTagPermissions = useMemo<Permission[]>(() => {
@@ -1077,12 +1104,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     for (const tag of memberTags) {
       if (tag.is_active === false) continue;
       if (!isCeoTagItem(tag)) continue;
-      const rules = tag.rules || {};
-      const isBlocked = Boolean(rules.is_blocked || rules.block_operations);
-      if (!isBlocked && rules.can_view_all_tickets) {
-        permsSet.add("view_tickets" as Permission);
-        permsSet.add("view_all_tickets" as Permission);
-      }
       if (Array.isArray(tag.permissions)) {
         for (const p of tag.permissions) {
           if (p && typeof p === "string") permsSet.add(p as Permission);
@@ -1124,7 +1145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (t.rules?.can_access_dev === true || t.rules?.is_dev_test === true) return true;
       if (
         Array.isArray(t.permissions) &&
-        (t.permissions.includes("view_dev_hub") || t.permissions.includes("manage_dev_config"))
+        (t.permissions.includes("view_dev_hub") || t.permissions.includes("manage_dev_config") || t.permissions.includes("view_dev"))
       ) {
         return true;
       }
@@ -1159,20 +1180,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Checagem se o membro é CEO (base ou concedido por tag ativa)
   const isCeoUser = useMemo(() => {
-    // 1. Tags ativas atribuídas ao membro
+    // 1. Tags ativas atribuídas ao membro que concedem acesso CEO
     const hasActiveCeoTag = memberTags.some((t) => {
       if (t.is_active === false) return false;
       if (isCeoTagItem(t)) return true;
       const cleanId = t.id.toLowerCase().trim();
       if (cleanId === "ceo") return true;
       if (t.rules?.can_access_ceo === true || t.rules?.is_ceo === true) return true;
+      if (
+        Array.isArray(t.permissions) &&
+        (t.permissions.includes("view_ceo") ||
+          t.permissions.includes("view_ceo_dashboard") ||
+          t.permissions.includes("view_ceo_financials") ||
+          t.permissions.includes("view_ceo_stock_adjustments") ||
+          t.permissions.includes("view_ceo_notifications") ||
+          t.permissions.includes("manage_ceo_bot") ||
+          t.permissions.includes("manage_ceo_webhooks") ||
+          t.permissions.includes("view_ceo_tag_permissions") ||
+          t.permissions.includes("verification.manage") ||
+          t.permissions.includes("view_ceo_warnings"))
+      ) {
+        return true;
+      }
       return false;
     });
 
     if (hasActiveCeoTag) return true;
 
-    // Se o perfil tem explicitamente is_ceo === false, NUNCA é CEO
-    if (profile && profile.is_ceo === false) return false;
+    // Se o perfil tem explicitamente is_ceo === false e não tem tag ativa CEO, NUNCA é CEO
+    if (profile && profile.is_ceo === false && !memberTags.some((t) => t.is_active !== false && t.id === "ceo")) {
+      return false;
+    }
 
     // 2. Base (flag is_ceo no perfil ou checagem isUserCeo)
     if (isUserCeo(profile, session?.user ? { id: session.user.id } : null)) return true;
@@ -1185,11 +1223,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Permissões ativas agregadas
   const allTagPermissions = useMemo<Permission[]>(() => {
     return Array.from(new Set([
-      ...systemTagPermissions,
+      ...memberTagsPermissions,
       ...(isCeoUser ? ceoTagPermissions : []),
       ...(isDevUser ? devTagPermissions : []),
     ]));
-  }, [systemTagPermissions, ceoTagPermissions, devTagPermissions, isCeoUser, isDevUser]);
+  }, [memberTagsPermissions, ceoTagPermissions, devTagPermissions, isCeoUser, isDevUser]);
 
   const isDevMode = Boolean(
     isDevUser &&
@@ -1227,18 +1265,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [memberTags]);
 
   const isPlatformLocked = useMemo(() => {
-    // Imunidade estrita ao bloqueio APENAS para Desenvolvedores acessando o painel /dev com bypass ativo
-    const isDevInDevArea =
-      isDevUser &&
-      isDevBypassActive() &&
-      (panelMode === "dev" || (typeof window !== "undefined" && window.location.pathname.toLowerCase().startsWith("/dev")));
-    if (isDevInDevArea) {
+    // Imunidade total ao bloqueio de plataforma para quem possui a Tag Dev
+    if (isDevUser) {
       return false;
     }
     return platformLockedTags.length > 0 || Boolean(activeSuspension?.blocks?.block_login);
-  }, [platformLockedTags, activeSuspension, isDevUser, panelMode]);
+  }, [platformLockedTags, activeSuspension, isDevUser]);
 
   const isMemberBlocked = useMemo(() => {
+    // Imunidade total a bloqueios operacionais para quem possui a Tag Dev
+    if (isDevUser) {
+      return false;
+    }
     return (
       isPlatformLocked ||
       memberTags.some(
@@ -1253,7 +1291,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           (activeSuspension.blocks?.block_all_operations || activeSuspension.blocks?.block_login)
       )
     );
-  }, [memberTags, activeSuspension, isPlatformLocked]);
+  }, [memberTags, activeSuspension, isPlatformLocked, isDevUser]);
 
   // Garante que membros comuns sem Tag Dev ou Tag CEO nunca fiquem travados em rotas ou modos de painel desautorizados
   useEffect(() => {
@@ -1318,9 +1356,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // =========================================================================
       // 0. BLOQUEIOS OPERACIONAIS & DE PLATAFORMA (PRECEDÊNCIA MÁXIMA)
       // Regra absoluta do sistema: Bloqueios ficam ACIMA de qualquer cargo (01, 02, etc.),
-      // acima de tags de sistema e acima do painel CEO!
+      // acima de outras tags e acima do painel CEO, EXCETO SE O MEMBRO TIVER A TAG DEV!
       // =========================================================================
-      if (!isDevUser || activePanel !== "dev" || !bypassActive) {
+      if (!isDevUser) {
         // 0.1. CHAVE MESTRA: BLOQUEIO TOTAL DE ACESSO À PLATAFORMA (block_login)
         // Se o usuário possuir qualquer tag ativa com block_login OU suspensão com block_login:
         // TODAS AS PERMISSÕES SÃO NEGADAS IMEDIATAMENTE!
@@ -1475,24 +1513,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Avaliação base de membro: apenas permissões configuradas no cargo do membro (+ tags normais do sistema)
+      // Avaliação base de membro: soma permissões do CARGO do membro + permissões de TODAS as Tags do membro
       const evaluateAsMember = () => {
         if (can(level, permission, customRolePermissions)) return true;
-        if (satisfiesPermission(systemTagPermissions, permission)) return true;
+        if (satisfiesPermission(memberTagsPermissions, permission)) return true;
         return false;
       };
 
       // =========================================================================
-      // 1. PAINEL MEMBRO: Apenas ver/visualizar e ter acesso aos menus/páginas/funções/opções
-      // em que o CARGO DO MEMBRO tem permissões. Jamais conceder permissões de Tag CEO ou Tag Dev.
+      // 1. PAINEL MEMBRO: Soma permissões do Cargo + Tags do Funcionário
       // =========================================================================
       if (activePanel === "member") {
         return evaluateAsMember();
       }
 
       // =========================================================================
-      // 2. PAINEL CEO: Apenas ver/visualizar e ter acesso aos menus/páginas/funções/opções
-      // em que o CARGO DO MEMBRO E a TAG CEO têm permissões.
+      // 2. PAINEL CEO: Soma permissões da Tag CEO + Cargo do Funcionário + Tags do Funcionário
       // =========================================================================
       if (activePanel === "ceo") {
         if (isCeoUser || isDevUser) {
@@ -1503,8 +1539,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // =========================================================================
-      // 3. PAINEL DEV: Ver/visualizar e ter acesso aos menus/páginas/funções/opções
-      // em que o CARGO DO MEMBRO, a TAG CEO e a TAG DEV têm permissões.
+      // 3. PAINEL DEV: Soma permissões Dev + Tag CEO + Cargo + Tags do Funcionário
       // =========================================================================
       if (activePanel === "dev") {
         if (isDevUser) {
@@ -1532,7 +1567,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isCeoUser,
       memberTags,
       activeSuspension,
-      systemTagPermissions,
+      memberTagsPermissions,
       ceoTagPermissions,
       devTagPermissions,
       customRolePermissions,
@@ -1544,35 +1579,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const hasMemberRolePermission = useCallback(
     (permission: Permission) => {
-      // 0. Bloqueios de login e operacionais
-      const hasLoginBlock =
-        memberTags.some((t) => t.is_active !== false && t.rules?.block_login === true) ||
-        Boolean(activeSuspension?.blocks?.block_login);
-      if (hasLoginBlock) return false;
+      // 0. Bloqueios de login e operacionais (aplica para todos exceto quem possui a Tag Dev)
+      if (!isDevUser) {
+        const hasLoginBlock =
+          memberTags.some((t) => t.is_active !== false && t.rules?.block_login === true) ||
+          Boolean(activeSuspension?.blocks?.block_login);
+        if (hasLoginBlock) return false;
 
-      const hasOperationsBlock =
-        memberTags.some(
-          (t) =>
-            t.is_active !== false &&
-            (t.rules?.is_blocked === true || t.rules?.block_operations === true)
-        ) || Boolean(activeSuspension?.blocks?.block_all_operations);
-      if (
-        hasOperationsBlock &&
-        (permission.startsWith("manage_") ||
-          permission.startsWith("approve_") ||
-          permission.startsWith("create_") ||
-          permission.startsWith("delete_"))
-      ) {
-        return false;
+        const hasOperationsBlock =
+          memberTags.some(
+            (t) =>
+              t.is_active !== false &&
+              (t.rules?.is_blocked === true || t.rules?.block_operations === true)
+          ) || Boolean(activeSuspension?.blocks?.block_all_operations);
+        if (
+          hasOperationsBlock &&
+          (permission.startsWith("manage_") ||
+            permission.startsWith("approve_") ||
+            permission.startsWith("create_") ||
+            permission.startsWith("delete_"))
+        ) {
+          return false;
+        }
       }
 
-      // Avaliação estrita: APENAS as permissões do cargo do membro (+ tags de sistema não-executivas)
+      // Soma permissões do cargo + tags de membros
       return (
         can(level, permission, customRolePermissions) ||
-        satisfiesPermission(systemTagPermissions, permission)
+        satisfiesPermission(memberTagsPermissions, permission)
       );
     },
-    [level, memberTags, activeSuspension, customRolePermissions, systemTagPermissions]
+    [level, isDevUser, memberTags, activeSuspension, customRolePermissions, memberTagsPermissions]
   );
 
   const value = useMemo<AuthContextValue>(

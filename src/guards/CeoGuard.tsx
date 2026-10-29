@@ -13,11 +13,11 @@ interface CeoGuardProps {
 }
 
 export function CeoGuard({ children }: CeoGuardProps) {
-  const { isCeoUser, loading } = useAuth();
+  const { isCeoUser, isDevUser, loading } = useAuth();
   const { ceoStyle, CeoIcon } = usePanelTheme();
   const navigate = useNavigate();
 
-  const hasAccess = Boolean(isCeoUser);
+  const hasAccess = Boolean(isCeoUser || isDevUser);
 
   useEffect(() => {
     if (!loading && !hasAccess) {

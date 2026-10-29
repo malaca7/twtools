@@ -23,7 +23,7 @@ import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
 import { cn } from "@/lib/utils";
 
 export function SuspensionAlertBanner() {
-  const { user, activeSuspension, isSuspended, memberTags } = useAuth();
+  const { user, activeSuspension, isSuspended, memberTags, isDevUser } = useAuth();
   const { data: memberWarnings = [] } = useMemberWarnings(user?.id);
   const acknowledgeMutation = useAcknowledgeWarningMutation();
 
@@ -32,17 +32,21 @@ export function SuspensionAlertBanner() {
     (w) => w.status === "ativo" && !w.acknowledged_at
   );
 
-  // Encontra tags ativas com regras de bloqueio operacional
-  const restrictingTags = memberTags.filter(
-    (t) =>
-      t.is_active !== false &&
-      (t.rules?.is_blocked ||
-        t.rules?.block_operations ||
-        t.rules?.block_sales ||
-        t.rules?.block_movements ||
-        t.rules?.block_productions ||
-        t.rules?.block_cash_fund)
-  );
+  // Encontra tags ativas com regras de bloqueio operacional (ignora se for Dev devido à imunidade)
+  const restrictingTags = isDevUser
+    ? []
+    : memberTags.filter(
+        (t) =>
+          t.is_active !== false &&
+          (t.rules?.is_blocked ||
+            t.rules?.block_operations ||
+            t.rules?.block_sales ||
+            t.rules?.block_movements ||
+            t.rules?.block_productions ||
+            t.rules?.block_cash_fund ||
+            t.rules?.block_escalas ||
+            t.rules?.block_login)
+      );
 
   // Se não houver suspensão ativa, advertência pendente nem tags com restrições, não renderiza nada
   if (!isSuspended && !unacknowledgedWarning && restrictingTags.length === 0) {
@@ -124,6 +128,11 @@ export function SuspensionAlertBanner() {
                     {activeSuspension.blocks.block_cash_fund && (
                       <Badge variant="outline" className="text-[10px] border-rose-500/40 text-rose-300 bg-rose-500/10">
                         Fundo de Caixa
+                      </Badge>
+                    )}
+                    {(activeSuspension.blocks as any)?.block_escalas && (
+                      <Badge variant="outline" className="text-[10px] border-rose-500/40 text-rose-300 bg-rose-500/10">
+                        Escalas
                       </Badge>
                     )}
                   </div>
@@ -226,6 +235,11 @@ export function SuspensionAlertBanner() {
                   <span className="text-[10px] font-bold text-rose-400 uppercase flex items-center gap-1">
                     <Lock className="h-2.5 w-2.5" /> Ações Bloqueadas:
                   </span>
+                  {restrictingTags.some((t) => t.rules?.block_login) && (
+                    <Badge variant="outline" className="text-[9px] border-rose-500/40 text-rose-300 bg-rose-500/10">
+                      Acesso Plataforma
+                    </Badge>
+                  )}
                   {restrictingTags.some((t) => t.rules?.is_blocked || t.rules?.block_operations) && (
                     <Badge variant="outline" className="text-[9px] border-rose-500/40 text-rose-300 bg-rose-500/10">
                       Operações Totais
@@ -249,6 +263,11 @@ export function SuspensionAlertBanner() {
                   {restrictingTags.some((t) => t.rules?.block_cash_fund) && (
                     <Badge variant="outline" className="text-[9px] border-rose-500/40 text-rose-300 bg-rose-500/10">
                       Fundo de Caixa
+                    </Badge>
+                  )}
+                  {restrictingTags.some((t) => t.rules?.block_escalas) && (
+                    <Badge variant="outline" className="text-[9px] border-rose-500/40 text-rose-300 bg-rose-500/10">
+                      Escalas
                     </Badge>
                   )}
                 </div>

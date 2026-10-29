@@ -312,7 +312,7 @@ export function CeoGerenciarTagsPage() {
 
   // Filtros de busca de tags
   const [tagSearch, setTagSearch] = useState("");
-  const [tagFilter, setTagFilter] = useState<"all" | "active" | "blocking" | "sales" | "productions" | "discord" | "system">("all");
+  const [tagFilter, setTagFilter] = useState<"all" | "active" | "ceo" | "blocking" | "sales" | "productions" | "discord" | "system">("all");
 
   // Modal de Criação / Edição de Tag
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
@@ -394,6 +394,7 @@ export function CeoGerenciarTagsPage() {
         t.rules?.is_blocked ||
         t.rules?.block_operations ||
         t.rules?.block_login ||
+        t.rules?.block_escalas ||
         t.rules?.block_sales ||
         t.rules?.block_movements ||
         t.rules?.block_productions ||
@@ -402,17 +403,12 @@ export function CeoGerenciarTagsPage() {
     return { totalTags, totalAssignedMembers, activeTags, blockingTags };
   }, [tags, assignments]);
 
-  // Cards operacionais de membros (removendo Painel DEV e Painel CEO, mantendo Gerenciar Tags sob Administração)
+  // Cards operacionais de membros e executivos CEO (excluindo apenas DEV)
   const platformPageCards = useMemo(() => {
     return PAGE_CARDS.filter((card) => {
       // Exclui Painel DEV e Ferramentas Dev
       if (card.defaultCat === "DEV" || card.defaultCat === "Ferramentas Dev") return false;
       if (card.id.startsWith("dev-") || card.id === "dev" || card.route.startsWith("/dev")) return false;
-      // Permite expressamente o card "ceo-tags" (Gerenciar Tags) para permitir concessão granular de Gerenciar, Criar, Apagar e Editar
-      if (card.id === "ceo-tags") return true;
-      // Exclui Painel CEO
-      if (card.defaultCat === "CEO" || card.defaultCat === "Painel CEO") return false;
-      if (card.id.startsWith("ceo-") || card.id === "ceo" || card.route.startsWith("/ceo")) return false;
       // Remover expressamente "Transmissão e Lives" e "Twin Life"
       if (card.id === "lives" || card.id === "life") return false;
       return true;
@@ -427,7 +423,7 @@ export function CeoGerenciarTagsPage() {
     return READ_ONLY_PERMISSIONS.filter((p) => allPlatformPermissions.includes(p));
   }, [allPlatformPermissions]);
 
-  // Agrupamento e ordenação dinâmica dos PAGE_CARDS operacionais pelas categorias do menu de membros
+  // Agrupamento e ordenação dinâmica dos PAGE_CARDS operacionais e executivos pelas categorias
   const groupedPageCards = useMemo(() => {
     const validConfigItems = menuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
     const configMap = new Map(validConfigItems.map((c) => [c.id || c.url, c]));
@@ -435,11 +431,14 @@ export function CeoGerenciarTagsPage() {
     const rawCategories = menuConfig?.categories?.length
       ? menuConfig.categories
       : ["Produções", "Gestão", "Administração"];
-    const orderedCategories = rawCategories;
+    const orderedCategories = [...rawCategories];
+    if (!orderedCategories.includes("Executivo CEO")) {
+      orderedCategories.push("Executivo CEO");
+    }
 
-    // Remover categorias "Operação", "DEV", "Ferramentas Dev", "CEO", "Painel CEO"
+    // Remover categorias "Operação", "DEV", "Ferramentas Dev"
     const categoryOrder = orderedCategories.filter(
-      (c) => c !== "DEV" && c !== "Ferramentas Dev" && c !== "CEO" && c !== "Painel CEO" && c !== "Operação"
+      (c) => c !== "DEV" && c !== "Ferramentas Dev" && c !== "Operação"
     );
 
     const customized = platformPageCards
@@ -451,6 +450,14 @@ export function CeoGerenciarTagsPage() {
         }
         if (card.id === "ceo-tags") {
           cat = "Administração";
+        } else if (
+          card.defaultCat === "CEO" ||
+          card.defaultCat === "Painel CEO" ||
+          card.id.startsWith("ceo-") ||
+          card.id === "ceo" ||
+          card.route.startsWith("/ceo")
+        ) {
+          cat = "Executivo CEO";
         }
         return {
           ...card,
@@ -463,8 +470,6 @@ export function CeoGerenciarTagsPage() {
         (card) =>
           card.category !== "DEV" &&
           card.category !== "Ferramentas Dev" &&
-          card.category !== "CEO" &&
-          card.category !== "Painel CEO" &&
           card.category !== "Operação"
       );
 
@@ -608,10 +613,19 @@ export function CeoGerenciarTagsPage() {
         !tag.rules?.is_blocked &&
         !tag.rules?.block_operations &&
         !tag.rules?.block_login &&
+        !tag.rules?.block_escalas &&
         !tag.rules?.block_sales &&
         !tag.rules?.block_movements &&
         !tag.rules?.block_productions &&
         !tag.rules?.block_cash_fund
+      )
+        return false;
+      if (
+        tagFilter === "ceo" &&
+        tag.id !== "ceo" &&
+        !tag.rules?.can_access_ceo &&
+        !tag.rules?.is_ceo &&
+        !tag.permissions?.some((p) => p.startsWith("view_ceo") || p.startsWith("manage_ceo") || p === "view_ceo")
       )
         return false;
       if (tagFilter === "sales" && !tag.rules?.can_sell && tag.id !== "vendedor") return false;
@@ -1423,7 +1437,17 @@ export function CeoGerenciarTagsPage() {
               className="h-8 text-xs rounded-xl font-bold gap-1 cursor-pointer border-rose-500/30 text-rose-400"
             >
               <ShieldAlert className="h-3 w-3 text-rose-400" />
-              <span>Bloqueadoras</span>
+              <span>Bloqueadoras ({metrics.blockingTags})</span>
+            </Button>
+            <Button
+              type="button"
+              variant={tagFilter === "ceo" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setTagFilter("ceo")}
+              className="h-8 text-xs rounded-xl font-bold gap-1 cursor-pointer border-purple-500/30 text-purple-300"
+            >
+              <Crown className="h-3 w-3 text-purple-400" />
+              <span>Executivo CEO</span>
             </Button>
             <Button
               type="button"
@@ -1469,8 +1493,17 @@ export function CeoGerenciarTagsPage() {
             const canSell = Boolean(tag.rules?.can_sell);
             const canProduce = Boolean(tag.rules?.can_manage_productions);
             const canRaw = Boolean(tag.rules?.can_manage_raw_materials);
-            const canWarehouse = Boolean(tag.rules?.can_transfer_warehouse);
-            const isCeoAccess = Boolean(tag.rules?.can_access_ceo || tag.id === "ceo");
+            const isCeoAccess = Boolean(
+              tag.rules?.can_access_ceo ||
+              tag.rules?.is_ceo ||
+              tag.id === "ceo" ||
+              (Array.isArray(tag.permissions) &&
+                tag.permissions.some(
+                  (p) =>
+                    typeof p === "string" &&
+                    (p.startsWith("view_ceo") || p.startsWith("manage_ceo") || p === "view_ceo")
+                ))
+            );
             const canEscalas = Boolean(
               tag.rules?.can_manage_escalas ||
               tag.rules?.can_view_escalas ||
@@ -2015,6 +2048,20 @@ export function CeoGerenciarTagsPage() {
                   />
                 </div>
 
+                {/* BLOQUEAR ESCALAS */}
+                <div className="flex items-center justify-between p-2 rounded-xl bg-background/60 border border-border/70">
+                  <div className="space-y-0.5 pr-2">
+                    <span className="text-[11px] font-semibold text-foreground block">Bloquear Escalas de Ação</span>
+                    <span className="text-[10px] text-muted-foreground">Impede participar ou gerenciar escalas</span>
+                  </div>
+                  <Switch
+                    checked={Boolean(formRules.block_escalas)}
+                    onCheckedChange={(val) =>
+                      setFormRules((prev) => ({ ...prev, block_escalas: val }))
+                    }
+                  />
+                </div>
+
                 {/* BLOQUEAR CAIXA */}
                 <div className="flex items-center justify-between p-2 rounded-xl bg-background/60 border border-border/70">
                   <div className="space-y-0.5 pr-2">
@@ -2025,6 +2072,22 @@ export function CeoGerenciarTagsPage() {
                     checked={Boolean(formRules.block_cash_fund)}
                     onCheckedChange={(val) =>
                       setFormRules((prev) => ({ ...prev, block_cash_fund: val }))
+                    }
+                  />
+                </div>
+
+                {/* ACESSO AO PAINEL EXECUTIVO CEO */}
+                <div className="flex items-center justify-between p-2 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                  <div className="space-y-0.5 pr-2">
+                    <span className="text-[11px] font-bold text-amber-300 block flex items-center gap-1">
+                      <Crown className="h-3 w-3" /> Acesso ao Painel Executivo CEO
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">Permite acessar o painel /ceo e somar permissões executivas</span>
+                  </div>
+                  <Switch
+                    checked={Boolean(formRules.can_access_ceo || formRules.is_ceo)}
+                    onCheckedChange={(val) =>
+                      setFormRules((prev) => ({ ...prev, can_access_ceo: val, is_ceo: val }))
                     }
                   />
                 </div>
@@ -3370,6 +3433,36 @@ export function CeoGerenciarTagsPage() {
                         checked={Boolean(activeRules.auto_claim_rewards)}
                         onCheckedChange={(val) =>
                           handleUpdateRuleValue({ ...activeRules, auto_claim_rewards: val })
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* SEÇÃO 8: ACESSO AO PAINEL EXECUTIVO CEO */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 pb-1.5 border-b border-border/50">
+                    <Crown className="h-4 w-4 text-amber-400" />
+                    <h3 className="text-xs uppercase tracking-wider font-bold text-amber-400">
+                      8. Acesso Executivo CEO & Diretoria
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30">
+                      <div className="space-y-0.5 pr-2">
+                        <Label className="text-xs font-bold text-amber-200 flex items-center gap-1.5">
+                          <Crown className="h-3.5 w-3.5 text-amber-400" />
+                          <span>Habilitar Acesso ao Painel Executivo CEO</span>
+                        </Label>
+                        <p className="text-[11px] text-muted-foreground">
+                          Concede ao membro portador desta tag permissão para acessar o Painel CEO e somar todas as permissões executivas da tag.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={Boolean(activeRules.can_access_ceo || activeRules.is_ceo)}
+                        onCheckedChange={(val) =>
+                          handleUpdateRuleValue({ ...activeRules, can_access_ceo: val, is_ceo: val })
                         }
                       />
                     </div>
