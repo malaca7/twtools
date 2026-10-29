@@ -147,10 +147,12 @@ export function MembrosPage() {
   const canChangeRoles = hasPermission("change_roles") || hasPermission("promote_members");
   const canEdit = hasPermission("edit_members");
   const canDelete = hasPermission("delete_members");
-  const canViewSensitiveData =
-    hasPermission("view_sensitive_data") ||
-    hasPermission("edit_members") ||
-    hasPermission("manage_roles");
+  // Permissão estrita: apenas quem possui explicitamente view_sensitive_data tem acesso aos dados sensíveis
+  const canViewSensitiveData = Boolean(hasPermission("view_sensitive_data"));
+
+  const isUserAuthorizedForMember = (memberUserId?: string | null) => {
+    return Boolean(canViewSensitiveData || (memberUserId && user?.id === memberUserId));
+  };
 
   const { data: members = [], isLoading: membersLoading } = useMembers();
   const { data: pending = [], isLoading: pendingLoading } = usePendingSignupRequests(canApprove);
@@ -306,11 +308,12 @@ export function MembrosPage() {
       if (!editingMember) return;
       if (!editNome.trim()) throw new Error("O Nome é obrigatório.");
 
+      const isAuthToEditPhone = isUserAuthorizedForMember(editingMember.user_id);
       await updateMemberDetails({
         targetUserId: editingMember.user_id,
         nome: editNome,
         nickname: editNickname.trim() || null,
-        telefone: editTelefone.trim() || null,
+        telefone: isAuthToEditPhone ? (editTelefone.trim() || null) : (editingMember.telefone || null),
         game_id: editGameId.trim() || null,
         is_developer: isDev ? editIsDeveloper : undefined,
         is_ceo: isDev ? editIsCeo : undefined,
@@ -352,17 +355,18 @@ export function MembrosPage() {
 
       const nomeMatch = (m.nome || "").toLowerCase().includes(term);
       const nickMatch = (m.nickname || "").toLowerCase().includes(term);
-      const phoneMatch = (m.telefone || "").toLowerCase().includes(term);
+      const isAuthForData = isUserAuthorizedForMember(uid);
+      const phoneMatch = isAuthForData && (m.telefone || "").toLowerCase().includes(term);
       const gameMatch = (m.game_id || "").toLowerCase().includes(term);
-      const discordMatch = (m.discord_username || "").toLowerCase().includes(term);
+      const discordMatch = isAuthForData && (m.discord_username || "").toLowerCase().includes(term);
 
-      const matches = nomeMatch || nickMatch || phoneMatch || gameMatch || discordMatch;
+      const matches = Boolean(nomeMatch || nickMatch || phoneMatch || gameMatch || discordMatch);
       if (matches) {
         seenUserIds.add(uid);
       }
       return matches;
     });
-  }, [members, search]);
+  }, [members, search, canViewSensitiveData, user?.id]);
 
   // Ordenação: Estritamente 1º por Cargos (Hierarquia descendente) e 2º por Ordem Alfabética
   const sortedMembers = useMemo(() => {
@@ -444,9 +448,15 @@ export function MembrosPage() {
                             {req.nickname ? `${req.nickname} (${req.nome})` : req.nome}
                           </h4>
                           {req.discord_username ? (
-                            <p className="text-xs font-mono text-indigo-400 font-medium">
-                              @{req.discord_username}
-                            </p>
+                            canViewSensitiveData ? (
+                              <p className="text-xs font-mono text-indigo-400 font-medium">
+                                @{req.discord_username}
+                              </p>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-mono text-muted-foreground bg-secondary/50 px-1.5 py-0.5 rounded border border-border/40" title="Dado confidencial censurado">
+                                <Lock className="h-2.5 w-2.5 text-amber-400" /> ••••••••
+                              </span>
+                            )
                           ) : (
                             <p className="text-xs text-muted-foreground">
                               Solicitado em {dateTime(req.requested_at)}
@@ -463,7 +473,15 @@ export function MembrosPage() {
                     <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-border/50">
                       <div className="rounded bg-secondary/40 p-2">
                         <p className="text-[0.65rem] text-muted-foreground uppercase font-bold">Telefone em Jogo</p>
-                        <p className="font-semibold text-foreground">{req.telefone || "N/A"}</p>
+                        <p className="font-semibold text-foreground">
+                          {canViewSensitiveData ? (
+                            req.telefone ? formatPhone(req.telefone) : "N/A"
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-muted-foreground font-mono text-xs" title="Dado confidencial censurado">
+                              <Lock className="h-2.5 w-2.5 text-amber-400" /> ••••••••
+                            </span>
+                          )}
+                        </p>
                       </div>
 
                       <div className="rounded bg-secondary/40 p-2">
@@ -638,7 +656,7 @@ export function MembrosPage() {
                         <div className="flex items-start justify-between gap-3">
                           <Link
                             to="/perfil/$handle"
-                            params={{ handle: String(m.custom_url || m.discord_id || m.user_id).replace(/^@/, "") }}
+                            params={{ handle: String(m.custom_url || (isUserAuthorizedForMember(m.user_id) ? m.discord_id : null) || m.user_id).replace(/^@/, "") }}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-3 group/link min-w-0 flex-1 cursor-pointer"
@@ -674,9 +692,15 @@ export function MembrosPage() {
                               ) : null}
 
                               {m.discord_username ? (
-                                <p className="text-[11px] font-mono text-indigo-400 font-medium truncate mt-0.5">
-                                  @{m.discord_username}
-                                </p>
+                                isUserAuthorizedForMember(m.user_id) ? (
+                                  <p className="text-[11px] font-mono text-indigo-400 font-medium truncate mt-0.5">
+                                    @{m.discord_username}
+                                  </p>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-mono text-muted-foreground bg-secondary/50 px-1.5 py-0.5 rounded border border-border/40 mt-1" title="Dado confidencial censurado">
+                                    <Lock className="h-2.5 w-2.5 text-amber-400" /> ••••••••
+                                  </span>
+                                )
                               ) : null}
                             </div>
                           </Link>
@@ -778,7 +802,13 @@ export function MembrosPage() {
                               <Phone className="h-3 w-3 text-emerald-400" /> Telefone
                             </span>
                             <span className="font-semibold text-foreground mt-0.5 block font-mono">
-                              {m.telefone || "N/A"}
+                              {isUserAuthorizedForMember(m.user_id) ? (
+                                m.telefone ? formatPhone(m.telefone) : "N/A"
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-muted-foreground font-mono text-xs" title="Dado confidencial censurado">
+                                  <Lock className="h-2.5 w-2.5 text-amber-400" /> ••••••••
+                                </span>
+                              )}
                             </span>
                           </div>
                         </div>
@@ -794,7 +824,7 @@ export function MembrosPage() {
                         >
                           <Link
                             to="/perfil/$handle"
-                            params={{ handle: String(m.custom_url || m.discord_id || m.user_id).replace(/^@/, "") }}
+                            params={{ handle: String(m.custom_url || (isUserAuthorizedForMember(m.user_id) ? m.discord_id : null) || m.user_id).replace(/^@/, "") }}
                             target="_blank"
                             rel="noopener noreferrer"
                           >
@@ -887,7 +917,7 @@ export function MembrosPage() {
                           <TableCell>
                             <Link
                               to="/perfil/$handle"
-                              params={{ handle: String(m.custom_url || m.discord_id || m.user_id).replace(/^@/, "") }}
+                              params={{ handle: String(m.custom_url || (isUserAuthorizedForMember(m.user_id) ? m.discord_id : null) || m.user_id).replace(/^@/, "") }}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="flex items-center gap-3 min-w-[220px] group cursor-pointer"
@@ -945,12 +975,20 @@ export function MembrosPage() {
 
                           <TableCell className="text-xs">
                             <p className="font-mono font-bold text-foreground">ID: #{m.game_id || "N/A"}</p>
-                            <p className="text-muted-foreground text-[0.65rem]">{m.telefone ? formatPhone(m.telefone) : "N/A"}</p>
+                            <div className="text-muted-foreground text-[0.65rem] pt-0.5">
+                              {isUserAuthorizedForMember(m.user_id) ? (
+                                m.telefone ? formatPhone(m.telefone) : "N/A"
+                              ) : (
+                                <span className="inline-flex items-center gap-1 font-mono text-muted-foreground bg-secondary/30 px-1.5 py-0.5 rounded border border-border/30" title="Dado confidencial censurado">
+                                  <Lock className="h-2.5 w-2.5 text-amber-400" /> ••••••••
+                                </span>
+                              )}
+                            </div>
                           </TableCell>
 
                           {/* DISCORD DATA BADGE */}
                           <TableCell className="text-xs">
-                            {canViewSensitiveData ? (
+                            {isUserAuthorizedForMember(m.user_id) ? (
                               m.discord_username ? (
                                 <div>
                                   <p className="font-mono text-xs text-indigo-400 font-medium">@{m.discord_username}</p>
@@ -962,7 +1000,7 @@ export function MembrosPage() {
                                 <span className="text-muted-foreground text-xs">—</span>
                               )
                             ) : (
-                              <span className="inline-flex items-center gap-1 text-[0.65rem] font-mono text-muted-foreground bg-secondary/50 px-2 py-0.5 rounded border border-border/40">
+                              <span className="inline-flex items-center gap-1 text-[0.65rem] font-mono text-muted-foreground bg-secondary/50 px-2 py-0.5 rounded border border-border/40" title="Dado confidencial censurado">
                                 <Lock className="h-3 w-3 text-amber-400" /> ••••••••
                               </span>
                             )}
@@ -1003,7 +1041,7 @@ export function MembrosPage() {
                               >
                                 <Link
                                   to="/perfil/$handle"
-                                  params={{ handle: String(m.custom_url || m.discord_id || m.user_id).replace(/^@/, "") }}
+                                  params={{ handle: String(m.custom_url || (isUserAuthorizedForMember(m.user_id) ? m.discord_id : null) || m.user_id).replace(/^@/, "") }}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                 >
@@ -1082,11 +1120,23 @@ export function MembrosPage() {
             </div>
 
             <div>
-              <Label className="text-xs font-semibold">Telefone em Jogo (000-000)</Label>
+              <Label className="text-xs font-semibold flex items-center justify-between">
+                <span>Telefone em Jogo (000-000)</span>
+                {!isUserAuthorizedForMember(editingMember?.user_id) && (
+                  <span className="text-[10px] text-amber-400 flex items-center gap-1 font-normal">
+                    <Lock className="h-2.5 w-2.5" /> Confidencial (Censurado)
+                  </span>
+                )}
+              </Label>
               <Input
                 placeholder="Ex.: 555-019"
-                value={editTelefone}
-                onChange={(e) => setEditTelefone(formatPhone(e.target.value))}
+                value={isUserAuthorizedForMember(editingMember?.user_id) ? editTelefone : "••••••••"}
+                onChange={(e) => {
+                  if (isUserAuthorizedForMember(editingMember?.user_id)) {
+                    setEditTelefone(formatPhone(e.target.value));
+                  }
+                }}
+                disabled={!isUserAuthorizedForMember(editingMember?.user_id)}
                 className="mt-1 h-9 text-xs font-mono font-bold rounded-xl"
                 maxLength={7}
               />

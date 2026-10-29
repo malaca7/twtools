@@ -184,7 +184,7 @@ const RANK_TIERS: RankTierConfig[] = [
 ];
 
 export function HierarquiaPage() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const { data: members = [] } = useMembers();
   const memberTagsMap = useMemberTagsMap();
 
@@ -219,6 +219,7 @@ export function HierarquiaPage() {
   const [hideEmptyRanks, setHideEmptyRanks] = useState<boolean>(false);
 
   const canView = hasPermission("view_hierarchy");
+  const canViewSensitiveData = Boolean(hasPermission("view_sensitive_data"));
 
   // Agrupamento de membros por nível hierárquico
   const groupedMembers = useMemo(() => {
@@ -236,7 +237,8 @@ export function HierarquiaPage() {
         const name = (m.nome || "").toLowerCase();
         const nick = (m.nickname || "").toLowerCase();
         const pass = (m.game_id || "").toLowerCase();
-        const disc = (m.discord_username || "").toLowerCase();
+        const canSeeDiscord = Boolean(canViewSensitiveData || m.user_id === user?.id);
+        const disc = canSeeDiscord ? (m.discord_username || "").toLowerCase() : "";
         if (!name.includes(q) && !nick.includes(q) && !pass.includes(q) && !disc.includes(q)) {
           return;
         }
@@ -582,8 +584,10 @@ export function HierarquiaPage() {
                                     </Badge>
 
                                     <p className="text-[11px] text-muted-foreground truncate">
-                                      {member.discord_username
-                                        ? `@${member.discord_username}`
+                                      {canViewSensitiveData || member.user_id === user?.id
+                                        ? member.discord_username
+                                          ? `@${member.discord_username}`
+                                          : member.nickname || "Integrante"
                                         : member.nickname || "Integrante"}
                                     </p>
                                   </div>
