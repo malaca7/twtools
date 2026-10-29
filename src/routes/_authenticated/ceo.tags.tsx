@@ -1493,6 +1493,7 @@ export function CeoGerenciarTagsPage() {
             const canSell = Boolean(tag.rules?.can_sell);
             const canProduce = Boolean(tag.rules?.can_manage_productions);
             const canRaw = Boolean(tag.rules?.can_manage_raw_materials);
+            const canWarehouse = Boolean(tag.rules?.can_transfer_warehouse);
             const isCeoAccess = Boolean(
               tag.rules?.can_access_ceo ||
               tag.rules?.is_ceo ||
