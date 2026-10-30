@@ -1194,7 +1194,8 @@ export function CeoGerenciarTagsPage() {
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("tw_tags_updated"));
         window.dispatchEvent(new Event("tw_permissions_synced"));
-        window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
+        window.dispatchEvent(new CustomEvent("tw_member_tags_updated", { detail: { tag: tagForPerms.id } }));
+        window.dispatchEvent(new Event("tw_tickets_updated"));
       }
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
       autoSaveTimerRef.current = setTimeout(() => {
@@ -1211,9 +1212,17 @@ export function CeoGerenciarTagsPage() {
       toast.error("Você não tem permissão para alterar permissões de tags.");
       return;
     }
-    const next = activePerms.includes(perm) ? activePerms.filter((p) => p !== perm) : [...activePerms, perm];
-    setActivePerms(next);
-    void autoSavePermsAndRules(next, activeRules);
+    const isAdding = !activePerms.includes(perm);
+    const nextPerms = isAdding ? [...activePerms, perm] : activePerms.filter((p) => p !== perm);
+
+    let nextRules = activeRules;
+    if (perm === "view_all_tickets") {
+      nextRules = { ...activeRules, can_view_all_tickets: isAdding };
+      setActiveRules(nextRules);
+    }
+
+    setActivePerms(nextPerms);
+    void autoSavePermsAndRules(nextPerms, nextRules);
   };
 
   const handleToggleCardPerms = (card: PageCardConfig) => {
@@ -1223,11 +1232,19 @@ export function CeoGerenciarTagsPage() {
     }
     const cardKeys = card.permissions.map((p) => p.key);
     const allIn = cardKeys.every((k) => activePerms.includes(k));
-    const next = allIn
+    const nextPerms = allIn
       ? activePerms.filter((k) => !cardKeys.includes(k))
       : [...activePerms, ...cardKeys.filter((k) => !activePerms.includes(k))];
-    setActivePerms(next);
-    void autoSavePermsAndRules(next, activeRules);
+
+    let nextRules = activeRules;
+    if (cardKeys.includes("view_all_tickets")) {
+      const willHaveViewAll = nextPerms.includes("view_all_tickets");
+      nextRules = { ...activeRules, can_view_all_tickets: willHaveViewAll };
+      setActiveRules(nextRules);
+    }
+
+    setActivePerms(nextPerms);
+    void autoSavePermsAndRules(nextPerms, nextRules);
   };
 
   const handleUpdateRuleValue = (newRules: MemberTagRules) => {
@@ -1235,8 +1252,17 @@ export function CeoGerenciarTagsPage() {
       toast.error("Você não tem permissão para alterar regras operacionais de tags.");
       return;
     }
+    let nextPerms = activePerms;
+    if (newRules.can_view_all_tickets && !activePerms.includes("view_all_tickets")) {
+      nextPerms = [...activePerms, "view_all_tickets", "view_tickets"];
+      setActivePerms(nextPerms);
+    } else if (!newRules.can_view_all_tickets && activePerms.includes("view_all_tickets")) {
+      nextPerms = activePerms.filter((p) => p !== "view_all_tickets");
+      setActivePerms(nextPerms);
+    }
+
     setActiveRules(newRules);
-    void autoSavePermsAndRules(activePerms, newRules);
+    void autoSavePermsAndRules(nextPerms, newRules);
   };
 
   const handleDiscountChange = (val: number) => {

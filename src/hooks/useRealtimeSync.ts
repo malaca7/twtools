@@ -97,6 +97,7 @@ export function useRealtimeSync() {
           }
 
           if (
+            p.type === "role_permissions" ||
             p.type === "user_roles" ||
             p.type === "profiles" ||
             p.type === "custom_roles" ||
@@ -104,11 +105,12 @@ export function useRealtimeSync() {
             p.type === "tags_updated" ||
             p.type === "member_tags_updated"
           ) {
-            triggerInvalidations(["members", "user_roles", "auth", "auth_session", "member_tags", "member_tag_assignments", "profiles"]);
+            triggerInvalidations(["members", "user_roles", "auth", "auth_session", "member_tags", "member_tag_assignments", "profiles", "tickets"]);
             if (typeof window !== "undefined") {
               window.dispatchEvent(new CustomEvent("tw_auth_reload", { detail: p }));
               window.dispatchEvent(new CustomEvent("tw_member_tags_updated", { detail: p }));
               window.dispatchEvent(new CustomEvent("tw_tags_updated", { detail: p }));
+              window.dispatchEvent(new CustomEvent("tw_tickets_updated", { detail: p }));
             }
           }
 
@@ -255,9 +257,11 @@ export function useRealtimeSync() {
 
         case "member_tags":
         case "member_tag_assignments": {
+          triggerInvalidations(["member_tags", "member_tag_assignments", "auth", "tickets"]);
           if (typeof window !== "undefined") {
             window.dispatchEvent(new CustomEvent("tw_member_tags_updated", { detail: payload }));
             window.dispatchEvent(new CustomEvent("tw_auth_reload", { detail: payload }));
+            window.dispatchEvent(new CustomEvent("tw_tickets_updated", { detail: payload }));
           }
           break;
         }
@@ -413,6 +417,7 @@ export function useRealtimeSync() {
               "profiles",
               "role_permissions",
               "custom_roles",
+              "tickets",
             ];
             triggerInvalidations(tagKeys);
             broadcastCrossTab(tagKeys);
@@ -421,6 +426,7 @@ export function useRealtimeSync() {
               window.dispatchEvent(new CustomEvent("tw_member_tags_updated", { detail: eventData }));
               window.dispatchEvent(new CustomEvent("tw_tags_updated", { detail: eventData }));
               window.dispatchEvent(new CustomEvent("tw_permissions_synced", { detail: eventData }));
+              window.dispatchEvent(new CustomEvent("tw_tickets_updated", { detail: eventData }));
               if (eventData.tag === "ceo" || eventData.level === "ceo" || eventData.type === "ceo_config") {
                 void getCeoConfiguration();
                 window.dispatchEvent(new CustomEvent("tw_ceo_config_updated", { detail: eventData }));
@@ -486,33 +492,36 @@ export function useRealtimeSync() {
 
         if (unsubRtdbTagAssignmentsRef.current) unsubRtdbTagAssignmentsRef.current();
         unsubRtdbTagAssignmentsRef.current = rtdb.subscribe("member_tag_assignments", () => {
-          const tagKeys = ["member_tag_assignments", "member_tags", "members", "auth"];
+          const tagKeys = ["member_tag_assignments", "member_tags", "members", "auth", "tickets"];
           triggerInvalidations(tagKeys);
           broadcastCrossTab(tagKeys);
           if (typeof window !== "undefined") {
             window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
             window.dispatchEvent(new CustomEvent("tw_auth_reload"));
+            window.dispatchEvent(new CustomEvent("tw_tickets_updated"));
           }
         });
 
         if (unsubRtdbMemberTagsRef.current) unsubRtdbMemberTagsRef.current();
         unsubRtdbMemberTagsRef.current = rtdb.subscribe("member_tags", () => {
-          const tagKeys = ["member_tags", "member_tag_assignments", "members", "auth"];
+          const tagKeys = ["member_tags", "member_tag_assignments", "members", "auth", "tickets"];
           triggerInvalidations(tagKeys);
           broadcastCrossTab(tagKeys);
           if (typeof window !== "undefined") {
             window.dispatchEvent(new CustomEvent("tw_tags_updated"));
             window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
+            window.dispatchEvent(new CustomEvent("tw_tickets_updated"));
           }
         });
 
         if (unsubRtdbRolePermissionsRef.current) unsubRtdbRolePermissionsRef.current();
         unsubRtdbRolePermissionsRef.current = rtdb.subscribe("role_permissions", () => {
-          const permKeys = ["role_permissions", "custom_roles"];
+          const permKeys = ["role_permissions", "custom_roles", "tickets"];
           triggerInvalidations(permKeys);
           broadcastCrossTab(permKeys);
           if (typeof window !== "undefined") {
             window.dispatchEvent(new CustomEvent("tw_permissions_synced"));
+            window.dispatchEvent(new CustomEvent("tw_tickets_updated"));
           }
         });
 

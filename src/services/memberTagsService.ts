@@ -547,7 +547,8 @@ export async function updateTagPermissionsAndRules(
       updated_at: new Date().toISOString(),
     }).catch(() => {});
     await rtdb.set("system_realtime_events/latest", {
-      type: "role_permissions",
+      type: "tags_updated",
+      tag: tagId,
       tagId,
       timestamp: Date.now(),
     }).catch(() => {});
@@ -556,15 +557,21 @@ export async function updateTagPermissionsAndRules(
   try {
     const { broadcastPermissionsRealtimeUpdate } = await import("@/lib/permissionsRealtimeSync");
     void broadcastPermissionsRealtimeUpdate({
-      type: "role_permissions",
-      tagId,
+      type: "tags_updated",
+      tag: tagId,
     });
+  } catch {}
+
+  try {
+    const { broadcastTicketsRealtimeUpdate } = await import("@/lib/app-api");
+    broadcastTicketsRealtimeUpdate();
   } catch {}
 
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event("tw_tags_updated"));
-    window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
+    window.dispatchEvent(new CustomEvent("tw_member_tags_updated", { detail: { tag: tagId } }));
     window.dispatchEvent(new Event("tw_permissions_synced"));
+    window.dispatchEvent(new Event("tw_tickets_updated"));
   }
 }
 
@@ -841,6 +848,11 @@ export async function toggleMemberTagAssignment(
     });
   } catch {}
 
+  try {
+    const { broadcastTicketsRealtimeUpdate } = await import("@/lib/app-api");
+    broadcastTicketsRealtimeUpdate();
+  } catch {}
+
   if (typeof window !== "undefined") {
     window.dispatchEvent(
       new CustomEvent("tw_auth_reload", {
@@ -856,6 +868,7 @@ export async function toggleMemberTagAssignment(
     window.dispatchEvent(new Event("tw_tags_updated"));
     window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
     window.dispatchEvent(new Event("tw_permissions_synced"));
+    window.dispatchEvent(new Event("tw_tickets_updated"));
   }
 
   return { assigned: isAssigned };
@@ -975,9 +988,16 @@ export async function setMemberTags(
     });
   } catch {}
 
+  try {
+    const { broadcastTicketsRealtimeUpdate } = await import("@/lib/app-api");
+    broadcastTicketsRealtimeUpdate();
+  } catch {}
+
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event("tw_tags_updated"));
     window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
+    window.dispatchEvent(new Event("tw_permissions_synced"));
+    window.dispatchEvent(new Event("tw_tickets_updated"));
   }
 }
 
@@ -1095,9 +1115,16 @@ export async function setTagMembers(
     });
   } catch {}
 
+  try {
+    const { broadcastTicketsRealtimeUpdate } = await import("@/lib/app-api");
+    broadcastTicketsRealtimeUpdate();
+  } catch {}
+
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event("tw_tags_updated"));
     window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
+    window.dispatchEvent(new Event("tw_permissions_synced"));
+    window.dispatchEvent(new Event("tw_tickets_updated"));
   }
 }
 

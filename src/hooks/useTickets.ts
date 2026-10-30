@@ -36,8 +36,12 @@ export function useTickets() {
       void queryClient.invalidateQueries({ queryKey: ["tickets"] });
     };
 
-    // 1. Ouvir evento customizado da mesma aba
+    // 1. Ouvir evento customizado da mesma aba (atualizações de tickets, permissões e tags de membros)
     window.addEventListener("tw_tickets_updated", handleUpdate);
+    window.addEventListener("tw_tags_updated", handleUpdate);
+    window.addEventListener("tw_member_tags_updated", handleUpdate);
+    window.addEventListener("tw_auth_reload", handleUpdate);
+    window.addEventListener("tw_permissions_synced", handleUpdate);
 
     // 2. Ouvir BroadcastChannel de outras abas do mesmo navegador
     let bc: BroadcastChannel | null = null;
@@ -63,6 +67,10 @@ export function useTickets() {
 
     return () => {
       window.removeEventListener("tw_tickets_updated", handleUpdate);
+      window.removeEventListener("tw_tags_updated", handleUpdate);
+      window.removeEventListener("tw_member_tags_updated", handleUpdate);
+      window.removeEventListener("tw_auth_reload", handleUpdate);
+      window.removeEventListener("tw_permissions_synced", handleUpdate);
       window.removeEventListener("storage", handleStorage);
       if (bc) bc.close();
     };

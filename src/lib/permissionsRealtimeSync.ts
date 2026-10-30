@@ -54,21 +54,20 @@ export function dispatchLocalPermissionsSync(payload: PermissionsRealtimePayload
   if (typeof window === "undefined") return;
 
   try {
-    if (payload.type === "role_permissions" || payload.type === "custom_roles") {
-      window.dispatchEvent(new CustomEvent("tw_permissions_synced", { detail: payload }));
-    }
-
     if (
+      payload.type === "role_permissions" ||
+      payload.type === "custom_roles" ||
       payload.type === "user_roles" ||
       payload.type === "profiles" ||
-      payload.type === "custom_roles" ||
       payload.type === "tag_toggle" ||
       payload.type === "tags_updated" ||
       payload.type === "member_tags_updated"
     ) {
+      window.dispatchEvent(new CustomEvent("tw_permissions_synced", { detail: payload }));
       window.dispatchEvent(new CustomEvent("tw_auth_reload", { detail: payload }));
       window.dispatchEvent(new CustomEvent("tw_member_tags_updated", { detail: payload }));
       window.dispatchEvent(new CustomEvent("tw_tags_updated", { detail: payload }));
+      window.dispatchEvent(new CustomEvent("tw_tickets_updated", { detail: payload }));
     }
 
     if (payload.type === "menu_config") {

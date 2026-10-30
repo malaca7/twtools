@@ -686,6 +686,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       void queryClient.invalidateQueries({ queryKey: ["members"], refetchType: "all" });
       void queryClient.invalidateQueries({ queryKey: ["auth"], refetchType: "all" });
       void queryClient.invalidateQueries({ queryKey: ["profiles"], refetchType: "all" });
+      void queryClient.invalidateQueries({ queryKey: ["tickets"], refetchType: "all" });
     };
 
     window.addEventListener("tw_permissions_synced", handlePermissionsSynced);
@@ -716,10 +717,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "member_tags" }, () => {
         setPermissionsTick((t) => t + 1);
         void queryClient.invalidateQueries({ queryKey: ["member_tags"] });
+        void queryClient.invalidateQueries({ queryKey: ["tickets"] });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "member_tag_assignments" }, () => {
         setPermissionsTick((t) => t + 1);
         void queryClient.invalidateQueries({ queryKey: ["member_tag_assignments"] });
+        void queryClient.invalidateQueries({ queryKey: ["tickets"] });
       })
       .subscribe();
 
@@ -766,7 +769,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const mId = String(a.member_id || "").trim().toLowerCase();
           const uId = String((a as any).user_id || "").trim().toLowerCase();
           if ((mId && candidateIds.has(mId)) || (uId && candidateIds.has(uId))) {
-            myTagIds.add(a.tag_id);
+            myTagIds.add(String(a.tag_id || "").trim().toLowerCase());
           }
         }
 
@@ -797,7 +800,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
 
         const myTags = tagsData.filter(
-          (t) => myTagIds.has(t.id) && t.is_active !== false
+          (t) =>
+            (myTagIds.has(String(t.id).trim().toLowerCase()) ||
+              myTagIds.has(String(t.name || "").trim().toLowerCase())) &&
+            t.is_active !== false
         );
 
         if (hasCeoActive && !myTags.some((t) => t.id === "ceo")) {
@@ -951,12 +957,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         for (const p of tag.permissions) {
           if (p && typeof p === "string") {
             permsSet.add(p as Permission);
+            if (p === "view_all_tickets") {
+              permsSet.add("view_tickets");
+              permsSet.add("atendimento_tickets.view" as Permission);
+              permsSet.add("view_atendimento_tickets" as Permission);
+            }
           }
         }
       }
 
       // Regras e permissões implícitas da tag do sistema
-      const rules = tag.rules || {};
+      const rules = parseMemberTagRules(tag.rules);
       const cleanId = (tag.id || "").toLowerCase().trim();
 
       // Comercial & Vendas

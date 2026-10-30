@@ -1,5 +1,7 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { createFileRoute, Outlet, useChildMatches } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   Headphones,
   Plus,
@@ -62,7 +64,6 @@ import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { dateTime, formatTimeOnly } from "@/lib/format";
 import { LEVEL_LABEL, levelBadgeClass, type Permission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/atendimento-tickets")({
   component: AtendimentoTicketsWrapper,
@@ -110,7 +111,26 @@ export function AtendimentoTicketsContent() {
   const canViewAll = hasPermission("view_all_tickets") || canManage || isDevUser;
 
   const { data: tickets = [], isLoading, isFetching } = useTickets();
+  const queryClient = useQueryClient();
   const claimMutation = useClaimTicket();
+
+  // Auto ativar e sincronizar visualização na página automaticamente quando a permissão mudar em tempo real
+  const prevCanViewAllRef = useRef(canViewAll);
+  useEffect(() => {
+    if (prevCanViewAllRef.current !== canViewAll) {
+      prevCanViewAllRef.current = canViewAll;
+      void queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      if (canViewAll) {
+        toast.success("Fila geral de atendimento auto-ativada e sincronizada! 🎧", {
+          id: "atendimento-perm-sync",
+        });
+      } else {
+        toast.info("Visualização sincronizada: restrita aos seus chamados de atendimento.", {
+          id: "atendimento-perm-sync",
+        });
+      }
+    }
+  }, [canViewAll, queryClient]);
 
   // Tab de filtro de atendimento (?tab=all | assigned_me | unassigned | urgent | closed)
   const [activeTab, setActiveTab] = useUrlTab<

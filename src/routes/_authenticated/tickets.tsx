@@ -1,5 +1,7 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { createFileRoute, Outlet, useChildMatches } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   LifeBuoy,
   Plus,
@@ -99,6 +101,7 @@ function TicketsContent() {
   const canView = hasPermission("view_tickets") || canManage || isDevUser;
 
   const { data: tickets = [], isLoading, isFetching } = useTickets();
+  const queryClient = useQueryClient();
 
   const [hasManuallySelectedTab, setHasManuallySelectedTab] = useState(false);
   // State sincronizado com a URL (?tab=my | all e ?ticket=id)
@@ -110,6 +113,29 @@ function TicketsContent() {
   const selectedTicketId = ticketParam || null;
   const setSelectedTicketId = (id: string | null) => setTicketParam(id || "");
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
+
+  // Auto ativar e sincronizar visualização na página automaticamente quando a permissão mudar em tempo real
+  const prevCanSeeAllRef = useRef(canSeeAll);
+  useEffect(() => {
+    if (prevCanSeeAllRef.current !== canSeeAll) {
+      prevCanSeeAllRef.current = canSeeAll;
+      void queryClient.invalidateQueries({ queryKey: ["tickets"] });
+
+      if (canSeeAll) {
+        setHasManuallySelectedTab(false);
+        setActiveTab("all");
+        toast.success("Visualização de todos os chamados na fila geral auto-ativada! 🎫", {
+          id: "tickets-perm-sync",
+        });
+      } else {
+        setHasManuallySelectedTab(false);
+        setActiveTab("my");
+        toast.info("Visualização sincronizada: restrita aos seus chamados.", {
+          id: "tickets-perm-sync",
+        });
+      }
+    }
+  }, [canSeeAll, setActiveTab, queryClient]);
 
   // Se o usuário não tem permissão para ver todos os chamados, força a aba "my"
   // Caso tenha permissão e ainda não tenha selecionado manualmente, abre "all" se não houver ?tab=my na URL

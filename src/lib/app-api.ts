@@ -55,6 +55,7 @@ import { getCategoryInfo, getStatusInfo } from "@/types/tickets";
 import { createNotification } from "./notifications-api";
 import { isDevAuditLogsEnabled } from "@/services/devService";
 import { broadcastPermissionsRealtimeUpdate } from "./permissionsRealtimeSync";
+import { getMemberTags, getMemberTagAssignments, parseMemberTagRules } from "@/services/memberTagsService";
 
 
 export async function getCurrentAuth(): Promise<AuthState> {
@@ -5065,29 +5066,35 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
   // 5. Carregar tags ativas do membro (incluindo permissões e regras das tags)
   let userTags: any[] = [];
   try {
-    const candidateIds = [
-      session.user.id,
-      p?.id,
-      p?.user_id,
-      discordId,
-    ].filter(Boolean);
+    const candidateIds = new Set(
+      [
+        session.user.id,
+        p?.id,
+        p?.user_id,
+        discordId,
+      ]
+        .filter(Boolean)
+        .map((id) => String(id).trim().toLowerCase())
+    );
 
-    const { data: assignData } = await (supabase.from("member_tag_assignments" as any))
-      .select("tag_id, member_tags (*)")
-      .in("member_id", candidateIds);
+    const [allTags, allAssignments] = await Promise.all([
+      getMemberTags(),
+      getMemberTagAssignments(),
+    ]);
 
-    if (Array.isArray(assignData)) {
-      userTags = assignData.map((d: any) => d.member_tags).filter(Boolean);
-      if (userTags.length === 0 && assignData.length > 0) {
-        const tagIds = Array.from(new Set(assignData.map((d: any) => d.tag_id).filter(Boolean)));
-        if (tagIds.length > 0) {
-          const { data: directTags } = await (supabase.from("member_tags" as any))
-            .select("*")
-            .in("id", tagIds);
-          if (Array.isArray(directTags)) userTags = directTags;
-        }
+    const myTagIds = new Set<string>();
+    for (const a of allAssignments) {
+      const mId = String(a.member_id || "").trim().toLowerCase();
+      const uId = String((a as any).user_id || "").trim().toLowerCase();
+      if ((mId && candidateIds.has(mId)) || (uId && candidateIds.has(uId))) {
+        myTagIds.add(String(a.tag_id).trim().toLowerCase());
       }
     }
+
+    userTags = allTags.filter((t) => {
+      const cleanId = String(t.id).trim().toLowerCase();
+      return myTagIds.has(cleanId) && t.is_active !== false;
+    });
   } catch (err) {
     console.warn("Aviso ao carregar tags do membro em getEffectiveTicketAuth:", err);
   }
@@ -5096,17 +5103,21 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
   const hasCeoTag = userTags.some((t) => {
     if (t.is_active === false) return false;
     const cleanId = (t.id || "").toLowerCase().trim();
-    return cleanId === "ceo" || t.rules?.can_access_ceo === true || t.rules?.is_ceo === true;
+    const rules = parseMemberTagRules(t.rules);
+    return cleanId === "ceo" || rules.can_access_ceo === true || rules.is_ceo === true;
   });
   if (hasCeoTag) {
     isCeoUser = true;
   }
 
-  // Verificar se possui qualquer tag ativa com a regra explícita de visualizar todos os chamados
+  // Verificar se possui qualquer tag ativa com a permissão ou regra explícita de visualizar todos os chamados
   const hasTagWithViewAll = userTags.some((t) => {
     if (t.is_active === false) return false;
     if (!isDevUser && (t.rules?.is_blocked || t.rules?.block_operations)) return false;
-    return Boolean(t.rules?.can_view_all_tickets);
+    const rules = parseMemberTagRules(t.rules);
+    const hasRule = Boolean(rules.can_view_all_tickets);
+    const hasPerm = Array.isArray(t.permissions) && t.permissions.includes("view_all_tickets");
+    return hasRule || hasPerm;
   });
 
   // Coletar todas as permissões granulares das tags ativas do membro
@@ -5114,9 +5125,12 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
   userTags.forEach((t) => {
     if (t.is_active === false) return;
     if (!isDevUser && (t.rules?.is_blocked || t.rules?.block_operations)) return;
-    if (t.rules?.can_view_all_tickets) {
+    const rules = parseMemberTagRules(t.rules);
+    if (rules.can_view_all_tickets || (Array.isArray(t.permissions) && t.permissions.includes("view_all_tickets"))) {
       tagPermsList.push("view_all_tickets");
       tagPermsList.push("view_tickets");
+      tagPermsList.push("atendimento_tickets.view" as Permission);
+      tagPermsList.push("view_atendimento_tickets" as Permission);
     }
     if (Array.isArray(t.permissions)) {
       t.permissions.forEach((perm: string) => {
