@@ -4914,7 +4914,7 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
           };
 
           const canManage = isSuper || checkSimPerm("manage_tickets");
-          const canViewAll = isSuper || canManage || checkSimPerm("view_all_tickets") || checkSimPerm("atendimento_tickets.view" as Permission);
+          const canViewAll = isSuper || canManage || checkSimPerm("view_all_tickets");
           const canCreate = isSuper || canManage || checkSimPerm("create_ticket");
           const canReply = isSuper || canManage || canViewAll || checkSimPerm("reply_tickets") || checkSimPerm("reply_ticket" as Permission);
           const canClaim = isSuper || canManage || checkSimPerm("claim_tickets") || checkSimPerm("claim_ticket" as Permission);
@@ -4972,7 +4972,7 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
           };
 
           const canManage = isSuper || checkDevPerm("manage_tickets");
-          const canViewAll = isSuper || canManage || checkDevPerm("view_all_tickets") || checkDevPerm("atendimento_tickets.view" as Permission);
+          const canViewAll = isSuper || canManage || checkDevPerm("view_all_tickets");
           const canCreate = isSuper || canManage || checkDevPerm("create_ticket");
           const canReply = isSuper || canManage || canViewAll || checkDevPerm("reply_tickets") || checkDevPerm("reply_ticket" as Permission);
           const canClaim = isSuper || canManage || checkDevPerm("claim_tickets") || checkDevPerm("claim_ticket" as Permission);
@@ -5105,7 +5105,7 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
   // Verificar se possui qualquer tag ativa com a regra explícita de visualizar todos os chamados
   const hasTagWithViewAll = userTags.some((t) => {
     if (t.is_active === false) return false;
-    if (t.rules?.is_blocked || t.rules?.block_operations) return false;
+    if (!isDevUser && (t.rules?.is_blocked || t.rules?.block_operations)) return false;
     return Boolean(t.rules?.can_view_all_tickets);
   });
 
@@ -5113,6 +5113,11 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
   const tagPermsList: Permission[] = [];
   userTags.forEach((t) => {
     if (t.is_active === false) return;
+    if (!isDevUser && (t.rules?.is_blocked || t.rules?.block_operations)) return;
+    if (t.rules?.can_view_all_tickets) {
+      tagPermsList.push("view_all_tickets");
+      tagPermsList.push("view_tickets");
+    }
     if (Array.isArray(t.permissions)) {
       t.permissions.forEach((perm: string) => {
         if (perm) tagPermsList.push(perm as Permission);
@@ -5135,7 +5140,7 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
   const isCeoPanel = !isDevPanel && (isCeoUser || isDevUser) && (pathname.startsWith("/ceo") || pathname.includes("/ceo/"));
 
   const checkPerm = (perm: Permission): boolean => {
-    if (isSuperUser && isDevPanel) return true;
+    if (isSuperUser) return true;
     const hasRolePerm = can(userLevel, perm, customRoleMap);
 
     if (isDevPanel) {
@@ -5156,12 +5161,13 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
       return hasCeoTagPerm || hasRolePerm;
     }
 
-    // Painel Membro: APENAS as permissões do cargo do membro
-    return hasRolePerm;
+    // Painel Membro: soma das permissões das tags do membro + permissões do cargo do membro
+    const hasTagPerm = satisfiesPermission(tagPermsList, perm);
+    return hasTagPerm || hasRolePerm;
   };
 
   const canManage = isSuperUser || checkPerm("manage_tickets");
-  const canViewAll = isSuperUser || canManage || checkPerm("view_all_tickets") || (isCeoPanel && hasTagWithViewAll);
+  const canViewAll = isSuperUser || canManage || checkPerm("view_all_tickets") || hasTagWithViewAll;
   const canCreate = isSuperUser || canManage || checkPerm("create_ticket");
   const canReply =
     isSuperUser ||

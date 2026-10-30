@@ -68,10 +68,12 @@ function TicketsWrapper() {
 }
 
 export function TicketsPage() {
-  const { hasPermission, loading } = useAuth();
+  const { hasPermission, loading, isDevUser } = useAuth();
   const canView =
     hasPermission("view_tickets") ||
-    hasPermission("manage_tickets");
+    hasPermission("view_all_tickets") ||
+    hasPermission("manage_tickets") ||
+    isDevUser;
 
   if (loading) {
     return (
@@ -89,12 +91,12 @@ export function TicketsPage() {
 }
 
 function TicketsContent() {
-  const { user, profile, hasPermission } = useAuth();
-  const canManage = hasPermission("manage_tickets");
-  const canViewAll = hasPermission("view_all_tickets") || canManage;
+  const { user, profile, hasPermission, isDevUser } = useAuth();
+  const canManage = hasPermission("manage_tickets") || isDevUser;
+  const canViewAll = hasPermission("view_all_tickets") || canManage || isDevUser;
   const canSeeAll = canViewAll;
-  const canCreate = hasPermission("create_ticket") || canManage;
-  const canView = hasPermission("view_tickets") || canManage;
+  const canCreate = hasPermission("create_ticket") || canManage || isDevUser;
+  const canView = hasPermission("view_tickets") || canManage || isDevUser;
 
   const { data: tickets = [], isLoading, isFetching } = useTickets();
 

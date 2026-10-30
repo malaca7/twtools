@@ -1387,18 +1387,35 @@ export function satisfiesPermission(
     }
   }
 
-  // Equivalências diretas entre plural e singular / aliases legados de tickets
+  // Visualizar Todos os Chamados na Fila Geral (Estrita: requer view_all_tickets ou manage_tickets)
+  if (permission === "view_all_tickets") {
+    if (list.includes("view_all_tickets") || list.includes("manage_tickets")) {
+      return true;
+    }
+  }
+
+  // Acesso à central de Atendimento Desk (/atendimento-tickets)
   if (
     (permission === "atendimento_tickets.view" || permission === "view_atendimento_tickets") &&
     (list.includes("atendimento_tickets.view") || list.includes("view_atendimento_tickets") || list.includes("manage_tickets") || list.includes("view_all_tickets"))
   ) {
     return true;
   }
-  if (
-    (permission === "view_tickets" || permission === "view_all_tickets") &&
-    (list.includes("view_tickets") || list.includes("view_all_tickets") || list.includes("atendimento_tickets.view") || list.includes("view_atendimento_tickets") || list.includes("manage_tickets") || list.includes("create_ticket") || list.includes("reply_tickets") || list.includes("reply_ticket"))
-  ) {
-    return true;
+
+  // Visualizar Tickets / Área de Chamados (/tickets)
+  if (permission === "view_tickets") {
+    if (
+      list.includes("view_tickets") ||
+      list.includes("view_all_tickets") ||
+      list.includes("manage_tickets") ||
+      list.includes("atendimento_tickets.view") ||
+      list.includes("view_atendimento_tickets") ||
+      list.includes("create_ticket") ||
+      list.includes("reply_tickets") ||
+      list.includes("reply_ticket")
+    ) {
+      return true;
+    }
   }
   if (
     (permission === "reply_tickets" || permission === "reply_ticket") &&
@@ -2851,11 +2868,7 @@ export function can(
   if (permission === "view_all_tickets") {
     if (
       rolePerms.includes("view_all_tickets") ||
-      rolePerms.includes("atendimento_tickets.view") ||
-      rolePerms.includes("view_atendimento_tickets") ||
-      rolePerms.includes("manage_tickets") ||
-      rolePerms.includes("claim_tickets") ||
-      rolePerms.includes("claim_ticket")
+      rolePerms.includes("manage_tickets")
     ) {
       return true;
     }

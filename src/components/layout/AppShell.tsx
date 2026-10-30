@@ -893,12 +893,15 @@ function DynamicSidebarNavigation() {
           if (item.id === "atendimento-tickets" || item.url === "/atendimento-tickets") {
             return (
               hasPermission("atendimento_tickets.view" as Permission, "dev") ||
+              hasPermission("view_atendimento_tickets" as Permission, "dev") ||
+              hasPermission("view_all_tickets", "dev") ||
               hasPermission("manage_tickets", "dev")
             );
           }
           if (item.id === "tickets" || item.url === "/tickets") {
             return (
               hasPermission("view_tickets", "dev") ||
+              hasPermission("view_all_tickets", "dev") ||
               hasPermission("manage_tickets", "dev")
             );
           }
@@ -956,12 +959,15 @@ function DynamicSidebarNavigation() {
           if (item.id === "atendimento-tickets" || item.url === "/atendimento-tickets") {
             return (
               hasPermission("atendimento_tickets.view" as Permission, "ceo") ||
+              hasPermission("view_atendimento_tickets" as Permission, "ceo") ||
+              hasPermission("view_all_tickets", "ceo") ||
               hasPermission("manage_tickets", "ceo")
             );
           }
           if (item.id === "tickets" || item.url === "/tickets") {
             return (
               hasPermission("view_tickets", "ceo") ||
+              hasPermission("view_all_tickets", "ceo") ||
               hasPermission("manage_tickets", "ceo")
             );
           }
@@ -1017,12 +1023,15 @@ function DynamicSidebarNavigation() {
       if (item.id === "atendimento-tickets" || item.url === "/atendimento-tickets") {
         return (
           hasPermission("atendimento_tickets.view" as Permission, "member") ||
+          hasPermission("view_atendimento_tickets" as Permission, "member") ||
+          hasPermission("view_all_tickets", "member") ||
           hasPermission("manage_tickets", "member")
         );
       }
       if (item.id === "tickets" || item.url === "/tickets") {
         return (
           hasPermission("view_tickets", "member") ||
+          hasPermission("view_all_tickets", "member") ||
           hasPermission("manage_tickets", "member")
         );
       }
