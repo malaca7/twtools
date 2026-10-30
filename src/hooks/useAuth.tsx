@@ -756,6 +756,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             activeUserId,
             activeProfileId,
             activeDiscordId,
+            activeGameId,
+            profile?.game_id,
+            (profile as any)?.passaporte,
             profile?.user_id,
             profile?.id,
             session?.user?.id,
@@ -824,7 +827,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       isCancelled = true;
     };
-  }, [activeUserId, activeProfileId, activeDiscordId, activeGameId, profile?.user_id, profile?.id, session?.user?.id, permissionsTick]);
+  }, [activeUserId, activeProfileId, activeDiscordId, activeGameId, profile?.user_id, profile?.id, profile?.game_id, session?.user?.id, permissionsTick]);
 
   // Carrega e monitora a suspensão ou penalidade com bloqueios do membro logado
   const [activeSuspension, setActiveSuspension] = useState<MemberWarning | null>(null);
@@ -961,6 +964,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               permsSet.add("view_tickets");
               permsSet.add("atendimento_tickets.view" as Permission);
               permsSet.add("view_atendimento_tickets" as Permission);
+            }
+            if (
+              p === "claim_tickets" ||
+              p === "claim_ticket" ||
+              p === "reply_tickets" ||
+              p === "reply_ticket" ||
+              p === "transfer_tickets" ||
+              p === "create_ticket" ||
+              p === "atendimento_tickets.view" ||
+              p === "view_atendimento_tickets"
+            ) {
+              permsSet.add("view_tickets");
+            }
+            if (p === "manage_absences" || p === "view_all_absences" || p === "request_absence") {
+              permsSet.add("view_absences");
+            }
+            if (p === "manage_warnings" || p === "view_all_warnings" || p === "create_warning" || p === "create_suspension") {
+              permsSet.add("view_warnings");
+            }
+            if (p === "create_movement" || p === "view_all_movements") {
+              permsSet.add("view_movements");
+              permsSet.add("view_stock");
             }
           }
         }

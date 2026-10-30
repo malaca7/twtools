@@ -5071,7 +5071,10 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
         session.user.id,
         p?.id,
         p?.user_id,
+        p?.game_id,
+        (p as any)?.passaporte,
         discordId,
+        discordEmail,
       ]
         .filter(Boolean)
         .map((id) => String(id).trim().toLowerCase())
@@ -5093,7 +5096,8 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
 
     userTags = allTags.filter((t) => {
       const cleanId = String(t.id).trim().toLowerCase();
-      return myTagIds.has(cleanId) && t.is_active !== false;
+      const cleanName = String(t.name || "").trim().toLowerCase();
+      return (myTagIds.has(cleanId) || myTagIds.has(cleanName)) && t.is_active !== false;
     });
   } catch (err) {
     console.warn("Aviso ao carregar tags do membro em getEffectiveTicketAuth:", err);

@@ -1347,6 +1347,45 @@ export const PERMISSIONS: Record<AppLevel, Permission[]> = {
   novato: NOVATO,
 };
 
+export const PERMISSION_EQUIVALENCES: Record<string, string[]> = {
+  claim_tickets: ["claim_ticket"],
+  claim_ticket: ["claim_tickets"],
+  reply_tickets: ["reply_ticket"],
+  reply_ticket: ["reply_tickets"],
+  transfer_tickets: ["transfer_ticket"],
+  transfer_ticket: ["transfer_tickets"],
+  close_tickets: ["close_ticket"],
+  close_ticket: ["close_tickets"],
+  reopen_tickets: ["reopen_ticket"],
+  reopen_ticket: ["reopen_tickets"],
+  delete_tickets: ["delete_ticket"],
+  delete_ticket: ["delete_tickets"],
+  delete_members: ["delete_member"],
+  delete_member: ["delete_members"],
+  approve_requests: ["approve_request"],
+  approve_request: ["approve_requests"],
+  send_notifications: ["send_notification"],
+  send_notification: ["send_notifications"],
+  "atendimento_tickets.view": ["view_atendimento_tickets"],
+  view_atendimento_tickets: ["atendimento_tickets.view"],
+  "productions.view": ["view_productions"],
+  view_productions: ["productions.view"],
+  "productions.create": ["create_production"],
+  create_production: ["productions.create"],
+  "warehouse.view": ["view_warehouse"],
+  view_warehouse: ["warehouse.view"],
+  "production_management.view": ["view_production_management"],
+  view_production_management: ["production_management.view"],
+  "sales.view": ["view_sales"],
+  view_sales: ["sales.view"],
+  "sales.create": ["create_sale"],
+  create_sale: ["sales.create"],
+  "raw_materials.view": ["view_raw_materials"],
+  view_raw_materials: ["raw_materials.view"],
+  view_all_tickets: ["can_view_all_tickets"],
+  can_view_all_tickets: ["view_all_tickets"],
+};
+
 /**
  * Avalia se uma lista de permissões arbitrária (ex: de tags, de painéis ou de cargos)
  * satisfaz a permissão solicitada, considerando correspondência exata, heranças,
@@ -1358,6 +1397,12 @@ export function satisfiesPermission(
 ): boolean {
   if (!list || !Array.isArray(list) || list.length === 0) return false;
   if (list.includes(permission)) return true;
+
+  // Equivalências bidirecionais diretas (singular / plural, dot / underscore e sinônimos)
+  const equivs = PERMISSION_EQUIVALENCES[permission as string];
+  if (equivs && equivs.some((eq) => list.includes(eq as Permission))) {
+    return true;
+  }
 
   // 1. Sistema de Tickets & Central de Atendimento (Permissões 100% Granulares e Individuais)
   if (list.includes("manage_tickets")) {

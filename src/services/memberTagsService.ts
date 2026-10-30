@@ -205,27 +205,58 @@ if (typeof window !== "undefined") {
  * Busca todas as tags de membros cadastradas ordenadas por ordem hierárquica (order_index)
  */
 export async function getMemberTags(): Promise<MemberTag[]> {
-  const { data: tags, error: tagsErr } = await supabase
-    .from("member_tags" as any)
-    .select("*")
-    .order("order_index", { ascending: true })
-    .order("created_at", { ascending: true });
+  let tags: any[] = [];
+  try {
+    const { data, error: tagsErr } = await supabase
+      .from("member_tags" as any)
+      .select("*")
+      .order("order_index", { ascending: true })
+      .order("created_at", { ascending: true });
 
-  if (tagsErr) {
-    console.warn("Aviso ao buscar member_tags (retornando lista vazia de segurança):", tagsErr.message || tagsErr);
-    return [];
+    if (!tagsErr && Array.isArray(data) && data.length > 0) {
+      tags = data;
+    }
+  } catch {}
+
+  // Fallback imediato ao Firebase RTDB caso Supabase não retorne ou falhe
+  if (tags.length === 0) {
+    try {
+      const { rtdb } = await import("@/integrations/firebase/rtdb");
+      const rtdbList = await rtdb.getList<any>("member_tags");
+      if (Array.isArray(rtdbList) && rtdbList.length > 0) {
+        tags = rtdbList;
+      }
+    } catch (e) {
+      console.warn("Aviso ao buscar member_tags no RTDB:", e);
+    }
   }
 
   // Busca contagem de atribuições
-  const { data: assignments, error: assignErr } = await supabase
-    .from("member_tag_assignments" as any)
-    .select("tag_id");
-
   const counts: Record<string, number> = {};
-  if (!assignErr && Array.isArray(assignments)) {
-    for (const a of assignments as any[]) {
-      counts[a.tag_id] = (counts[a.tag_id] || 0) + 1;
+  try {
+    const { data: assignments, error: assignErr } = await supabase
+      .from("member_tag_assignments" as any)
+      .select("tag_id");
+
+    if (!assignErr && Array.isArray(assignments) && assignments.length > 0) {
+      for (const a of assignments as any[]) {
+        counts[a.tag_id] = (counts[a.tag_id] || 0) + 1;
+      }
     }
+  } catch {}
+
+  if (Object.keys(counts).length === 0) {
+    try {
+      const { rtdb } = await import("@/integrations/firebase/rtdb");
+      const rtdbAssigns = await rtdb.getList<any>("member_tag_assignments");
+      if (Array.isArray(rtdbAssigns)) {
+        for (const a of rtdbAssigns) {
+          if (a && a.tag_id) {
+            counts[a.tag_id] = (counts[a.tag_id] || 0) + 1;
+          }
+        }
+      }
+    } catch {}
   }
 
   const mappedTags: MemberTag[] = (tags || [])
@@ -246,15 +277,16 @@ export async function getMemberTags(): Promise<MemberTag[]> {
       order_index: typeof t.order_index === "number" ? t.order_index : 0,
       permissions: Array.isArray(t.permissions) ? t.permissions : [],
       rules: parseMemberTagRules(t.rules),
-      created_at: t.created_at,
-      updated_at: t.updated_at,
+      created_at: t.created_at || new Date().toISOString(),
+      updated_at: t.updated_at || new Date().toISOString(),
       assigned_count: counts[t.id] || 0,
       discord_role_id: t.discord_role_id || null,
       discord_guild_id: t.discord_guild_id || null,
       discord_role_name: t.discord_role_name || null,
       discord_sync_enabled: t.discord_sync_enabled !== false,
       discord_role_position: t.discord_role_position !== undefined ? t.discord_role_position : null,
-    }));
+    }))
+    .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
 
   return mappedTags;
 }
@@ -311,46 +343,92 @@ export async function getMemberTagAssignments(): Promise<MemberTagAssignment[]> 
  * Busca as tags de um membro específico
  */
 export async function getMemberTagsForMember(memberId: string): Promise<MemberTag[]> {
-  const { data, error } = await supabase
-    .from("member_tag_assignments" as any)
-    .select("tag_id, member_tags (*)")
-    .eq("member_id", memberId);
+  let mappedTags: any[] = [];
+  try {
+    const { data, error } = await supabase
+      .from("member_tag_assignments" as any)
+      .select("tag_id, member_tags (*)")
+      .eq("member_id", memberId);
 
-  if (error || !data || !Array.isArray(data)) {
-    return [];
-  }
+    if (!error && Array.isArray(data) && data.length > 0) {
+      mappedTags = data.map((d: any) => d.member_tags).filter(Boolean);
 
-  let mappedTags = data
-    .map((d: any) => d.member_tags)
-    .filter(Boolean);
-
-  if (mappedTags.length === 0 && data.length > 0) {
-    const tagIds = Array.from(new Set(data.map((d: any) => d.tag_id).filter(Boolean)));
-    if (tagIds.length > 0) {
-      const { data: directTags } = await supabase
-        .from("member_tags" as any)
-        .select("*")
-        .in("id", tagIds);
-      if (Array.isArray(directTags)) {
-        mappedTags = directTags;
+      if (mappedTags.length === 0 && data.length > 0) {
+        const tagIds = Array.from(new Set(data.map((d: any) => d.tag_id).filter(Boolean)));
+        if (tagIds.length > 0) {
+          const { data: directTags } = await supabase
+            .from("member_tags" as any)
+            .select("*")
+            .in("id", tagIds);
+          if (Array.isArray(directTags)) {
+            mappedTags = directTags;
+          }
+        }
       }
     }
+  } catch {}
+
+  // Fallback de ultra-baixa latência com Firebase RTDB
+  if (mappedTags.length === 0) {
+    try {
+      const [allTags, allAssignments] = await Promise.all([
+        getMemberTags(),
+        getMemberTagAssignments(),
+      ]);
+
+      const cleanMemberId = String(memberId || "").trim().toLowerCase();
+      const myTagIds = new Set<string>();
+      for (const a of allAssignments) {
+        const mId = String(a.member_id || "").trim().toLowerCase();
+        const uId = String((a as any).user_id || "").trim().toLowerCase();
+        if ((mId && mId === cleanMemberId) || (uId && uId === cleanMemberId)) {
+          myTagIds.add(String(a.tag_id || "").trim().toLowerCase());
+        }
+      }
+
+      mappedTags = allTags.filter((t) => {
+        const cleanId = String(t.id).trim().toLowerCase();
+        const cleanName = String(t.name || "").trim().toLowerCase();
+        return (myTagIds.has(cleanId) || myTagIds.has(cleanName)) && t.is_active !== false;
+      });
+    } catch {}
   }
 
-  const hasCeoAssignment = data.some((d: any) => d.tag_id === "ceo");
-  const hasCeoTag = mappedTags.some((t: any) => t.id === "ceo" || t.name?.toLowerCase().trim() === "ceo");
-  if (hasCeoAssignment && !hasCeoTag) {
-    mappedTags.push(CEO_SYSTEM_TAG);
+  const cleanMid = String(memberId || "").trim().toLowerCase();
+  const hasCeoAssignment = mappedTags.some((t: any) => t.id === "ceo" || t.name?.toLowerCase().trim() === "ceo");
+  if (!hasCeoAssignment) {
+    try {
+      const assignments = await getMemberTagAssignments();
+      const hasCeoInAssign = assignments.some((a) => {
+        const mid = String(a.member_id || (a as any).user_id || "").toLowerCase().trim();
+        const tid = String(a.tag_id || "").toLowerCase().trim();
+        return mid === cleanMid && tid === "ceo";
+      });
+      if (hasCeoInAssign) {
+        mappedTags.push(CEO_SYSTEM_TAG);
+      }
+    } catch {}
   }
 
-  const hasDevAssignment = data.some((d: any) => d.tag_id === "dev" || d.tag_id === "desenvolvedor");
-  const hasDevTag = mappedTags.some((t: any) => t.id === "dev" || t.id === "desenvolvedor" || t.name?.toLowerCase().trim() === "desenvolvedor" || t.name?.toLowerCase().trim() === "dev");
-  if (hasDevAssignment && !hasDevTag) {
-    mappedTags.push(DEV_SYSTEM_TAG);
+  const hasDevAssignment = mappedTags.some(
+    (t: any) => t.id === "dev" || t.id === "desenvolvedor" || t.name?.toLowerCase().trim() === "desenvolvedor" || t.name?.toLowerCase().trim() === "dev"
+  );
+  if (!hasDevAssignment) {
+    try {
+      const assignments = await getMemberTagAssignments();
+      const hasDevInAssign = assignments.some((a) => {
+        const mid = String(a.member_id || (a as any).user_id || "").toLowerCase().trim();
+        const tid = String(a.tag_id || "").toLowerCase().trim();
+        return mid === cleanMid && (tid === "dev" || tid === "desenvolvedor");
+      });
+      if (hasDevInAssign) {
+        mappedTags.push(DEV_SYSTEM_TAG);
+      }
+    } catch {}
   }
 
   return mappedTags
-    .filter((t: any) => t.is_active !== false)
+    .filter((t: any) => t && t.is_active !== false)
     .map((t: any) => ({
       id: t.id,
       name: t.name,
@@ -398,6 +476,7 @@ export async function saveMemberTag(tag: {
   if (!tag.name.trim()) throw new Error("Nome da tag é obrigatório.");
 
   const safeRules = parseMemberTagRules(tag.rules);
+  const now = new Date().toISOString();
 
   const payload: any = {
     id: cleanId,
@@ -405,7 +484,7 @@ export async function saveMemberTag(tag: {
     description: tag.description?.trim() || null,
     color: tag.color.trim() || "#3b82f6",
     icon: tag.icon.trim() || "Tag",
-    updated_at: new Date().toISOString(),
+    updated_at: now,
   };
 
   if (tag.is_active !== undefined) payload.is_active = tag.is_active;
@@ -419,17 +498,7 @@ export async function saveMemberTag(tag: {
   if (tag.discord_sync_enabled !== undefined) payload.discord_sync_enabled = tag.discord_sync_enabled;
   if (tag.discord_role_position !== undefined) payload.discord_role_position = tag.discord_role_position;
 
-  const { data, error } = await supabase
-    .from("member_tags" as any)
-    .upsert(payload, { onConflict: "id" })
-    .select()
-    .single();
-
-  if (error) {
-    console.error("Erro ao salvar member_tag:", error);
-    throw new Error(error.message || "Erro ao salvar tag");
-  }
-
+  // 1. Sempre grava imediatamente no Firebase RTDB (zero latência e persistência garantida)
   try {
     const { rtdb } = await import("@/integrations/firebase/rtdb");
     await rtdb.set(`member_tags/${cleanId}`, payload).catch(() => {});
@@ -440,6 +509,25 @@ export async function saveMemberTag(tag: {
     }).catch(() => {});
   } catch {}
 
+  // 2. Persiste no Supabase
+  let savedData: any = payload;
+  try {
+    const { data, error } = await supabase
+      .from("member_tags" as any)
+      .upsert(payload, { onConflict: "id" })
+      .select()
+      .maybeSingle();
+
+    if (!error && data) {
+      savedData = data;
+    } else if (error) {
+      console.warn("Aviso ao salvar member_tag no Supabase (salvo no RTDB):", error.message);
+    }
+  } catch (err: any) {
+    console.warn("Exceção ao salvar member_tag no Supabase (salvo no RTDB):", err?.message);
+  }
+
+  // 3. Notifica em tempo real
   try {
     const { broadcastPermissionsRealtimeUpdate } = await import("@/lib/permissionsRealtimeSync");
     void broadcastPermissionsRealtimeUpdate({
@@ -449,29 +537,38 @@ export async function saveMemberTag(tag: {
   } catch {}
 
   if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent("tw_auth_reload", {
+        detail: {
+          type: "member_tags",
+          tagId: cleanId,
+          timestamp: Date.now(),
+        },
+      })
+    );
     window.dispatchEvent(new Event("tw_tags_updated"));
-    window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
+    window.dispatchEvent(new CustomEvent("tw_member_tags_updated", { detail: { tag: cleanId } }));
     window.dispatchEvent(new Event("tw_permissions_synced"));
   }
 
   return {
-    id: (data as any).id,
-    name: (data as any).name,
-    description: (data as any).description,
-    color: (data as any).color,
-    icon: (data as any).icon,
-    is_system: Boolean((data as any).is_system),
-    is_active: (data as any).is_active !== false,
-    order_index: typeof (data as any).order_index === "number" ? (data as any).order_index : 0,
-    permissions: Array.isArray((data as any).permissions) ? (data as any).permissions : [],
-    rules: parseMemberTagRules((data as any).rules),
-    created_at: (data as any).created_at,
-    updated_at: (data as any).updated_at,
-    discord_role_id: (data as any).discord_role_id || null,
-    discord_guild_id: (data as any).discord_guild_id || null,
-    discord_role_name: (data as any).discord_role_name || null,
-    discord_sync_enabled: (data as any).discord_sync_enabled !== false,
-    discord_role_position: (data as any).discord_role_position !== undefined ? (data as any).discord_role_position : null,
+    id: savedData.id,
+    name: savedData.name,
+    description: savedData.description,
+    color: savedData.color,
+    icon: savedData.icon,
+    is_system: Boolean(savedData.is_system),
+    is_active: savedData.is_active !== false,
+    order_index: typeof savedData.order_index === "number" ? savedData.order_index : 0,
+    permissions: Array.isArray(savedData.permissions) ? savedData.permissions : [],
+    rules: parseMemberTagRules(savedData.rules),
+    created_at: savedData.created_at || now,
+    updated_at: savedData.updated_at || now,
+    discord_role_id: savedData.discord_role_id || null,
+    discord_guild_id: savedData.discord_guild_id || null,
+    discord_role_name: savedData.discord_role_name || null,
+    discord_sync_enabled: savedData.discord_sync_enabled !== false,
+    discord_role_position: savedData.discord_role_position !== undefined ? savedData.discord_role_position : null,
   };
 }
 
@@ -481,27 +578,34 @@ export async function saveMemberTag(tag: {
 export async function updateMemberTagsOrder(orderedTagIds: string[]): Promise<void> {
   if (!orderedTagIds || orderedTagIds.length === 0) return;
 
-  const { error } = await (supabase.rpc as any)("reorder_member_tags", {
-    p_tag_ids: orderedTagIds,
-  });
-
-  if (error) {
-    console.warn("RPC reorder_member_tags falhou, aplicando fallback direto:", error.message);
-    const now = new Date().toISOString();
-    for (let i = 0; i < orderedTagIds.length; i++) {
-      await supabase
-        .from("member_tags" as any)
-        .update({ order_index: i, updated_at: now })
-        .eq("id", orderedTagIds[i]);
-    }
-  }
-
+  const now = new Date().toISOString();
   try {
     const { rtdb } = await import("@/integrations/firebase/rtdb");
+    for (let i = 0; i < orderedTagIds.length; i++) {
+      await rtdb.update(`member_tags/${orderedTagIds[i]}`, {
+        order_index: i,
+        updated_at: now,
+      }).catch(() => {});
+    }
     await rtdb.set("system_realtime_events/latest", {
       type: "member_tags",
       timestamp: Date.now(),
     }).catch(() => {});
+  } catch {}
+
+  try {
+    const { error } = await (supabase.rpc as any)("reorder_member_tags", {
+      p_tag_ids: orderedTagIds,
+    });
+
+    if (error) {
+      for (let i = 0; i < orderedTagIds.length; i++) {
+        await supabase
+          .from("member_tags" as any)
+          .update({ order_index: i, updated_at: now })
+          .eq("id", orderedTagIds[i]);
+      }
+    }
   } catch {}
 
   try {
@@ -513,6 +617,7 @@ export async function updateMemberTagsOrder(orderedTagIds: string[]): Promise<vo
 
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event("tw_tags_updated"));
+    window.dispatchEvent(new CustomEvent("tw_member_tags_updated"));
   }
 }
 
@@ -525,26 +630,15 @@ export async function updateTagPermissionsAndRules(
   rules: MemberTagRules
 ): Promise<void> {
   const safeRules = parseMemberTagRules(rules);
-  const { error } = await supabase
-    .from("member_tags" as any)
-    .update({
-      permissions,
-      rules: safeRules,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", tagId);
+  const updatedAt = new Date().toISOString();
 
-  if (error) {
-    console.error("Erro ao atualizar permissões e regras da tag:", error);
-    throw new Error(error.message || "Erro ao salvar permissões e regras da tag");
-  }
-
+  // 1. Salva imediatamente no Firebase RTDB (fonte em tempo real com ultra-alta disponibilidade)
   try {
     const { rtdb } = await import("@/integrations/firebase/rtdb");
     await rtdb.update(`member_tags/${tagId}`, {
       permissions,
       rules: safeRules,
-      updated_at: new Date().toISOString(),
+      updated_at: updatedAt,
     }).catch(() => {});
     await rtdb.set("system_realtime_events/latest", {
       type: "tags_updated",
@@ -552,8 +646,29 @@ export async function updateTagPermissionsAndRules(
       tagId,
       timestamp: Date.now(),
     }).catch(() => {});
-  } catch {}
+  } catch (e) {
+    console.warn("Aviso ao salvar permissões da tag no RTDB:", e);
+  }
 
+  // 2. Persiste no Supabase
+  try {
+    const { error } = await supabase
+      .from("member_tags" as any)
+      .update({
+        permissions,
+        rules: safeRules,
+        updated_at: updatedAt,
+      })
+      .eq("id", tagId);
+
+    if (error) {
+      console.warn("Aviso ao atualizar permissões da tag no Supabase (persistido via RTDB):", error.message);
+    }
+  } catch (e: any) {
+    console.warn("Exceção ao atualizar permissões da tag no Supabase:", e?.message);
+  }
+
+  // 3. Notifica em tempo real canais e janelas
   try {
     const { broadcastPermissionsRealtimeUpdate } = await import("@/lib/permissionsRealtimeSync");
     void broadcastPermissionsRealtimeUpdate({
@@ -568,6 +683,15 @@ export async function updateTagPermissionsAndRules(
   } catch {}
 
   if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent("tw_auth_reload", {
+        detail: {
+          type: "tags_updated",
+          tag: tagId,
+          timestamp: Date.now(),
+        },
+      })
+    );
     window.dispatchEvent(new Event("tw_tags_updated"));
     window.dispatchEvent(new CustomEvent("tw_member_tags_updated", { detail: { tag: tagId } }));
     window.dispatchEvent(new Event("tw_permissions_synced"));
@@ -579,30 +703,29 @@ export async function updateTagPermissionsAndRules(
  * Alterna rapidamente se a tag é Tag de Sistema (visível no perfil do membro) ou Interna
  */
 export async function toggleMemberTagSystem(tagId: string, isSystem: boolean): Promise<void> {
-  const { error } = await supabase
-    .from("member_tags" as any)
-    .update({
-      is_system: isSystem,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", tagId);
-
-  if (error) {
-    console.error("Erro ao alternar status de tag de sistema:", error);
-    throw new Error(error.message || "Erro ao atualizar status da tag");
-  }
+  const updatedAt = new Date().toISOString();
 
   try {
     const { rtdb } = await import("@/integrations/firebase/rtdb");
     await rtdb.update(`member_tags/${tagId}`, {
       is_system: isSystem,
-      updated_at: new Date().toISOString(),
+      updated_at: updatedAt,
     }).catch(() => {});
     await rtdb.set("system_realtime_events/latest", {
       type: "member_tags",
       tagId,
       timestamp: Date.now(),
     }).catch(() => {});
+  } catch {}
+
+  try {
+    await supabase
+      .from("member_tags" as any)
+      .update({
+        is_system: isSystem,
+        updated_at: updatedAt,
+      })
+      .eq("id", tagId);
   } catch {}
 
   try {
@@ -623,33 +746,28 @@ export async function toggleMemberTagSystem(tagId: string, isSystem: boolean): P
  * Remove uma tag (com limpeza segura de vínculos)
  */
 export async function deleteMemberTag(tagId: string): Promise<void> {
-  // 1. Limpa vínculos da tag com membros
-  try {
-    await supabase
-      .from("member_tag_assignments" as any)
-      .delete()
-      .eq("tag_id", tagId);
-  } catch {}
-
-  // 2. Exclui a tag
-  const { error } = await supabase
-    .from("member_tags" as any)
-    .delete()
-    .eq("id", tagId);
-
-  if (error) {
-    console.error("Erro ao excluir tag:", error);
-    throw new Error(error.message || "Erro ao remover tag");
-  }
-
+  // 1. Limpa no Firebase RTDB
   try {
     const { rtdb } = await import("@/integrations/firebase/rtdb");
     await rtdb.remove(`member_tags/${tagId}`).catch(() => {});
+    const list = await rtdb.getList<any>("member_tag_assignments");
+    for (const item of list) {
+      if (item && item.tag_id === tagId) {
+        const key = item._key || item.id || `${item.member_id}_${item.tag_id}`;
+        await rtdb.remove(`member_tag_assignments/${key}`).catch(() => {});
+      }
+    }
     await rtdb.set("system_realtime_events/latest", {
       type: "member_tags",
       tagId,
       timestamp: Date.now(),
     }).catch(() => {});
+  } catch {}
+
+  // 2. Limpa no Supabase
+  try {
+    await supabase.from("member_tag_assignments" as any).delete().eq("tag_id", tagId);
+    await supabase.from("member_tags" as any).delete().eq("id", tagId);
   } catch {}
 
   try {

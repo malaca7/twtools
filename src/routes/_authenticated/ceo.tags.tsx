@@ -1285,6 +1285,15 @@ export function CeoGerenciarTagsPage() {
       });
       setAutoSaveStatus("saved");
       if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("tw_auth_reload", {
+            detail: {
+              type: "tags_updated",
+              tag: tagForPerms.id,
+              timestamp: Date.now(),
+            },
+          })
+        );
         window.dispatchEvent(new Event("tw_tags_updated"));
         window.dispatchEvent(new Event("tw_permissions_synced"));
         window.dispatchEvent(new CustomEvent("tw_member_tags_updated", { detail: { tag: tagForPerms.id } }));
@@ -1311,6 +1320,14 @@ export function CeoGerenciarTagsPage() {
     let nextRules = { ...activeRules };
     if (perm === "view_all_tickets") {
       nextRules.can_view_all_tickets = isAdding;
+      if (isAdding) {
+        if (!nextPerms.includes("view_tickets")) nextPerms.push("view_tickets");
+        if (!nextPerms.includes("atendimento_tickets.view" as Permission)) nextPerms.push("atendimento_tickets.view" as Permission);
+        if (!nextPerms.includes("view_atendimento_tickets" as Permission)) nextPerms.push("view_atendimento_tickets" as Permission);
+      }
+    }
+    if (perm === "manage_members") {
+      nextRules.can_manage_members = isAdding;
     }
     if (perm === "view_sensitive_data") {
       nextRules.can_view_sensitive_data = isAdding;
@@ -1348,6 +1365,9 @@ export function CeoGerenciarTagsPage() {
     let nextRules = { ...activeRules };
     if (cardKeys.includes("view_all_tickets")) {
       nextRules.can_view_all_tickets = nextPerms.includes("view_all_tickets");
+    }
+    if (cardKeys.includes("manage_members")) {
+      nextRules.can_manage_members = nextPerms.includes("manage_members");
     }
     if (cardKeys.includes("view_sensitive_data")) {
       nextRules.can_view_sensitive_data = nextPerms.includes("view_sensitive_data");
