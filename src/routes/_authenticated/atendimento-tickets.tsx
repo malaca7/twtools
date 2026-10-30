@@ -138,6 +138,7 @@ export function AtendimentoTicketsContent() {
   >("all", {
     paramName: "tab",
     allowedTabs: ["all", "assigned_me", "unassigned", "urgent", "closed"],
+    usePath: false,
   });
 
   const [ticketParam, setTicketParam] = useSyncedUrlParam<string>("ticket", "");
@@ -157,16 +158,35 @@ export function AtendimentoTicketsContent() {
     }
   }, [tickets, selectedTicketId, setSelectedTicketId]);
 
+  // Candidatos de identificação do usuário autenticado para conferência segura
+  const myCandidateIds = useMemo(() => {
+    return new Set(
+      [user?.id, profile?.id, profile?.user_id, profile?.game_id]
+        .filter(Boolean)
+        .map((id) => String(id).trim().toLowerCase())
+    );
+  }, [user?.id, profile?.id, profile?.user_id, profile?.game_id]);
+
+  const checkIsMyTicket = useCallback(
+    (t: Ticket) => {
+      const uid = String(t.user_id || "").trim().toLowerCase();
+      const aid = String(t.assigned_to_id || "").trim().toLowerCase();
+      if (uid && myCandidateIds.has(uid)) return true;
+      if (aid && myCandidateIds.has(aid)) return true;
+      if (t.members && Array.isArray(t.members)) {
+        return t.members.some((m) => {
+          const mid = String(m.user_id || (m as any).id || "").trim().toLowerCase();
+          return mid && myCandidateIds.has(mid);
+        });
+      }
+      return false;
+    },
+    [myCandidateIds]
+  );
+
   // Contadores operacionais (respeitando view_all_tickets)
   const stats = useMemo(() => {
-    const list = canViewAll
-      ? tickets
-      : tickets.filter(
-          (t) =>
-            t.assigned_to_id === user?.id ||
-            t.user_id === user?.id ||
-            (t.members || []).some((m) => m.user_id === user?.id)
-        );
+    const list = canViewAll ? tickets : tickets.filter(checkIsMyTicket);
     const total = list.length;
     const assignedMe = list.filter((t) => t.assigned_to_id === user?.id && t.status !== "fechado").length;
     const unassigned = list.filter((t) => !t.assigned_to_id && t.status !== "fechado").length;
@@ -175,18 +195,13 @@ export function AtendimentoTicketsContent() {
     const inProgress = list.filter((t) => t.status === "em_atendimento").length;
 
     return { total, assignedMe, unassigned, urgent, closed, inProgress };
-  }, [tickets, user?.id, canViewAll]);
+  }, [tickets, user?.id, canViewAll, checkIsMyTicket]);
 
   // Filtragem dos tickets para a lista de atendimento
   const filteredTickets = useMemo(() => {
     return tickets.filter((t) => {
       // Se não possui view_all_tickets nem canManage, só vê chamados atribuídos a si, onde participa ou onde é criador
-      if (
-        !canViewAll &&
-        t.assigned_to_id !== user?.id &&
-        t.user_id !== user?.id &&
-        !(t.members || []).some((m) => m.user_id === user?.id)
-      ) {
+      if (!canViewAll && !checkIsMyTicket(t)) {
         return false;
       }
 

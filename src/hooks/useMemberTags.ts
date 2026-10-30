@@ -167,6 +167,8 @@ export function useMemberTagMutations() {
     void queryClient.invalidateQueries({ queryKey: ["member_tags"] });
     void queryClient.invalidateQueries({ queryKey: ["member_tag_assignments"] });
     void queryClient.invalidateQueries({ queryKey: ["members"] });
+    void queryClient.invalidateQueries({ queryKey: ["auth"] });
+    void queryClient.invalidateQueries({ queryKey: ["tickets"] });
   };
 
   const saveTagMutation = useMutation({

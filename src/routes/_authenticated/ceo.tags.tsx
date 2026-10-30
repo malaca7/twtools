@@ -554,8 +554,19 @@ export function CeoGerenciarTagsPage() {
       toast.error("Você não tem permissão para alterar permissões de tags.");
       return;
     }
-    setActivePerms([...allPlatformPermissions]);
-    void autoSavePermsAndRules([...allPlatformPermissions], activeRules);
+    const nextPerms = [...allPlatformPermissions];
+    const nextRules = {
+      ...activeRules,
+      can_view_all_tickets: true,
+      can_view_sensitive_data: true,
+      can_view_all_sales: true,
+      can_create_announcements: true,
+      can_reverse_sales: true,
+      can_manage_members: true,
+    };
+    setActiveRules(nextRules);
+    setActivePerms(nextPerms);
+    void autoSavePermsAndRules(nextPerms, nextRules);
   };
 
   const setReadOnlyPermissions = () => {
@@ -563,8 +574,17 @@ export function CeoGerenciarTagsPage() {
       toast.error("Você não tem permissão para alterar permissões de tags.");
       return;
     }
-    setActivePerms([...readOnlyPlatformPermissions]);
-    void autoSavePermsAndRules([...readOnlyPlatformPermissions], activeRules);
+    const nextPerms = [...readOnlyPlatformPermissions];
+    const nextRules = {
+      ...activeRules,
+      can_view_all_tickets: nextPerms.includes("view_all_tickets"),
+      can_view_sensitive_data: nextPerms.includes("view_sensitive_data"),
+      can_view_all_sales: nextPerms.includes("view_all_sales"),
+      can_reverse_sales: false,
+    };
+    setActiveRules(nextRules);
+    setActivePerms(nextPerms);
+    void autoSavePermsAndRules(nextPerms, nextRules);
   };
 
   const setOperationalPermissions = () => {
@@ -572,8 +592,15 @@ export function CeoGerenciarTagsPage() {
       toast.error("Você não tem permissão para alterar permissões de tags.");
       return;
     }
-    setActivePerms([...operationalBasicPermissions]);
-    void autoSavePermsAndRules([...operationalBasicPermissions], activeRules);
+    const nextPerms = [...operationalBasicPermissions];
+    const nextRules = {
+      ...activeRules,
+      can_sell: true,
+      allow_sales_counter: true,
+    };
+    setActiveRules(nextRules);
+    setActivePerms(nextPerms);
+    void autoSavePermsAndRules(nextPerms, nextRules);
   };
 
   const setWarehousePermissions = () => {
@@ -581,8 +608,17 @@ export function CeoGerenciarTagsPage() {
       toast.error("Você não tem permissão para alterar permissões de tags.");
       return;
     }
-    setActivePerms([...warehouseLogisticsPermissions]);
-    void autoSavePermsAndRules([...warehouseLogisticsPermissions], activeRules);
+    const nextPerms = [...warehouseLogisticsPermissions];
+    const nextRules = {
+      ...activeRules,
+      can_manage_productions: true,
+      can_manage_raw_materials: true,
+      can_transfer_warehouse: true,
+      can_adjust_warehouse_stock: true,
+    };
+    setActiveRules(nextRules);
+    setActivePerms(nextPerms);
+    void autoSavePermsAndRules(nextPerms, nextRules);
   };
 
   const clearAllPermissions = () => {
@@ -591,8 +627,19 @@ export function CeoGerenciarTagsPage() {
       return;
     }
     const next: Permission[] = [];
+    const nextRules = {
+      ...activeRules,
+      can_view_all_tickets: false,
+      can_view_sensitive_data: false,
+      can_view_all_sales: false,
+      can_reverse_sales: false,
+      can_create_announcements: false,
+      can_access_ceo: false,
+      is_ceo: false,
+    };
+    setActiveRules(nextRules);
     setActivePerms(next);
-    void autoSavePermsAndRules(next, activeRules);
+    void autoSavePermsAndRules(next, nextRules);
   };
 
   // Lista de tags filtrada
@@ -1169,10 +1216,56 @@ export function CeoGerenciarTagsPage() {
       return;
     }
     setTagForPerms(tag);
-    const rawPerms = Array.isArray(tag.permissions) ? tag.permissions : [];
+    const rawPerms = Array.isArray(tag.permissions) ? [...tag.permissions] : [];
     const validPerms = rawPerms.filter((p) => allPlatformPermissions.includes(p));
-    setActivePerms(validPerms);
-    setActiveRules(parseMemberTagRules(tag.rules));
+    const parsedRules = parseMemberTagRules(tag.rules);
+
+    // Sincronização inicial bidirecional de permissões e regras da tag
+    if (parsedRules.can_view_all_tickets && !validPerms.includes("view_all_tickets")) {
+      validPerms.push("view_all_tickets", "view_tickets");
+    }
+    if (validPerms.includes("view_all_tickets")) {
+      parsedRules.can_view_all_tickets = true;
+    }
+
+    if (parsedRules.can_view_sensitive_data && !validPerms.includes("view_sensitive_data")) {
+      validPerms.push("view_sensitive_data");
+    }
+    if (validPerms.includes("view_sensitive_data")) {
+      parsedRules.can_view_sensitive_data = true;
+    }
+
+    if (parsedRules.can_create_announcements && !validPerms.includes("create_announcements" as any)) {
+      validPerms.push("create_announcements" as any, "manage_announcements");
+    }
+    if (validPerms.includes("create_announcements" as any) || validPerms.includes("manage_announcements")) {
+      parsedRules.can_create_announcements = true;
+    }
+
+    if (parsedRules.can_view_all_sales && !validPerms.includes("view_all_sales")) {
+      validPerms.push("view_all_sales");
+    }
+    if (validPerms.includes("view_all_sales")) {
+      parsedRules.can_view_all_sales = true;
+    }
+
+    if (parsedRules.can_reverse_sales && !validPerms.includes("reverse_sale")) {
+      validPerms.push("reverse_sale", "sales.cancel");
+    }
+    if (validPerms.includes("reverse_sale") || validPerms.includes("sales.cancel")) {
+      parsedRules.can_reverse_sales = true;
+    }
+
+    if ((parsedRules.can_access_ceo || parsedRules.is_ceo) && !validPerms.includes("view_ceo")) {
+      validPerms.push("view_ceo", "view_ceo_dashboard");
+    }
+    if (validPerms.includes("view_ceo") || validPerms.includes("view_ceo_dashboard")) {
+      parsedRules.can_access_ceo = true;
+      parsedRules.is_ceo = true;
+    }
+
+    setActivePerms(Array.from(new Set(validPerms)));
+    setActiveRules(parsedRules);
     setPermSearch("");
     setPermCategoryFilter("all");
     setPermSubTab(canManagePerms || !canManageRules ? "permissions" : "rules");
@@ -1215,12 +1308,28 @@ export function CeoGerenciarTagsPage() {
     const isAdding = !activePerms.includes(perm);
     const nextPerms = isAdding ? [...activePerms, perm] : activePerms.filter((p) => p !== perm);
 
-    let nextRules = activeRules;
+    let nextRules = { ...activeRules };
     if (perm === "view_all_tickets") {
-      nextRules = { ...activeRules, can_view_all_tickets: isAdding };
-      setActiveRules(nextRules);
+      nextRules.can_view_all_tickets = isAdding;
+    }
+    if (perm === "view_sensitive_data") {
+      nextRules.can_view_sensitive_data = isAdding;
+    }
+    if (perm === "create_announcements" || perm === "manage_announcements") {
+      nextRules.can_create_announcements = isAdding;
+    }
+    if (perm === "view_all_sales") {
+      nextRules.can_view_all_sales = isAdding;
+    }
+    if (perm === "reverse_sale" || perm === "sales.cancel") {
+      nextRules.can_reverse_sales = isAdding;
+    }
+    if (perm === "view_ceo" || perm === "view_ceo_dashboard") {
+      nextRules.can_access_ceo = isAdding;
+      nextRules.is_ceo = isAdding;
     }
 
+    setActiveRules(nextRules);
     setActivePerms(nextPerms);
     void autoSavePermsAndRules(nextPerms, nextRules);
   };
@@ -1236,13 +1345,29 @@ export function CeoGerenciarTagsPage() {
       ? activePerms.filter((k) => !cardKeys.includes(k))
       : [...activePerms, ...cardKeys.filter((k) => !activePerms.includes(k))];
 
-    let nextRules = activeRules;
+    let nextRules = { ...activeRules };
     if (cardKeys.includes("view_all_tickets")) {
-      const willHaveViewAll = nextPerms.includes("view_all_tickets");
-      nextRules = { ...activeRules, can_view_all_tickets: willHaveViewAll };
-      setActiveRules(nextRules);
+      nextRules.can_view_all_tickets = nextPerms.includes("view_all_tickets");
+    }
+    if (cardKeys.includes("view_sensitive_data")) {
+      nextRules.can_view_sensitive_data = nextPerms.includes("view_sensitive_data");
+    }
+    if (cardKeys.includes("create_announcements") || cardKeys.includes("manage_announcements")) {
+      nextRules.can_create_announcements = nextPerms.includes("create_announcements") || nextPerms.includes("manage_announcements");
+    }
+    if (cardKeys.includes("view_all_sales")) {
+      nextRules.can_view_all_sales = nextPerms.includes("view_all_sales");
+    }
+    if (cardKeys.includes("reverse_sale") || cardKeys.includes("sales.cancel")) {
+      nextRules.can_reverse_sales = nextPerms.includes("reverse_sale") || nextPerms.includes("sales.cancel");
+    }
+    if (cardKeys.includes("view_ceo") || cardKeys.includes("view_ceo_dashboard")) {
+      const willHaveCeo = nextPerms.includes("view_ceo") || nextPerms.includes("view_ceo_dashboard");
+      nextRules.can_access_ceo = willHaveCeo;
+      nextRules.is_ceo = willHaveCeo;
     }
 
+    setActiveRules(nextRules);
     setActivePerms(nextPerms);
     void autoSavePermsAndRules(nextPerms, nextRules);
   };
@@ -1252,16 +1377,53 @@ export function CeoGerenciarTagsPage() {
       toast.error("Você não tem permissão para alterar regras operacionais de tags.");
       return;
     }
-    let nextPerms = activePerms;
-    if (newRules.can_view_all_tickets && !activePerms.includes("view_all_tickets")) {
-      nextPerms = [...activePerms, "view_all_tickets", "view_tickets"];
-      setActivePerms(nextPerms);
-    } else if (!newRules.can_view_all_tickets && activePerms.includes("view_all_tickets")) {
-      nextPerms = activePerms.filter((p) => p !== "view_all_tickets");
-      setActivePerms(nextPerms);
+    let nextPerms = [...activePerms];
+
+    // Sincronização view_all_tickets
+    if (newRules.can_view_all_tickets && !nextPerms.includes("view_all_tickets")) {
+      nextPerms.push("view_all_tickets", "view_tickets");
+    } else if (!newRules.can_view_all_tickets && nextPerms.includes("view_all_tickets")) {
+      nextPerms = nextPerms.filter((p) => p !== "view_all_tickets");
     }
 
+    // Sincronização can_view_sensitive_data
+    if (newRules.can_view_sensitive_data && !nextPerms.includes("view_sensitive_data")) {
+      nextPerms.push("view_sensitive_data");
+    } else if (!newRules.can_view_sensitive_data && nextPerms.includes("view_sensitive_data")) {
+      nextPerms = nextPerms.filter((p) => p !== "view_sensitive_data");
+    }
+
+    // Sincronização can_create_announcements
+    if (newRules.can_create_announcements && !nextPerms.includes("create_announcements" as any)) {
+      nextPerms.push("create_announcements" as any, "manage_announcements");
+    } else if (!newRules.can_create_announcements) {
+      nextPerms = nextPerms.filter((p) => p !== "create_announcements" && p !== "manage_announcements");
+    }
+
+    // Sincronização can_view_all_sales
+    if (newRules.can_view_all_sales && !nextPerms.includes("view_all_sales")) {
+      nextPerms.push("view_all_sales");
+    } else if (!newRules.can_view_all_sales && nextPerms.includes("view_all_sales")) {
+      nextPerms = nextPerms.filter((p) => p !== "view_all_sales");
+    }
+
+    // Sincronização can_reverse_sales
+    if (newRules.can_reverse_sales && !nextPerms.includes("reverse_sale")) {
+      nextPerms.push("reverse_sale", "sales.cancel");
+    } else if (!newRules.can_reverse_sales) {
+      nextPerms = nextPerms.filter((p) => p !== "reverse_sale" && p !== "sales.cancel");
+    }
+
+    // Sincronização can_access_ceo / is_ceo
+    if ((newRules.can_access_ceo || newRules.is_ceo) && !nextPerms.includes("view_ceo")) {
+      nextPerms.push("view_ceo", "view_ceo_dashboard");
+    } else if (!newRules.can_access_ceo && !newRules.is_ceo) {
+      nextPerms = nextPerms.filter((p) => p !== "view_ceo" && p !== "view_ceo_dashboard");
+    }
+
+    nextPerms = Array.from(new Set(nextPerms));
     setActiveRules(newRules);
+    setActivePerms(nextPerms);
     void autoSavePermsAndRules(nextPerms, newRules);
   };
 

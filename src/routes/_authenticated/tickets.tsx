@@ -108,6 +108,7 @@ function TicketsContent() {
   const [activeTab, setActiveTab] = useUrlTab<"my" | "all">(canSeeAll ? "all" : "my", {
     paramName: "tab",
     allowedTabs: ["my", "all"],
+    usePath: false,
   });
   const [ticketParam, setTicketParam] = useSyncedUrlParam<string>("ticket", "");
   const selectedTicketId = ticketParam || null;
@@ -167,23 +168,37 @@ function TicketsContent() {
   const [filterPriority, setFilterPriority] = useState<string>("all");
   const [filterAssignee, setFilterAssignee] = useState<string>("all"); // all, my_assigned, unassigned
 
+  // Candidatos de identificação do usuário autenticado para conferência segura
+  const myCandidateIds = useMemo(() => {
+    return new Set(
+      [user?.id, profile?.id, profile?.user_id, profile?.game_id]
+        .filter(Boolean)
+        .map((id) => String(id).trim().toLowerCase())
+    );
+  }, [user?.id, profile?.id, profile?.user_id, profile?.game_id]);
+
+  const checkIsMyTicket = useCallback(
+    (t: Ticket) => {
+      const uid = String(t.user_id || "").trim().toLowerCase();
+      const aid = String(t.assigned_to_id || "").trim().toLowerCase();
+      if (uid && myCandidateIds.has(uid)) return true;
+      if (aid && myCandidateIds.has(aid)) return true;
+      if (t.members && Array.isArray(t.members)) {
+        return t.members.some((m) => {
+          const mid = String(m.user_id || (m as any).id || "").trim().toLowerCase();
+          return mid && myCandidateIds.has(mid);
+        });
+      }
+      return false;
+    },
+    [myCandidateIds]
+  );
+
   // Estatísticas globais (ou restritas ao membro caso não tenha permissão de ver todos)
   const stats = useMemo(() => {
-    const list = canSeeAll
-      ? tickets
-      : tickets.filter(
-          (t) =>
-            t.user_id === user?.id ||
-            (t.members || []).some((m) => m.user_id === user?.id) ||
-            t.assigned_to_id === user?.id
-        );
+    const list = canSeeAll ? tickets : tickets.filter(checkIsMyTicket);
     const total = list.length;
-    const myCount = tickets.filter(
-      (t) =>
-        t.user_id === user?.id ||
-        (t.members || []).some((m) => m.user_id === user?.id) ||
-        t.assigned_to_id === user?.id
-    ).length;
+    const myCount = tickets.filter(checkIsMyTicket).length;
     const openCount = list.filter((t) => t.status === "aberto").length;
     const inProgressCount = list.filter(
       (t) => t.status === "em_atendimento" || t.status === "aguardando"
@@ -192,29 +207,19 @@ function TicketsContent() {
       (t) => t.status === "resolvido" || t.status === "fechado"
     ).length;
     return { total, myCount, openCount, inProgressCount, closedCount };
-  }, [tickets, user?.id, canSeeAll]);
+  }, [tickets, checkIsMyTicket, canSeeAll]);
 
   // Filtragem dos tickets
   const filteredTickets = useMemo(() => {
     return tickets.filter((t) => {
       // Se não tem permissão para ver todos, restringe estritamente aos próprios ou onde participa
-      if (
-        !canSeeAll &&
-        t.user_id !== user?.id &&
-        !(t.members || []).some((m) => m.user_id === user?.id) &&
-        t.assigned_to_id !== user?.id
-      ) {
+      if (!canSeeAll && !checkIsMyTicket(t)) {
         return false;
       }
 
       // Filtro por Aba
-      if (activeTab === "my") {
-        const isAuthor = t.user_id === user?.id;
-        const isParticipant = (t.members || []).some((m) => m.user_id === user?.id);
-        const isAssigned = t.assigned_to_id === user?.id;
-        if (!isAuthor && !isParticipant && !isAssigned) {
-          return false;
-        }
+      if (activeTab === "my" && !checkIsMyTicket(t)) {
+        return false;
       }
 
       // Filtro por termo de busca

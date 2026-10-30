@@ -10,6 +10,9 @@ import {
   ChevronRight,
   X,
   ExternalLink,
+  Clock,
+  ArrowDownCircle,
+  ArrowUpCircle,
 } from "lucide-react";
 import {
   Dialog,
@@ -22,6 +25,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Select,
   SelectContent,
@@ -197,7 +201,7 @@ export function MovementHistoryModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl w-[96vw] bg-card/95 text-card-foreground border border-border/80 shadow-2xl backdrop-blur-xl p-0 overflow-hidden rounded-2xl flex flex-col max-h-[90vh]">
+      <DialogContent className="max-w-5xl w-[96vw] bg-card/95 text-card-foreground border border-border/80 shadow-2xl backdrop-blur-xl p-0 overflow-hidden rounded-2xl flex flex-col max-h-[90vh]">
         {/* MODAL HEADER */}
         <DialogHeader className="p-4 sm:p-6 pb-3 border-b border-border/60 bg-gradient-to-r from-card to-secondary/30">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pr-6">
@@ -290,6 +294,12 @@ export function MovementHistoryModal({
                   ? "Sistema Twin Wheels"
                   : nameOf(members, m.user_id);
 
+                const memberAvatar =
+                  matchedMember?.avatar_url ||
+                  matchedMember?.discord_avatar_url ||
+                  (matchedMember as any)?.original_avatar_url ||
+                  null;
+
                 const bauObj = baus.find((b) => b.id === m.bau_id);
                 const bauName = bauObj?.nome || "Baú Geral";
 
@@ -297,131 +307,197 @@ export function MovementHistoryModal({
                   <div
                     key={m.id}
                     className={cn(
-                      "flex flex-col md:flex-row items-start md:items-center justify-between p-2 sm:p-2.5 rounded-xl border bg-card/90 hover:bg-secondary/40 transition-all gap-2 sm:gap-2.5 shadow-2xs",
+                      "relative rounded-2xl border p-3 sm:p-4 transition-all duration-200 shadow-xs hover:shadow-md gap-3 flex flex-col md:flex-row md:items-center justify-between overflow-hidden",
                       isReversed
-                        ? "opacity-50 bg-secondary/10 border-border/40"
+                        ? "opacity-55 bg-secondary/15 border-border/40 grayscale-[0.25]"
                         : isEntrada
-                        ? "border-emerald-500/20 hover:border-emerald-500/40"
-                        : "border-rose-500/20 hover:border-rose-500/40"
+                        ? "bg-card/90 border-emerald-500/25 hover:border-emerald-500/50 hover:bg-emerald-500/[0.02]"
+                        : "bg-card/90 border-rose-500/25 hover:border-rose-500/50 hover:bg-rose-500/[0.02]"
                     )}
                   >
-                    {/* LEFT: Product, Details, Author, Date */}
-                    <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
-                      <ProductThumbnail
-                        src={prodObj?.imagem_url}
-                        name={pName}
-                        size="sm"
-                        className="h-7 w-7 sm:h-8 sm:w-8 shrink-0 rounded-lg"
-                      />
-                      <div className="min-w-0 space-y-0.5">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-bold text-xs sm:text-[13px] text-foreground truncate max-w-[180px] sm:max-w-xs">
-                            {pName}
-                          </span>
+                    {/* ACCENT GLOW */}
+                    <div
+                      className={cn(
+                        "absolute -top-10 -right-10 w-28 h-28 rounded-full blur-2xl pointer-events-none opacity-20",
+                        isEntrada ? "bg-emerald-500" : "bg-rose-500"
+                      )}
+                    />
 
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "text-[9px] sm:text-[9.5px] font-bold px-1.5 py-0.2 rounded-md shrink-0",
-                              isEntrada
-                                ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
-                                : "border-rose-500/40 text-rose-400 bg-rose-500/10"
-                            )}
-                          >
-                            {isEntrada ? "+ Entrada" : "- Saída"}
-                          </Badge>
-
-                          {canViewBaus && (
-                            <Badge variant="outline" className="text-[9px] sm:text-[9.5px] border-border/80 text-foreground/80 px-1.5 py-0.2 rounded-md shrink-0 font-medium flex items-center gap-1">
-                              <BauIcon
-                                foto_url={bauObj?.foto_url || bauObj?.imagem_url}
-                                icone={bauObj?.icone}
-                                nome={bauName}
-                                className="w-3 h-3 rounded-xs"
-                              />
-                              <span>{bauName}</span>
-                            </Badge>
-                          )}
-
+                    {/* SECTION 1: MEMBRO EM DESTAQUE (Foto + Nome + ID/Nickname + Origem) */}
+                    <div className="flex items-center gap-3 min-w-0 md:w-[260px] lg:w-[280px] shrink-0">
+                      <div className="relative shrink-0">
+                        <Avatar className="h-10 w-10 sm:h-11 sm:w-11 rounded-xl ring-2 ring-primary/25 shadow-xs border border-border/60">
+                          {memberAvatar ? (
+                            <AvatarImage src={memberAvatar} alt={uName} className="object-cover" />
+                          ) : null}
+                          <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/5 text-primary font-black text-xs sm:text-sm">
+                            {uName.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="absolute -bottom-1 -right-1">
                           {m.origin === "discord" ? (
-                            <Badge
-                              variant="outline"
-                              className="text-[9px] sm:text-[9.5px] border-[#5865F2]/40 text-[#5865F2] bg-[#5865F2]/10 px-1.5 py-0.2 rounded-md shrink-0 font-semibold"
-                              title={`Mensagem Discord: ${m.discord_message_id || "N/A"}`}
+                            <span
+                              className="flex h-4 w-4 items-center justify-center rounded-full bg-[#5865F2] text-[9px] text-white shadow-xs"
+                              title="Origem: Discord"
                             >
-                              🤖 Discord
-                            </Badge>
+                              🤖
+                            </span>
                           ) : m.origin === "painel_dev" ? (
-                            <Badge
-                              variant="outline"
-                              className="text-[9px] sm:text-[9.5px] border-rose-500/40 text-rose-400 bg-rose-500/10 px-1.5 py-0.2 rounded-md shrink-0 font-semibold"
+                            <span
+                              className="flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] text-white shadow-xs"
+                              title="Origem: Painel Dev"
                             >
-                              🛠️ Painel Dev
-                            </Badge>
+                              🛠️
+                            </span>
                           ) : (
-                            <Badge
-                              variant="outline"
-                              className="text-[9px] sm:text-[9.5px] border-amber-500/40 text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded-md shrink-0 font-semibold"
+                            <span
+                              className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[9px] text-slate-950 shadow-xs"
+                              title="Origem: Manual"
                             >
-                              ✋ Manual
-                            </Badge>
+                              ✋
+                            </span>
                           )}
                         </div>
+                      </div>
 
-                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono flex-wrap">
-                          <span>🕒 {dateTime(m.created_at)}</span>
-                          <span>•</span>
-                          <span className="inline-flex items-center gap-1 font-sans">
-                            <span>👤 {uName}</span>
-                            <VerifiedBadge userId={m.user_id} size="xs" />
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span
+                            className="font-black text-xs sm:text-sm text-foreground truncate max-w-[170px] sm:max-w-[190px]"
+                            title={uName}
+                          >
+                            {uName}
                           </span>
-                          {m.reason && (
-                            <>
-                              <span>•</span>
-                              <span className="truncate max-w-[200px] sm:max-w-md text-foreground/80 font-sans" title={m.reason}>
-                                💬 {m.reason}
-                              </span>
-                            </>
+                          <VerifiedBadge userId={m.user_id} size="xs" />
+                        </div>
+
+                        <div className="flex items-center gap-1.5 text-[10px] sm:text-[10.5px] text-muted-foreground flex-wrap">
+                          {(matchedMember?.game_id || m.game_player_id) && (
+                            <Badge
+                              variant="outline"
+                              className="text-[9.5px] font-mono px-1.5 py-0 rounded-md border-border/70 bg-secondary/40 text-foreground/80 font-bold"
+                            >
+                              ID: {matchedMember?.game_id || m.game_player_id}
+                            </Badge>
+                          )}
+                          {matchedMember?.nickname && matchedMember.nickname !== matchedMember.nome && (
+                            <span
+                              className="text-muted-foreground/80 text-[10px] truncate max-w-[100px]"
+                              title={matchedMember.nickname}
+                            >
+                              @{matchedMember.nickname}
+                            </span>
                           )}
                         </div>
                       </div>
                     </div>
 
-                    {/* RIGHT: Quantity & Reversal */}
-                    <div className="flex items-center justify-between md:justify-end gap-2.5 sm:gap-3.5 w-full md:w-auto pt-1.5 md:pt-0 border-t md:border-t-0 border-border/40 shrink-0">
+                    {/* SECTION 2: ITEM EM DESTAQUE (Foto + Nome do Produto + Baú + Motivo + Data) */}
+                    <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 md:px-3 py-1.5 md:py-0 border-t md:border-t-0 md:border-l border-border/40">
+                      <div className="relative shrink-0">
+                        <ProductThumbnail
+                          src={prodObj?.imagem_url}
+                          name={pName}
+                          size="md"
+                          className="h-10 w-10 sm:h-11 sm:w-11 rounded-xl border border-border/80 bg-secondary/50 shadow-inner group-hover:scale-105 transition-transform"
+                        />
+                      </div>
+
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                          <span
+                            className="font-extrabold text-xs sm:text-sm text-foreground tracking-tight truncate max-w-[180px] sm:max-w-xs"
+                            title={pName}
+                          >
+                            {pName}
+                          </span>
+
+                          {canViewBaus && (
+                            <Badge
+                              variant="outline"
+                              className="text-[9.5px] border-border/80 bg-secondary/40 text-foreground/85 px-2 py-0.5 rounded-lg shrink-0 font-medium flex items-center gap-1"
+                            >
+                              <BauIcon
+                                foto_url={bauObj?.foto_url || bauObj?.imagem_url}
+                                icone={bauObj?.icone}
+                                nome={bauName}
+                                className="w-3.5 h-3.5 rounded-xs"
+                              />
+                              <span className="truncate max-w-[110px]">{bauName}</span>
+                            </Badge>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 text-[10px] sm:text-[11px] text-muted-foreground flex-wrap">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono text-muted-foreground bg-secondary/30 px-1.5 py-0.5 rounded-md border border-border/40">
+                            <Clock className="w-3 h-3 text-primary/70 shrink-0" />
+                            {dateTime(m.created_at)}
+                          </span>
+
+                          {m.reason && (
+                            <span
+                              className="text-[10.5px] text-foreground/85 italic truncate max-w-[180px] sm:max-w-md bg-secondary/20 px-2 py-0.5 rounded-md border border-border/30"
+                              title={m.reason}
+                            >
+                              💬 {m.reason}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* SECTION 3: QUANTIDADE EM DESTAQUE & AÇÕES */}
+                    <div className="flex items-center justify-between md:justify-end gap-2.5 sm:gap-3 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 md:border-l border-border/40 md:pl-3">
                       <div className="text-left md:text-right space-y-0.5">
-                        <div
+                        <Badge
+                          variant="outline"
                           className={cn(
-                            "font-mono font-black text-xs sm:text-sm leading-tight",
-                            isEntrada ? "text-emerald-400" : "text-rose-400"
+                            "font-mono font-black text-xs sm:text-sm px-2.5 sm:px-3 py-1 rounded-xl shadow-xs flex items-center gap-1.5 border tracking-tight",
+                            isEntrada
+                              ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/15"
+                              : "border-rose-500/40 text-rose-400 bg-rose-500/15"
                           )}
                         >
-                          {isEntrada ? "+" : "-"}
-                          {num(m.quantity)} {prodObj?.unidade || "un"}
-                        </div>
+                          {isEntrada ? (
+                            <ArrowDownCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          ) : (
+                            <ArrowUpCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                          )}
+                          <span>
+                            {isEntrada ? "+" : "-"}
+                            {num(m.quantity)} {prodObj?.unidade || "un"}
+                          </span>
+                        </Badge>
+
                         {canViewBalances && m.previous_balance !== undefined && (
-                          <div className="text-[9px] font-mono text-muted-foreground">
-                            {num(m.previous_balance)} →{" "}
+                          <div className="text-[9.5px] font-mono text-muted-foreground flex items-center gap-1 justify-start md:justify-end">
+                            <span>Saldo:</span>
+                            <span>{num(m.previous_balance)}</span>
+                            <span>→</span>
                             <span className="font-bold text-foreground">{num(m.resulting_balance)}</span>
                           </div>
                         )}
                       </div>
 
                       {canReverse && (
-                        <div className="shrink-0">
+                        <div className="shrink-0 ml-1">
                           {!isReversed ? (
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
-                              className="h-6.5 px-2 text-[11px] text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 rounded-lg cursor-pointer"
+                              className="h-7.5 px-2.5 text-xs text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 border-amber-500/30 rounded-xl font-bold cursor-pointer transition-colors shadow-xs"
                               onClick={() => reverseMutation.mutate(m.id)}
                               disabled={reverseMutation.isPending}
                               title="Estornar lançamento"
                             >
-                              <RotateCcw className="h-3 w-3 mr-1" /> Estornar
+                              <RotateCcw className="h-3 w-3 mr-1" />
+                              <span className="hidden sm:inline">Estornar</span>
                             </Button>
                           ) : (
-                            <Badge variant="outline" className="text-[8.5px] border-border text-muted-foreground">
+                            <Badge
+                              variant="outline"
+                              className="text-[9px] border-border/80 bg-secondary/50 text-muted-foreground font-semibold px-2 py-0.5 rounded-lg"
+                            >
                               Estornado
                             </Badge>
                           )}
