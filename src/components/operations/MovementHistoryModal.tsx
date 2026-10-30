@@ -59,13 +59,13 @@ export function MovementHistoryModal({
   initialProductId = null,
   initialBauId = null,
 }: MovementHistoryModalProps) {
-  const { hasPermission } = useAuth();
+  const { hasPermission, isDevUser } = useAuth();
   const queryClient = useQueryClient();
 
-  const canViewPage = hasPermission("view_movements") || hasPermission("view_all_movements");
-  const canReverse = hasPermission("reverse_movement");
-  const canViewBalances = hasPermission("view_movement_balances") || hasPermission("view_stock");
-  const canViewBaus = hasPermission("view_baus") || hasPermission("view_movement_baus");
+  const canViewPage = hasPermission("view_movements") || hasPermission("view_all_movements") || isDevUser;
+  const canReverse = hasPermission("reverse_movement") || hasPermission("delete_movement") || isDevUser;
+  const canViewBalances = hasPermission("view_movement_balances") || hasPermission("view_stock") || isDevUser;
+  const canViewBaus = hasPermission("view_baus") || hasPermission("view_movement_baus") || isDevUser;
 
   const { data: movements = [], isLoading: loadingMovements } = useMovements();
   const { data: products = [] } = useProducts();

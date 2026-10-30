@@ -676,26 +676,36 @@ export function GestaoProducaoPage() {
             <BarChart3 className="h-3.5 w-3.5" />
             <span>Dashboard</span>
           </TabsTrigger>
-          <TabsTrigger value="products" className="gap-2 rounded-xl text-xs font-bold py-2">
-            <Boxes className="h-3.5 w-3.5" />
-            <span>Produtos ({products.length})</span>
-          </TabsTrigger>
-          <TabsTrigger value="materials" className="gap-2 rounded-xl text-xs font-bold py-2">
-            <Layers className="h-3.5 w-3.5" />
-            <span>Matérias-Primas ({rawMaterials.length})</span>
-          </TabsTrigger>
-          <TabsTrigger value="productions" className="gap-2 rounded-xl text-xs font-bold py-2">
-            <Factory className="h-3.5 w-3.5" />
-            <span>Produções ({productions.length})</span>
-          </TabsTrigger>
-          <TabsTrigger value="movements" className="gap-2 rounded-xl text-xs font-bold py-2">
-            <History className="h-3.5 w-3.5" />
-            <span>Movimentações Armazém ({movements.length})</span>
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="gap-2 rounded-xl text-xs font-bold py-2">
-            <Settings className="h-3.5 w-3.5" />
-            <span>Configurações</span>
-          </TabsTrigger>
+          {(canManageProducts || hasPermission("view_products") || isDevUser) && (
+            <TabsTrigger value="products" className="gap-2 rounded-xl text-xs font-bold py-2">
+              <Boxes className="h-3.5 w-3.5" />
+              <span>Produtos ({products.length})</span>
+            </TabsTrigger>
+          )}
+          {(canManageMaterials || hasPermission("raw_materials.view") || isDevUser) && (
+            <TabsTrigger value="materials" className="gap-2 rounded-xl text-xs font-bold py-2">
+              <Layers className="h-3.5 w-3.5" />
+              <span>Matérias-Primas ({rawMaterials.length})</span>
+            </TabsTrigger>
+          )}
+          {(canAuditProductions || hasPermission("productions.view") || isDevUser) && (
+            <TabsTrigger value="productions" className="gap-2 rounded-xl text-xs font-bold py-2">
+              <Factory className="h-3.5 w-3.5" />
+              <span>Produções ({productions.length})</span>
+            </TabsTrigger>
+          )}
+          {(hasPermission("warehouse.history") || hasPermission("warehouse.view") || isDevUser) && (
+            <TabsTrigger value="movements" className="gap-2 rounded-xl text-xs font-bold py-2">
+              <History className="h-3.5 w-3.5" />
+              <span>Movimentações Armazém ({movements.length})</span>
+            </TabsTrigger>
+          )}
+          {(canManageSettings || isDevUser) && (
+            <TabsTrigger value="settings" className="gap-2 rounded-xl text-xs font-bold py-2">
+              <Settings className="h-3.5 w-3.5" />
+              <span>Configurações</span>
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* ==================================================== */}
@@ -1093,31 +1103,35 @@ export function GestaoProducaoPage() {
                             </td>
 
                             <td className="p-3.5 pr-5 text-right">
-                              <div className="flex items-center justify-end gap-1.5">
-                                {/* MOVER / GERENCIAR SALDO */}
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleOpenStockManager(prod)}
-                                  className="h-7 px-2.5 text-xs rounded-lg gap-1 font-bold text-amber-300 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20"
-                                  title="Mover, remover, retornar ou ajustar saldo em baús, armazém e vendas"
-                                >
-                                  <ArrowRightLeft className="h-3 w-3" />
-                                  <span>Mover Saldo</span>
-                                </Button>
+                              {canManageProducts || isDevUser ? (
+                                <div className="flex items-center justify-end gap-1.5">
+                                  {/* MOVER / GERENCIAR SALDO */}
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleOpenStockManager(prod)}
+                                    className="h-7 px-2.5 text-xs rounded-lg gap-1 font-bold text-amber-300 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20"
+                                    title="Mover, remover, retornar ou ajustar saldo em baús, armazém e vendas"
+                                  >
+                                    <ArrowRightLeft className="h-3 w-3" />
+                                    <span>Mover Saldo</span>
+                                  </Button>
 
-                                {/* CONFIGURAR PRODUTO */}
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleOpenProductConfig(prod)}
-                                  className="h-7 px-2 text-xs rounded-lg gap-1 text-muted-foreground hover:text-foreground"
-                                  title="Configurações e Ficha Técnica"
-                                >
-                                  <Edit2 className="h-3 w-3" />
-                                  <span>Configurar</span>
-                                </Button>
-                              </div>
+                                  {/* CONFIGURAR PRODUTO */}
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleOpenProductConfig(prod)}
+                                    className="h-7 px-2 text-xs rounded-lg gap-1 text-muted-foreground hover:text-foreground"
+                                    title="Configurações e Ficha Técnica"
+                                  >
+                                    <Edit2 className="h-3 w-3" />
+                                    <span>Configurar</span>
+                                  </Button>
+                                </div>
+                              ) : (
+                                <span className="text-[11px] text-muted-foreground italic">Somente Leitura</span>
+                              )}
                             </td>
                           </tr>
                         );

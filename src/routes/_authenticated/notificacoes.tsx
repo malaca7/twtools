@@ -133,8 +133,18 @@ export function MemberNotificationsPage() {
 }
 
 function MemberNotificationsContent() {
-  const { user } = useAuth();
+  const { user, hasPermission, isDevUser } = useAuth();
   const navigate = useNavigate();
+
+  const canConfigureSound =
+    hasPermission("configure_notifications_sound") ||
+    hasPermission("manage_notifications") ||
+    isDevUser;
+  const canSendNotifications =
+    hasPermission("send_notifications") ||
+    hasPermission("manage_notifications") ||
+    hasPermission("manage_announcements") ||
+    isDevUser;
 
   const {
     notifications,
@@ -248,6 +258,18 @@ function MemberNotificationsContent() {
         icon={BellRing}
       >
         <div className="flex items-center gap-2">
+          {canSendNotifications && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate({ to: "/avisos" })}
+              className="gap-1.5 text-xs font-bold rounded-xl border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 shadow-sm cursor-pointer"
+            >
+              <Megaphone className="h-4 w-4 text-amber-400" />
+              <span>Emitir Aviso</span>
+            </Button>
+          )}
+
           <Button
             variant="outline"
             size="sm"
@@ -375,10 +397,12 @@ function MemberNotificationsContent() {
                 ) : null}
               </TabsTrigger>
             )}
-            <TabsTrigger value="preferences" className="text-xs font-bold gap-1.5 rounded-lg data-[state=active]:bg-card">
-              <Settings2 className="h-3.5 w-3.5" />
-              Preferências & Som
-            </TabsTrigger>
+            {canConfigureSound && (
+              <TabsTrigger value="preferences" className="text-xs font-bold gap-1.5 rounded-lg data-[state=active]:bg-card">
+                <Settings2 className="h-3.5 w-3.5" />
+                Preferências & Som
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {activeTab === "management" ? (
@@ -408,7 +432,8 @@ function MemberNotificationsContent() {
         </div>
 
         {/* TAB DE PREFERÊNCIAS E PERSONALIZAÇÃO PESSOAL */}
-        <TabsContent value="preferences" className="space-y-6">
+        {canConfigureSound && (
+          <TabsContent value="preferences" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* CONFIGURAÇÃO DE SONS */}
             <Card className="border-border/70 bg-card/60 backdrop-blur-md">
@@ -543,6 +568,7 @@ function MemberNotificationsContent() {
             </Card>
           </div>
         </TabsContent>
+      )}
 
         {/* TAB DE GESTÃO */}
         {isManager && (

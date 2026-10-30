@@ -180,7 +180,12 @@ function AdvertenciasContent() {
     hasPermission("manage_dev_warnings") ||
     isDevUser;
 
-  const canViewDetails = true;
+  const canViewDetails =
+    hasPermission("view_warning_details") ||
+    hasPermission("manage_warnings") ||
+    hasPermission("manage_ceo_warnings") ||
+    hasPermission("manage_dev_warnings") ||
+    isDevUser;
 
   const canExport =
     hasPermission("export_warnings") ||

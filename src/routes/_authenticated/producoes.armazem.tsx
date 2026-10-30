@@ -102,6 +102,12 @@ export function ArmazemPage() {
   const canTransferSale = hasPermission("warehouse.transfer_sale") || hasPermission("warehouse.transfer");
   const canTransfer = canTransferStorage || canTransferSale;
   const canAdjust = hasPermission("warehouse.adjust");
+  const canViewMovements = hasPermission("warehouse.history") || hasPermission("warehouse.view") || isDevUser;
+  const canReverseMovement =
+    hasPermission("reverse_movement") ||
+    hasPermission("delete_movement") ||
+    hasPermission("warehouse.adjust") ||
+    isDevUser;
 
   const { data: rawStockList = [], isLoading: loadingStock } = useWarehouseStock();
   const { data: rawMaterials = [], isLoading: loadingRawMaterials } = useRawMaterials();
@@ -781,10 +787,12 @@ export function ArmazemPage() {
             <Layers className="h-4 w-4 text-amber-400" />
             <span>Matérias-Primas ({rawMaterials.length})</span>
           </TabsTrigger>
-          <TabsTrigger value="movements" className="gap-2 rounded-xl text-xs font-bold">
-            <History className="h-4 w-4 text-violet-400" />
-            <span>Movimentações do Armazém ({movements.length})</span>
-          </TabsTrigger>
+          {canViewMovements && (
+            <TabsTrigger value="movements" className="gap-2 rounded-xl text-xs font-bold">
+              <History className="h-4 w-4 text-violet-400" />
+              <span>Movimentações do Armazém ({movements.length})</span>
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* ABA 1: TABELA DE ESTOQUE DO ARMAZÉM */}
@@ -1408,54 +1416,56 @@ export function ArmazemPage() {
         </TabsContent>
 
         {/* ABA 4: HISTÓRICO DE MOVIMENTAÇÕES DO ARMAZÉM */}
-        <TabsContent value="movements" className="space-y-4">
-          <Card className="surface-card border-border/70 overflow-hidden">
-            <CardHeader className="border-b border-border/40 pb-4 bg-muted/10">
-              <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
-                <History className="h-4 w-4 text-primary" />
-                <span>Auditoria de Movimentações do Armazém</span>
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Registro cronológico de entradas de produção, saídas para baús, liberações comerciais e estornos
-              </CardDescription>
-            </CardHeader>
+        {canViewMovements && (
+          <TabsContent value="movements" className="space-y-4">
+            <Card className="surface-card border-border/70 overflow-hidden">
+              <CardHeader className="border-b border-border/40 pb-4 bg-muted/10">
+                <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+                  <History className="h-4 w-4 text-primary" />
+                  <span>Auditoria de Movimentações do Armazém</span>
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Registro cronológico de entradas de produção, saídas para baús, liberações comerciais e estornos
+                </CardDescription>
+              </CardHeader>
 
-            <CardContent className="p-0">
-              {loadingMovements ? (
-                <div className="p-8 text-center text-xs text-muted-foreground">
-                  <Loader2 className="h-5 w-5 animate-spin mx-auto text-primary" />
-                  <span className="mt-2 block">Carregando histórico...</span>
-                </div>
-              ) : movements.length === 0 ? (
-                <div className="p-8 text-center text-xs text-muted-foreground">
-                  Nenhuma movimentação registrada no armazém.
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="border-b border-border/60 bg-muted/20 text-muted-foreground font-semibold">
-                        <th className="p-3 pl-5">Data/Hora</th>
-                        <th className="p-3">Operação</th>
-                        <th className="p-3">Produto</th>
-                        <th className="p-3">Origem &rarr; Destino</th>
-                        <th className="p-3">Observação</th>
-                        <th className="p-3 text-right">Qtd</th>
-                        <th className="p-3 text-right font-mono">Saldo Após</th>
-                        <th className="p-3 pr-5 text-right">Ação</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/40">
-                      {movements.map((m) => {
-                        const isEntry =
-                          m.type === "PRODUCTION" ||
-                          m.type === "SALE_CANCEL" ||
-                          m.type === "RETURN_TO_WAREHOUSE" ||
-                          m.type === "ESTORNO_TRANSFERENCIA";
-                        const canRevert =
-                          m.type === "TRANSFER_TO_STORAGE" ||
-                          m.type === "TRANSFER_TO_SALE" ||
-                          m.type === "TRANSFER_OUT";
+              <CardContent className="p-0">
+                {loadingMovements ? (
+                  <div className="p-8 text-center text-xs text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin mx-auto text-primary" />
+                    <span className="mt-2 block">Carregando histórico...</span>
+                  </div>
+                ) : movements.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-muted-foreground">
+                    Nenhuma movimentação registrada no armazém.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="border-b border-border/60 bg-muted/20 text-muted-foreground font-semibold">
+                          <th className="p-3 pl-5">Data/Hora</th>
+                          <th className="p-3">Operação</th>
+                          <th className="p-3">Produto</th>
+                          <th className="p-3">Origem &rarr; Destino</th>
+                          <th className="p-3">Observação</th>
+                          <th className="p-3 text-right">Qtd</th>
+                          <th className="p-3 text-right font-mono">Saldo Após</th>
+                          <th className="p-3 pr-5 text-right">Ação</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/40">
+                        {movements.map((m) => {
+                          const isEntry =
+                            m.type === "PRODUCTION" ||
+                            m.type === "SALE_CANCEL" ||
+                            m.type === "RETURN_TO_WAREHOUSE" ||
+                            m.type === "ESTORNO_TRANSFERENCIA";
+                          const canRevert =
+                            canReverseMovement &&
+                            (m.type === "TRANSFER_TO_STORAGE" ||
+                              m.type === "TRANSFER_TO_SALE" ||
+                              m.type === "TRANSFER_OUT");
 
                         return (
                           <tr key={m.id} className="hover:bg-muted/10 transition-colors">
@@ -1552,6 +1562,7 @@ export function ArmazemPage() {
             </CardContent>
           </Card>
         </TabsContent>
+      )}
       </Tabs>
 
       {/* ==================================================== */}

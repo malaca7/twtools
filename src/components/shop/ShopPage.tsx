@@ -71,12 +71,13 @@ const CATEGORY_MAP: Record<string, { label: string; icon: React.ElementType }> =
 };
 
 export function ShopPage() {
-  const { user, profile, hasPermission, refresh } = useAuth();
+  const { user, profile, hasPermission, refresh, isDevUser, isCeoMode } = useAuth();
   const queryClient = useQueryClient();
   const userId = user?.id || "";
 
   const canViewShop = hasPermission("view_shop");
   const canBuyItems = hasPermission("buy_shop_items");
+  const canManageShop = hasPermission("manage_shop") || hasPermission("view_dev_shop") || isDevUser;
 
   const [activeCategory, setActiveCategory] = useState("todos");
   const [search, setSearch] = useState("");
@@ -181,6 +182,19 @@ export function ShopPage() {
         icon={ShoppingBag}
         actions={
           <div className="flex items-center gap-2 flex-wrap">
+            {canManageShop && (
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="text-xs font-bold gap-1.5 rounded-xl border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 h-9 cursor-pointer"
+              >
+                <Link to={isCeoMode ? "/ceo" : "/dev/loja"}>
+                  <Package className="h-3.5 w-3.5 text-amber-400" />
+                  <span>Gerenciar Loja</span>
+                </Link>
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"

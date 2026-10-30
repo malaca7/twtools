@@ -118,6 +118,12 @@ export function MateriasPrimasPage() {
     hasPermission("raw_materials.transfer_bau") ||
     hasPermission("production_management.raw_materials");
 
+  const canViewHistory =
+    hasPermission("raw_materials.history") ||
+    hasPermission("raw_materials.view") ||
+    hasPermission("production_management.raw_materials") ||
+    isDevUser;
+
   // Dados
   const { data: rawMaterials = [], isLoading: loadingMaterials } = useRawMaterials();
   const { data: baus = [], isLoading: loadingBaus } = useBaus();
@@ -705,13 +711,15 @@ export function MateriasPrimasPage() {
               <Boxes className="h-3.5 w-3.5" />
               <span>Insumos nos Baús ({activeBaus.length})</span>
             </TabsTrigger>
-            <TabsTrigger
-              value="history"
-              className="text-xs font-semibold py-1.5 px-3 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all gap-1.5"
-            >
-              <History className="h-3.5 w-3.5" />
-              <span>Histórico & Auditoria ({movements.length})</span>
-            </TabsTrigger>
+            {canViewHistory && (
+              <TabsTrigger
+                value="history"
+                className="text-xs font-semibold py-1.5 px-3 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all gap-1.5"
+              >
+                <History className="h-3.5 w-3.5" />
+                <span>Histórico & Auditoria ({movements.length})</span>
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* Barra de Filtros Rápidos */}
@@ -1156,7 +1164,8 @@ export function MateriasPrimasPage() {
         {/* ============================================================== */}
         {/* ABA 3: HISTÓRICO & AUDITORIA */}
         {/* ============================================================== */}
-        <TabsContent value="history" className="space-y-4 m-0">
+        {canViewHistory && (
+          <TabsContent value="history" className="space-y-4 m-0">
           <Card className="border-border/60 bg-card/40 backdrop-blur-md shadow-sm overflow-hidden">
             <CardHeader className="p-4 border-b border-border/40 flex flex-row items-center justify-between">
               <div>
@@ -1274,6 +1283,7 @@ export function MateriasPrimasPage() {
             </CardContent>
           </Card>
         </TabsContent>
+      )}
       </Tabs>
 
       {/* ============================================================== */}

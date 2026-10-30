@@ -64,7 +64,7 @@ import {
   getCeoTagPermissionsSync,
   getCeoTagPermissions,
 } from "@/services/devService";
-import type { Permission } from "@/lib/permissions";
+import { satisfiesPermission, type Permission } from "@/lib/permissions";
 import {
   getDiscordWebhooksConfig,
   saveDiscordWebhooksConfig,
@@ -174,8 +174,9 @@ export function DevWebhooksConfigCard({ isCeoView }: DevWebhooksConfigCardProps 
   }, [ceoPermTick]);
 
   const checkPerm = (perm: Permission): boolean => {
+    if (isDevUser) return true;
     if (isCeoPanel) {
-      return ceoPerms.includes(perm);
+      return satisfiesPermission(ceoPerms, perm);
     }
     return hasPermission(perm);
   };

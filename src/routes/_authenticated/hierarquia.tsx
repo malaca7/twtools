@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { createFileRoute, Outlet, useChildMatches } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useChildMatches, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   Workflow,
@@ -184,7 +184,7 @@ const RANK_TIERS: RankTierConfig[] = [
 ];
 
 export function HierarquiaPage() {
-  const { hasPermission, user } = useAuth();
+  const { hasPermission, user, isDevUser } = useAuth();
   const { data: members = [] } = useMembers();
   const memberTagsMap = useMemberTagsMap();
 
@@ -220,6 +220,10 @@ export function HierarquiaPage() {
 
   const canView = hasPermission("view_hierarchy");
   const canViewSensitiveData = Boolean(hasPermission("view_sensitive_data"));
+  const canManageHierarchy =
+    hasPermission("manage_hierarchy") ||
+    hasPermission("manage_roles") ||
+    isDevUser;
 
   // Agrupamento de membros por nível hierárquico
   const groupedMembers = useMemo(() => {
@@ -309,6 +313,19 @@ export function HierarquiaPage() {
           description="Pirâmide hierárquica por cargos e distribuição de todos os integrantes do grupo Twin Wheels."
         />
         <div className="flex flex-wrap items-center gap-2">
+          {canManageHierarchy && (
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="h-9 text-xs gap-1.5 font-bold rounded-xl border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 shadow-sm cursor-pointer"
+            >
+              <Link to="/cargos">
+                <Shield className="h-3.5 w-3.5 text-amber-400" />
+                <span>Gerenciar Cargos & Permissões</span>
+              </Link>
+            </Button>
+          )}
           {/* Seletor de Modo de Visualização */}
           <div className="flex items-center rounded-xl bg-card border border-border/60 p-1 shadow-sm">
             <Button
