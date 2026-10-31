@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import {
@@ -160,7 +160,8 @@ const AVAILABLE_ICONS = [
 ];
 
 export function CeoGerenciarTagsPage() {
-  const { user, profile, isDevUser, hasPermission } = useAuth();
+  const { user, profile, isDevUser, hasTag, hasPermission } = useAuth();
+  const isDevMember = Boolean(isDevUser || hasTag?.("dev") || hasTag?.("desenvolvedor"));
 
   const canViewTags = Boolean(
     hasPermission("view_ceo_tag_permissions") ||
@@ -403,6 +404,34 @@ export function CeoGerenciarTagsPage() {
     return { totalTags, totalAssignedMembers, activeTags, blockingTags };
   }, [tags, assignments]);
 
+  // Checagem de categoria restrita (CEO, Executivo CEO, Gestão, Plataforma)
+  const isRestrictedCategory = useCallback((catName: string) => {
+    const norm = (catName || "").toLowerCase().trim();
+    return (
+      norm === "ceo" ||
+      norm === "executivo ceo" ||
+      norm === "painel ceo" ||
+      norm === "gestão" ||
+      norm === "gestao" ||
+      norm === "plataforma"
+    );
+  }, []);
+
+  // Checagem de card restrito para membros sem a tag dev
+  const isRestrictedCard = useCallback(
+    (card: { id: string; route: string; title: string; defaultCat: string; category?: string }) => {
+      if (isRestrictedCategory(card.category || "")) return true;
+      if (isRestrictedCategory(card.defaultCat || "")) return true;
+      const id = (card.id || "").toLowerCase().trim();
+      const route = (card.route || "").toLowerCase().trim();
+      const title = (card.title || "").toLowerCase().trim();
+      if (id.startsWith("ceo-") || id === "ceo" || route.startsWith("/ceo")) return true;
+      if (id === "configuracoes" || id === "permissoes" || id === "atualizacoes" || title.includes("plataforma")) return true;
+      return false;
+    },
+    [isRestrictedCategory]
+  );
+
   // Cards operacionais de membros (excluindo DEV e Painel Executivo CEO)
   const platformPageCards = useMemo(() => {
     return PAGE_CARDS.filter((card) => {
@@ -417,15 +446,42 @@ export function CeoGerenciarTagsPage() {
     });
   }, []);
 
+  // Cards visíveis no modal de permissões da tag
+  const visiblePageCards = useMemo(() => {
+    if (isDevMember) {
+      return platformPageCards;
+    }
+    return platformPageCards.filter((card) => !isRestrictedCard(card));
+  }, [isDevMember, platformPageCards, isRestrictedCard]);
+
+  // Chaves de permissões restritas (para salvamento e preservação de integridade)
+  const restrictedPermissionKeys = useMemo<Set<Permission>>(() => {
+    const set = new Set<Permission>();
+    PAGE_CARDS.forEach((card) => {
+      if (isRestrictedCard(card)) {
+        card.permissions.forEach((p) => set.add(p.key));
+      }
+    });
+    return set;
+  }, [isRestrictedCard]);
+
   const allPlatformPermissions = useMemo(() => {
     return Array.from(new Set(platformPageCards.flatMap((c) => c.permissions.map((p) => p.key))));
   }, [platformPageCards]);
+
+  const visiblePlatformPermissions = useMemo<Permission[]>(() => {
+    return Array.from(new Set(visiblePageCards.flatMap((c) => c.permissions.map((p) => p.key))));
+  }, [visiblePageCards]);
 
   const readOnlyPlatformPermissions = useMemo(() => {
     return READ_ONLY_PERMISSIONS.filter((p) => allPlatformPermissions.includes(p));
   }, [allPlatformPermissions]);
 
-  // Agrupamento e ordenação dinâmica dos PAGE_CARDS operacionais pelas categorias
+  const visibleReadOnlyPermissions = useMemo(() => {
+    return READ_ONLY_PERMISSIONS.filter((p) => visiblePlatformPermissions.includes(p));
+  }, [visiblePlatformPermissions]);
+
+  // Agrupamento e ordenação dinâmica dos PAGE_CARDS pelas categorias
   const groupedPageCards = useMemo(() => {
     const validConfigItems = menuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
     const configMap = new Map(validConfigItems.map((c) => [c.id || c.url, c]));
@@ -433,14 +489,19 @@ export function CeoGerenciarTagsPage() {
     const rawCategories = menuConfig?.categories?.length
       ? menuConfig.categories
       : ["Produções", "Gestão", "Administração"];
-    const orderedCategories = [...rawCategories];
+    let orderedCategories = [...rawCategories];
 
     // Remover categorias "Operação", "DEV", "Ferramentas Dev"
-    const categoryOrder = orderedCategories.filter(
+    let categoryOrder = orderedCategories.filter(
       (c) => c !== "DEV" && c !== "Ferramentas Dev" && c !== "Operação"
     );
 
-    const customized = platformPageCards
+    // Se NÃO tiver a tag dev, filtrar categorias de CEO, Executivo CEO, Gestão e Plataforma
+    if (!isDevMember) {
+      categoryOrder = categoryOrder.filter((c) => !isRestrictedCategory(c));
+    }
+
+    const customized = visiblePageCards
       .map((card) => {
         const cfg = configMap.get(card.id) || configMap.get(card.route);
         let cat = cfg?.category || card.defaultCat;
@@ -465,12 +526,11 @@ export function CeoGerenciarTagsPage() {
           order: typeof cfg?.order === "number" ? cfg.order : card.defaultOrder,
         };
       })
-      .filter(
-        (card) =>
-          card.category !== "DEV" &&
-          card.category !== "Ferramentas Dev" &&
-          card.category !== "Operação"
-      );
+      .filter((card) => {
+        if (card.category === "DEV" || card.category === "Ferramentas Dev" || card.category === "Operação") return false;
+        if (!isDevMember && isRestrictedCard(card)) return false;
+        return true;
+      });
 
     const groups: { category: string; cards: typeof customized }[] = [];
 
@@ -497,7 +557,7 @@ export function CeoGerenciarTagsPage() {
     });
 
     return groups;
-  }, [menuConfig, platformPageCards]);
+  }, [menuConfig, visiblePageCards, isDevMember, isRestrictedCategory, isRestrictedCard]);
 
   const operationalBasicPermissions = useMemo<Permission[]>(() => {
     return [
@@ -553,16 +613,26 @@ export function CeoGerenciarTagsPage() {
       toast.error("Você não tem permissão para alterar permissões de tags.");
       return;
     }
-    const nextPerms = [...allPlatformPermissions];
-    const nextRules = {
-      ...activeRules,
-      can_view_all_tickets: true,
-      can_view_sensitive_data: true,
-      can_view_all_sales: true,
-      can_create_announcements: true,
-      can_reverse_sales: true,
-      can_manage_members: true,
-    };
+    const targetPerms = isDevMember ? allPlatformPermissions : visiblePlatformPermissions;
+    const nextPerms = isDevMember
+      ? [...allPlatformPermissions]
+      : Array.from(new Set([...activePerms.filter((p) => !visiblePlatformPermissions.includes(p)), ...targetPerms]));
+
+    const nextRules = isDevMember
+      ? {
+          ...activeRules,
+          can_view_all_tickets: true,
+          can_view_sensitive_data: true,
+          can_view_all_sales: true,
+          can_create_announcements: true,
+          can_reverse_sales: true,
+          can_manage_members: true,
+        }
+      : {
+          ...activeRules,
+          can_view_all_sales: true,
+          can_reverse_sales: true,
+        };
     setActiveRules(nextRules);
     setActivePerms(nextPerms);
     void autoSavePermsAndRules(nextPerms, nextRules);
@@ -573,14 +643,24 @@ export function CeoGerenciarTagsPage() {
       toast.error("Você não tem permissão para alterar permissões de tags.");
       return;
     }
-    const nextPerms = [...readOnlyPlatformPermissions];
-    const nextRules = {
-      ...activeRules,
-      can_view_all_tickets: nextPerms.includes("view_all_tickets"),
-      can_view_sensitive_data: nextPerms.includes("view_sensitive_data"),
-      can_view_all_sales: nextPerms.includes("view_all_sales"),
-      can_reverse_sales: false,
-    };
+    const targetPerms = isDevMember ? readOnlyPlatformPermissions : visibleReadOnlyPermissions;
+    const nextPerms = isDevMember
+      ? [...readOnlyPlatformPermissions]
+      : Array.from(new Set([...activePerms.filter((p) => !visiblePlatformPermissions.includes(p)), ...targetPerms]));
+
+    const nextRules = isDevMember
+      ? {
+          ...activeRules,
+          can_view_all_tickets: nextPerms.includes("view_all_tickets"),
+          can_view_sensitive_data: nextPerms.includes("view_sensitive_data"),
+          can_view_all_sales: nextPerms.includes("view_all_sales"),
+          can_reverse_sales: false,
+        }
+      : {
+          ...activeRules,
+          can_view_all_sales: nextPerms.includes("view_all_sales"),
+          can_reverse_sales: false,
+        };
     setActiveRules(nextRules);
     setActivePerms(nextPerms);
     void autoSavePermsAndRules(nextPerms, nextRules);
@@ -591,7 +671,10 @@ export function CeoGerenciarTagsPage() {
       toast.error("Você não tem permissão para alterar permissões de tags.");
       return;
     }
-    const nextPerms = [...operationalBasicPermissions];
+    const nextPerms = isDevMember
+      ? [...operationalBasicPermissions]
+      : Array.from(new Set([...activePerms.filter((p) => !visiblePlatformPermissions.includes(p)), ...operationalBasicPermissions]));
+
     const nextRules = {
       ...activeRules,
       can_sell: true,
@@ -607,7 +690,10 @@ export function CeoGerenciarTagsPage() {
       toast.error("Você não tem permissão para alterar permissões de tags.");
       return;
     }
-    const nextPerms = [...warehouseLogisticsPermissions];
+    const nextPerms = isDevMember
+      ? [...warehouseLogisticsPermissions]
+      : Array.from(new Set([...activePerms.filter((p) => !visiblePlatformPermissions.includes(p)), ...warehouseLogisticsPermissions]));
+
     const nextRules = {
       ...activeRules,
       can_manage_productions: true,
@@ -625,17 +711,26 @@ export function CeoGerenciarTagsPage() {
       toast.error("Você não tem permissão para alterar permissões de tags.");
       return;
     }
-    const next: Permission[] = [];
-    const nextRules = {
-      ...activeRules,
-      can_view_all_tickets: false,
-      can_view_sensitive_data: false,
-      can_view_all_sales: false,
-      can_reverse_sales: false,
-      can_create_announcements: false,
-      can_access_ceo: false,
-      is_ceo: false,
-    };
+    const next = isDevMember
+      ? []
+      : activePerms.filter((p) => !visiblePlatformPermissions.includes(p));
+
+    const nextRules = isDevMember
+      ? {
+          ...activeRules,
+          can_view_all_tickets: false,
+          can_view_sensitive_data: false,
+          can_view_all_sales: false,
+          can_reverse_sales: false,
+          can_create_announcements: false,
+          can_access_ceo: false,
+          is_ceo: false,
+        }
+      : {
+          ...activeRules,
+          can_view_all_sales: false,
+          can_reverse_sales: false,
+        };
     setActiveRules(nextRules);
     setActivePerms(next);
     void autoSavePermsAndRules(next, nextRules);
@@ -1293,10 +1388,30 @@ export function CeoGerenciarTagsPage() {
     if (!tagForPerms) return;
     setAutoSaveStatus("saving");
     try {
-      const safeRules = parseMemberTagRules(newRules);
+      let permsToSave = newPerms;
+      let rulesToSave = newRules;
+      if (!isDevMember && tagForPerms.permissions) {
+        const existingRawPerms = Array.isArray(tagForPerms.permissions) ? tagForPerms.permissions : [];
+        const existingRestricted = existingRawPerms.filter((p) => restrictedPermissionKeys.has(p));
+        permsToSave = Array.from(new Set([...permsToSave, ...existingRestricted]));
+
+        const existingRules = parseMemberTagRules(tagForPerms.rules);
+        rulesToSave = {
+          ...existingRules,
+          ...newRules,
+          block_login: existingRules.block_login,
+          can_manage_members: existingRules.can_manage_members,
+          can_view_sensitive_data: existingRules.can_view_sensitive_data,
+          can_manage_escalas: existingRules.can_manage_escalas,
+          can_access_ceo: false,
+          is_ceo: false,
+        };
+      }
+
+      const safeRules = parseMemberTagRules(rulesToSave);
       await updatePermissionsAndRulesMutation.mutateAsync({
         tagId: tagForPerms.id,
-        permissions: newPerms,
+        permissions: permsToSave,
         rules: safeRules,
         silent: true,
       });
@@ -2598,11 +2713,24 @@ export function CeoGerenciarTagsPage() {
                   />
                 )}
                 <div>
-                  <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+                  <h2 className="text-base font-bold text-foreground flex items-center gap-2 flex-wrap">
                     <span>Configuração de Permissões & Regras</span>
+                    {isDevMember ? (
+                      <Badge variant="outline" className="text-[10px] font-mono border-primary/40 text-primary bg-primary/10 gap-1 font-semibold">
+                        <Code2 className="h-3 w-3" />
+                        <span>Acesso Dev: Todas as permissões visíveis</span>
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] font-mono border-muted-foreground/30 text-muted-foreground bg-secondary/30 gap-1 font-medium">
+                        <ShieldCheck className="h-3 w-3 text-emerald-400" />
+                        <span>Módulos Operacionais</span>
+                      </Badge>
+                    )}
                   </h2>
                   <p className="text-xs text-muted-foreground">
-                    As permissões são somadas às patentes e ativas em tempo real no sistema.
+                    {isDevMember
+                      ? "As permissões são somadas às patentes e ativas em tempo real no sistema (incluindo módulos de CEO, Gestão e Plataforma)."
+                      : "As permissões operacionais são somadas às patentes e ativas em tempo real no sistema."}
                   </p>
                 </div>
               </div>
@@ -2647,7 +2775,13 @@ export function CeoGerenciarTagsPage() {
                   className="h-8 text-xs rounded-xl gap-2 font-bold"
                 >
                   <ShieldCheck className="h-3.5 w-3.5" />
-                  <span>Permissões de Módulos ({activePerms.length} ativas)</span>
+                  <span>
+                    Permissões de Módulos (
+                    {isDevMember
+                      ? activePerms.length
+                      : activePerms.filter((p) => visiblePlatformPermissions.includes(p)).length}{" "}
+                    ativas)
+                  </span>
                 </Button>
               )}
               {canManageRules && (
@@ -2943,7 +3077,7 @@ export function CeoGerenciarTagsPage() {
                               ...activeRules,
                               is_blocked: true,
                               block_operations: true,
-                              block_login: true,
+                              block_login: isDevMember ? true : Boolean(activeRules.block_login),
                               block_escalas: true,
                               block_sales: true,
                               block_movements: true,
@@ -2964,7 +3098,7 @@ export function CeoGerenciarTagsPage() {
                               ...activeRules,
                               is_blocked: false,
                               block_operations: false,
-                              block_login: false,
+                              block_login: isDevMember ? false : Boolean(activeRules.block_login),
                               block_escalas: false,
                               block_sales: false,
                               block_movements: false,
@@ -2999,27 +3133,29 @@ export function CeoGerenciarTagsPage() {
                         />
                       </div>
 
-                      {/* BLOQUEAR ACESSO À PLATAFORMA (CHAVE MESTRA) */}
-                      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/40">
-                        <div className="space-y-0.5 pr-2">
-                          <Label className="text-xs font-bold text-rose-400 flex items-center gap-1.5 flex-wrap">
-                            <Lock className="h-3.5 w-3.5 text-rose-400" />
-                            <span>Bloquear Acesso à Plataforma</span>
-                            <Badge variant="outline" className="text-[9px] font-mono border-rose-500/50 text-rose-300 bg-rose-500/20 py-0 px-1">
-                              Chave Mestra
-                            </Badge>
-                          </Label>
-                          <p className="text-[11px] text-muted-foreground">
-                            Bloqueia todo acesso à plataforma para quem possuir esta tag. Todos os menus, páginas e abas ficam travados e sem conseguir interagir.
-                          </p>
+                      {/* BLOQUEAR ACESSO À PLATAFORMA (CHAVE MESTRA - APENAS DEV) */}
+                      {isDevMember && (
+                        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/40">
+                          <div className="space-y-0.5 pr-2">
+                            <Label className="text-xs font-bold text-rose-400 flex items-center gap-1.5 flex-wrap">
+                              <Lock className="h-3.5 w-3.5 text-rose-400" />
+                              <span>Bloquear Acesso à Plataforma</span>
+                              <Badge variant="outline" className="text-[9px] font-mono border-rose-500/50 text-rose-300 bg-rose-500/20 py-0 px-1">
+                                Chave Mestra
+                              </Badge>
+                            </Label>
+                            <p className="text-[11px] text-muted-foreground">
+                              Bloqueia todo acesso à plataforma para quem possuir esta tag. Todos os menus, páginas e abas ficam travados e sem conseguir interagir.
+                            </p>
+                          </div>
+                          <Switch
+                            checked={Boolean(activeRules.block_login)}
+                            onCheckedChange={(val) =>
+                              handleUpdateRuleValue({ ...activeRules, block_login: val })
+                            }
+                          />
                         </div>
-                        <Switch
-                          checked={Boolean(activeRules.block_login)}
-                          onCheckedChange={(val) =>
-                            handleUpdateRuleValue({ ...activeRules, block_login: val })
-                          }
-                        />
-                      </div>
+                      )}
 
                       {/* BLOQUEAR ESCALAS DE AÇÃO */}
                       <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
@@ -3387,109 +3523,113 @@ export function CeoGerenciarTagsPage() {
                       />
                     </div>
 
-                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60 md:col-span-2">
-                      <div className="space-y-0.5 pr-2">
-                        <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                          <Landmark className="h-3.5 w-3.5 text-indigo-400" />
-                          <span>Visualizar Relatórios Financeiros Consolidados</span>
-                        </Label>
-                        <p className="text-[11px] text-muted-foreground">
-                          Permite consultar balanços contábeis, faturamento de vendas e gráficos de evolução.
-                        </p>
+                    {isDevMember && (
+                      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60 md:col-span-2">
+                        <div className="space-y-0.5 pr-2">
+                          <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                            <Landmark className="h-3.5 w-3.5 text-indigo-400" />
+                            <span>Visualizar Relatórios Financeiros Consolidados</span>
+                          </Label>
+                          <p className="text-[11px] text-muted-foreground">
+                            Permite consultar balanços contábeis, faturamento de vendas e gráficos de evolução.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={Boolean(activeRules.can_view_financial_reports)}
+                          onCheckedChange={(val) =>
+                            handleUpdateRuleValue({ ...activeRules, can_view_financial_reports: val })
+                          }
+                        />
                       </div>
-                      <Switch
-                        checked={Boolean(activeRules.can_view_financial_reports)}
-                        onCheckedChange={(val) =>
-                          handleUpdateRuleValue({ ...activeRules, can_view_financial_reports: val })
-                        }
-                      />
-                    </div>
+                    )}
                   </div>
                 </div>
 
-                {/* SEÇÃO 5: GESTÃO DE EQUIPE & RECRUTAMENTO */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 pb-1.5 border-b border-border/50">
-                    <Users className="h-4 w-4 text-sky-400" />
-                    <h3 className="text-xs uppercase tracking-wider font-bold text-sky-400">
-                      5. Gestão de Equipe & Liderança
-                    </h3>
+                {/* SEÇÃO 5: GESTÃO DE EQUIPE & RECRUTAMENTO (APENAS DEV) */}
+                {isDevMember && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 pb-1.5 border-b border-border/50">
+                      <Users className="h-4 w-4 text-sky-400" />
+                      <h3 className="text-xs uppercase tracking-wider font-bold text-sky-400">
+                        5. Gestão de Equipe & Liderança
+                      </h3>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
+                        <div className="space-y-0.5 pr-2">
+                          <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                            <UserPlus className="h-3.5 w-3.5 text-sky-400" />
+                            <span>Recrutamento & Aprovação de Membros</span>
+                          </Label>
+                          <p className="text-[11px] text-muted-foreground">
+                            Permite aceitar ou recusar solicitações de entrada na facção.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={Boolean(activeRules.can_manage_members)}
+                          onCheckedChange={(val) =>
+                            handleUpdateRuleValue({ ...activeRules, can_manage_members: val })
+                          }
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
+                        <div className="space-y-0.5 pr-2">
+                          <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                            <Lock className="h-3.5 w-3.5 text-amber-400" />
+                            <span>Visualizar Dados Confidenciais</span>
+                          </Label>
+                          <p className="text-[11px] text-muted-foreground">
+                            Exibe Game ID, notas disciplinares e contatos nos perfis.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={Boolean(activeRules.can_view_sensitive_data)}
+                          onCheckedChange={(val) =>
+                            handleUpdateRuleValue({ ...activeRules, can_view_sensitive_data: val })
+                          }
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
+                        <div className="space-y-0.5 pr-2">
+                          <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                            <MessageSquare className="h-3.5 w-3.5 text-purple-400" />
+                            <span>Atender Tickets de Suporte</span>
+                          </Label>
+                          <p className="text-[11px] text-muted-foreground">
+                            Permite visualizar e responder tickets abertos por qualquer membro.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={Boolean(activeRules.can_view_all_tickets)}
+                          onCheckedChange={(val) =>
+                            handleUpdateRuleValue({ ...activeRules, can_view_all_tickets: val })
+                          }
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
+                        <div className="space-y-0.5 pr-2">
+                          <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                            <Megaphone className="h-3.5 w-3.5 text-amber-400" />
+                            <span>Publicar Avisos no Mural</span>
+                          </Label>
+                          <p className="text-[11px] text-muted-foreground">
+                            Permite emitir comunicados oficiais com fixação no mural geral.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={Boolean(activeRules.can_create_announcements)}
+                          onCheckedChange={(val) =>
+                            handleUpdateRuleValue({ ...activeRules, can_create_announcements: val })
+                          }
+                        />
+                      </div>
+                    </div>
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
-                      <div className="space-y-0.5 pr-2">
-                        <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                          <UserPlus className="h-3.5 w-3.5 text-sky-400" />
-                          <span>Recrutamento & Aprovação de Membros</span>
-                        </Label>
-                        <p className="text-[11px] text-muted-foreground">
-                          Permite aceitar ou recusar solicitações de entrada na facção.
-                        </p>
-                      </div>
-                      <Switch
-                        checked={Boolean(activeRules.can_manage_members)}
-                        onCheckedChange={(val) =>
-                          handleUpdateRuleValue({ ...activeRules, can_manage_members: val })
-                        }
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
-                      <div className="space-y-0.5 pr-2">
-                        <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                          <Lock className="h-3.5 w-3.5 text-amber-400" />
-                          <span>Visualizar Dados Confidenciais</span>
-                        </Label>
-                        <p className="text-[11px] text-muted-foreground">
-                          Exibe Game ID, notas disciplinares e contatos nos perfis.
-                        </p>
-                      </div>
-                      <Switch
-                        checked={Boolean(activeRules.can_view_sensitive_data)}
-                        onCheckedChange={(val) =>
-                          handleUpdateRuleValue({ ...activeRules, can_view_sensitive_data: val })
-                        }
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
-                      <div className="space-y-0.5 pr-2">
-                        <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                          <MessageSquare className="h-3.5 w-3.5 text-purple-400" />
-                          <span>Atender Tickets de Suporte</span>
-                        </Label>
-                        <p className="text-[11px] text-muted-foreground">
-                          Permite visualizar e responder tickets abertos por qualquer membro.
-                        </p>
-                      </div>
-                      <Switch
-                        checked={Boolean(activeRules.can_view_all_tickets)}
-                        onCheckedChange={(val) =>
-                          handleUpdateRuleValue({ ...activeRules, can_view_all_tickets: val })
-                        }
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
-                      <div className="space-y-0.5 pr-2">
-                        <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                          <Megaphone className="h-3.5 w-3.5 text-amber-400" />
-                          <span>Publicar Avisos no Mural</span>
-                        </Label>
-                        <p className="text-[11px] text-muted-foreground">
-                          Permite emitir comunicados oficiais com fixação no mural geral.
-                        </p>
-                      </div>
-                      <Switch
-                        checked={Boolean(activeRules.can_create_announcements)}
-                        onCheckedChange={(val) =>
-                          handleUpdateRuleValue({ ...activeRules, can_create_announcements: val })
-                        }
-                      />
-                    </div>
-                  </div>
-                </div>
+                )}
 
                 {/* SEÇÃO 6: ESCALA DE AÇÃO & OPERAÇÕES TÁTICAS */}
                 <div className="space-y-3">
@@ -3501,43 +3641,47 @@ export function CeoGerenciarTagsPage() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {/* GESTÃO DE ESCALAS */}
-                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
-                      <div className="space-y-0.5 pr-2">
-                        <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                          <Crown className="h-3.5 w-3.5 text-amber-400" />
-                          <span>Habilitar Gestão de Escalas</span>
-                        </Label>
-                        <p className="text-[11px] text-muted-foreground">
-                          Permite criar novas ações, convocar integrantes, aprovar/reprovar participantes e realizar substituições.
-                        </p>
+                    {/* GESTÃO DE ESCALAS (APENAS DEV) */}
+                    {isDevMember && (
+                      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
+                        <div className="space-y-0.5 pr-2">
+                          <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                            <Crown className="h-3.5 w-3.5 text-amber-400" />
+                            <span>Habilitar Gestão de Escalas</span>
+                          </Label>
+                          <p className="text-[11px] text-muted-foreground">
+                            Permite criar novas ações, convocar integrantes, aprovar/reprovar participantes e realizar substituições.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={Boolean(activeRules.can_manage_escalas)}
+                          onCheckedChange={(val) =>
+                            handleUpdateRuleValue({ ...activeRules, can_manage_escalas: val })
+                          }
+                        />
                       </div>
-                      <Switch
-                        checked={Boolean(activeRules.can_manage_escalas)}
-                        onCheckedChange={(val) =>
-                          handleUpdateRuleValue({ ...activeRules, can_manage_escalas: val })
-                        }
-                      />
-                    </div>
+                    )}
 
-                    {/* VISUALIZAR ESCALAS */}
-                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
-                      <div className="space-y-0.5 pr-2">
-                        <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                          <Eye className="h-3.5 w-3.5 text-rose-400" />
-                          <span>Visualizar Central de Escalas</span>
-                        </Label>
-                        <p className="text-[11px] text-muted-foreground">
-                          Permite acessar a página de Escalas de Ação e consultar horários, locais e convocados.
-                        </p>
+                    {/* VISUALIZAR ESCALAS (APENAS DEV) */}
+                    {isDevMember && (
+                      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60">
+                        <div className="space-y-0.5 pr-2">
+                          <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                            <Eye className="h-3.5 w-3.5 text-rose-400" />
+                            <span>Visualizar Central de Escalas</span>
+                          </Label>
+                          <p className="text-[11px] text-muted-foreground">
+                            Permite acessar a página de Escalas de Ação e consultar horários, locais e convocados.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={Boolean(activeRules.can_view_escalas)}
+                          onCheckedChange={(val) =>
+                            handleUpdateRuleValue({ ...activeRules, can_view_escalas: val })
+                          }
+                        />
                       </div>
-                      <Switch
-                        checked={Boolean(activeRules.can_view_escalas)}
-                        onCheckedChange={(val) =>
-                          handleUpdateRuleValue({ ...activeRules, can_view_escalas: val })
-                        }
-                      />
-                    </div>
+                    )}
 
                     {/* CONFIRMAR PRESENÇA & PARTICIPAR */}
                     <div className="flex items-center justify-between p-3.5 rounded-2xl bg-secondary/20 border border-border/60 md:col-span-2">
