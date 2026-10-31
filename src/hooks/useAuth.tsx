@@ -1461,6 +1461,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasPermission = useCallback(
     (permission: Permission, panelOverride?: "member" | "dev" | "ceo") => {
       const bypassActive = isDevBypassActive();
+      const isDevBypass = Boolean(isDevUser && bypassActive);
 
       // =========================================================================
       // REGRA MESTRA: BYPASS DE AUTORIZAÇÃO DEV (ACESSO IRRESTRITO SUPREMO)
@@ -1468,7 +1469,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // o membro terá Acesso Irrestrito Supremo com acesso completo a todas as
       // páginas e ações sem bloqueio de patente!
       // =========================================================================
-      if (isDevUser && bypassActive) {
+      if (isDevBypass) {
         if (profile?.is_verified === true && (permission === "verification.view_page" || permission === "verification.request")) {
           return false;
         }
