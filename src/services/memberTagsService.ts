@@ -474,10 +474,39 @@ export async function saveMemberTag(tag: {
   discord_role_name?: string | null;
   discord_sync_enabled?: boolean;
   discord_role_position?: number | null;
+  previousId?: string;
 }): Promise<MemberTag> {
   const cleanId = tag.id.toLowerCase().trim().replace(/[^a-z0-9_-]/g, "_");
   if (!cleanId) throw new Error("Identificador (slug) da tag é obrigatório.");
   if (!tag.name.trim()) throw new Error("Nome da tag é obrigatório.");
+
+  const cleanPreviousId = tag.previousId
+    ? tag.previousId.toLowerCase().trim().replace(/[^a-z0-9_-]/g, "_")
+    : null;
+  const isRenaming = Boolean(cleanPreviousId && cleanPreviousId !== cleanId);
+
+  if (cleanId === "ceo" || tag.name.trim().toLowerCase() === "ceo") {
+    throw new Error("A tag CEO não pode ser criada ou modificada por esta função.");
+  }
+  if (cleanPreviousId === "ceo") {
+    throw new Error("A tag CEO não pode ter seu identificador modificado.");
+  }
+
+  // Se estiver renomeando o slug, valida colisão com tags existentes
+  if (isRenaming) {
+    try {
+      const { data: existing } = await supabase
+        .from("member_tags" as any)
+        .select("id")
+        .eq("id", cleanId)
+        .maybeSingle();
+      if (existing) {
+        throw new Error(`O identificador (slug) "${cleanId}" já está em uso por outra tag.`);
+      }
+    } catch (e: any) {
+      if (e.message && e.message.includes("já está em uso")) throw e;
+    }
+  }
 
   const safeRules = parseMemberTagRules(tag.rules);
   const now = new Date().toISOString();
@@ -506,9 +535,27 @@ export async function saveMemberTag(tag: {
   try {
     const { rtdb } = await import("@/integrations/firebase/rtdb");
     await rtdb.set(`member_tags/${cleanId}`, payload).catch(() => {});
+    if (isRenaming && cleanPreviousId) {
+      await rtdb.remove(`member_tags/${cleanPreviousId}`).catch(() => {});
+      const rtdbAssigns = await rtdb.getList<any>("member_tag_assignments");
+      if (Array.isArray(rtdbAssigns)) {
+        for (const item of rtdbAssigns) {
+          if (item && item.tag_id === cleanPreviousId) {
+            const oldKey = item._key || item.id || `${item.member_id || item.user_id}_${cleanPreviousId}`;
+            const newKey = `${item.member_id || item.user_id}_${cleanId}`;
+            await rtdb.remove(`member_tag_assignments/${oldKey}`).catch(() => {});
+            await rtdb.set(`member_tag_assignments/${newKey}`, {
+              ...item,
+              tag_id: cleanId,
+            }).catch(() => {});
+          }
+        }
+      }
+    }
     await rtdb.set("system_realtime_events/latest", {
       type: "member_tags",
       tagId: cleanId,
+      oldTagId: isRenaming ? cleanPreviousId : undefined,
       timestamp: Date.now(),
     }).catch(() => {});
   } catch {}
@@ -526,6 +573,20 @@ export async function saveMemberTag(tag: {
       savedData = data;
     } else if (error) {
       console.warn("Aviso ao salvar member_tag no Supabase (salvo no RTDB):", error.message);
+    }
+
+    if (isRenaming && cleanPreviousId) {
+      // Migra todos os vínculos de membros existentes para o novo slug
+      await supabase
+        .from("member_tag_assignments" as any)
+        .update({ tag_id: cleanId })
+        .eq("tag_id", cleanPreviousId);
+
+      // Deleta o registro antigo
+      await supabase
+        .from("member_tags" as any)
+        .delete()
+        .eq("id", cleanPreviousId);
     }
   } catch (err: any) {
     console.warn("Exceção ao salvar member_tag no Supabase (salvo no RTDB):", err?.message);
@@ -546,12 +607,17 @@ export async function saveMemberTag(tag: {
         detail: {
           type: "member_tags",
           tagId: cleanId,
+          oldTagId: isRenaming ? cleanPreviousId : undefined,
           timestamp: Date.now(),
         },
       })
     );
     window.dispatchEvent(new Event("tw_tags_updated"));
-    window.dispatchEvent(new CustomEvent("tw_member_tags_updated", { detail: { tag: cleanId } }));
+    window.dispatchEvent(
+      new CustomEvent("tw_member_tags_updated", {
+        detail: { tag: cleanId, oldTag: isRenaming ? cleanPreviousId : undefined },
+      })
+    );
     window.dispatchEvent(new Event("tw_permissions_synced"));
   }
 

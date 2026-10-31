@@ -62,6 +62,42 @@ import {
   RefreshCcw,
   CheckCircle,
   Hash,
+  Copy,
+  CopyPlus,
+  Palette,
+  Boxes,
+  Truck,
+  Car,
+  Bike,
+  Plane,
+  Anchor,
+  Navigation,
+  Compass,
+  MapPin,
+  Fuel,
+  PiggyBank,
+  Receipt,
+  Scale,
+  TrendingUp,
+  HandCoins,
+  Trophy,
+  Medal,
+  HeartHandshake,
+  Briefcase,
+  GraduationCap,
+  Bell,
+  Headphones,
+  Radio,
+  Send,
+  Cpu,
+  Database,
+  Server,
+  FileText,
+  Activity,
+  Skull,
+  Bomb,
+  Wrench,
+  Hammer,
   type LucideIcon,
 } from "lucide-react";
 import { CeoGuard } from "@/guards/CeoGuard";
@@ -122,42 +158,163 @@ function CeoGerenciarTagsPageWrapper() {
   );
 }
 
-const AVAILABLE_PALETTES = [
+export const SOLID_PALETTES = [
   { label: "Esmeralda", hex: "#10b981" },
+  { label: "Verde Neon", hex: "#22c55e" },
+  { label: "Ciano Néon", hex: "#06b6d4" },
   { label: "Azul Céu", hex: "#0ea5e9" },
+  { label: "Azul Real", hex: "#3b82f6" },
   { label: "Índigo", hex: "#6366f1" },
   { label: "Violeta", hex: "#8b5cf6" },
+  { label: "Púrpura", hex: "#a855f7" },
   { label: "Rosa Choque", hex: "#ec4899" },
-  { label: "Vermelho", hex: "#ef4444" },
-  { label: "Âmbar", hex: "#f59e0b" },
-  { label: "Ciano", hex: "#06b6d4" },
-  { label: "Teal", hex: "#14b8a6" },
-  { label: "Laranja", hex: "#f97316" },
+  { label: "Magenta", hex: "#d946ef" },
+  { label: "Vermelho Carmesim", hex: "#ef4444" },
+  { label: "Coral", hex: "#ff6b6b" },
+  { label: "Laranja Vibrante", hex: "#f97316" },
+  { label: "Âmbar Dourado", hex: "#f59e0b" },
+  { label: "Amarelo Ouro", hex: "#eab308" },
+  { label: "Verde Limão", hex: "#84cc16" },
+  { label: "Teal Aquático", hex: "#14b8a6" },
+  { label: "Menta", hex: "#34d399" },
+  { label: "Ouro Nobre", hex: "#d97706" },
+  { label: "Bronze Rústico", hex: "#b45309" },
+  { label: "Rubi Imperial", hex: "#be123c" },
+  { label: "Vinho Profundo", hex: "#881337" },
+  { label: "Azul Marinho", hex: "#1e3a8a" },
+  { label: "Ardósia Aço", hex: "#64748b" },
+  { label: "Carbono Dark", hex: "#334155" },
+  { label: "Grafite Escuro", hex: "#1e293b" },
 ];
 
-const AVAILABLE_ICONS = [
-  "Tag",
-  "ShoppingCart",
-  "ShieldAlert",
-  "ShieldCheck",
-  "Crown",
-  "Star",
-  "Award",
-  "Flame",
-  "Zap",
-  "Sparkles",
-  "BadgeCheck",
-  "UserCheck",
-  "Users",
-  "Warehouse",
-  "Factory",
-  "Layers",
-  "Coins",
-  "DollarSign",
-  "Code2",
-  "Lock",
-  "Settings",
+export const GRADIENT_PALETTES = [
+  { label: "Cyberpunk Néon", gradient: "linear-gradient(135deg, #06b6d4 0%, #ec4899 100%)" },
+  { label: "Fogo Carmesim", gradient: "linear-gradient(135deg, #ef4444 0%, #f97316 100%)" },
+  { label: "Ouro Executivo", gradient: "linear-gradient(135deg, #f59e0b 0%, #fbbf24 50%, #d97706 100%)" },
+  { label: "Esmeralda Tóxica", gradient: "linear-gradient(135deg, #10b981 0%, #06b6d4 100%)" },
+  { label: "Roxo Imperial", gradient: "linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)" },
+  { label: "Sunset Tropical", gradient: "linear-gradient(135deg, #f43f5e 0%, #fb923c 100%)" },
+  { label: "Gelo Cósmico", gradient: "linear-gradient(135deg, #38bdf8 0%, #818cf8 100%)" },
+  { label: "Esmeralda Ouro", gradient: "linear-gradient(135deg, #059669 0%, #eab308 100%)" },
+  { label: "Sangue Carmesim", gradient: "linear-gradient(135deg, #881337 0%, #e11d48 100%)" },
+  { label: "Diamante Platina", gradient: "linear-gradient(135deg, #64748b 0%, #cbd5e1 50%, #475569 100%)" },
+  { label: "Violeta Radiante", gradient: "linear-gradient(135deg, #a855f7 0%, #ec4899 100%)" },
+  { label: "Trovão Elétrico", gradient: "linear-gradient(135deg, #eab308 0%, #3b82f6 100%)" },
+  { label: "Matrix Néon", gradient: "linear-gradient(135deg, #15803d 0%, #22c55e 100%)" },
+  { label: "Midnight Aurora", gradient: "linear-gradient(135deg, #1e1b4b 0%, #4338ca 100%)" },
+  { label: "Vulcão Vulcânico", gradient: "linear-gradient(135deg, #b91c1c 0%, #f97316 100%)" },
+  { label: "Aura Real", gradient: "linear-gradient(135deg, #4c1d95 0%, #c026d3 100%)" },
 ];
+
+export const ICON_CATEGORIES = [
+  {
+    category: "Operações & Combate",
+    icons: [
+      { key: "Swords", label: "Espadas (Combate / Ação)" },
+      { key: "Crosshair", label: "Mira (Sniper / Precisão)" },
+      { key: "Target", label: "Alvo (Operacional)" },
+      { key: "Shield", label: "Escudo (Defesa)" },
+      { key: "ShieldCheck", label: "Escudo Aprovado" },
+      { key: "ShieldAlert", label: "Escudo Alerta / Restrição" },
+      { key: "Flame", label: "Chama / Fogo" },
+      { key: "Zap", label: "Raio / Velocidade" },
+      { key: "Sparkles", label: "Brilho Especial" },
+      { key: "Skull", label: "Caveira" },
+      { key: "Bomb", label: "Bomba / Explosivo" },
+      { key: "Wrench", label: "Chave Inglesa (Mecânica)" },
+      { key: "Hammer", label: "Martelo (Operário)" },
+      { key: "Radio", label: "Rádio Tático" },
+    ],
+  },
+  {
+    category: "Logística & Veículos",
+    icons: [
+      { key: "Warehouse", label: "Armazém" },
+      { key: "Factory", label: "Fábrica / Produção" },
+      { key: "Package", label: "Pacote / Encomenda" },
+      { key: "Boxes", label: "Caixas / Estoque" },
+      { key: "Truck", label: "Caminhão / Frete" },
+      { key: "Car", label: "Carro" },
+      { key: "Bike", label: "Moto" },
+      { key: "Plane", label: "Avião" },
+      { key: "Anchor", label: "Âncora / Porto" },
+      { key: "Navigation", label: "Navegação" },
+      { key: "Compass", label: "Bússola" },
+      { key: "MapPin", label: "Ponto no Mapa" },
+      { key: "Fuel", label: "Combustível" },
+    ],
+  },
+  {
+    category: "Vendas & Finanças",
+    icons: [
+      { key: "ShoppingCart", label: "Carrinho de Vendas" },
+      { key: "DollarSign", label: "Cifrão / Dinheiro" },
+      { key: "Coins", label: "Moedas" },
+      { key: "Wallet", label: "Carteira" },
+      { key: "CreditCard", label: "Cartão de Crédito" },
+      { key: "Banknote", label: "Cédula / Dinheiro" },
+      { key: "Percent", label: "Porcentagem / Desconto" },
+      { key: "Landmark", label: "Banco / Cofre Central" },
+      { key: "PiggyBank", label: "Cofrinho / Fundo" },
+      { key: "Receipt", label: "Recibo / Comprovante" },
+      { key: "HandCoins", label: "Mão com Moedas" },
+      { key: "Scale", label: "Balança / Justiça" },
+      { key: "TrendingUp", label: "Crescimento / Lucro" },
+    ],
+  },
+  {
+    category: "Liderança & Prestígio",
+    icons: [
+      { key: "Crown", label: "Coroa (Liderança / Alta Cúpula)" },
+      { key: "Trophy", label: "Troféu" },
+      { key: "Medal", label: "Medalha" },
+      { key: "Award", label: "Mérito / Conquista" },
+      { key: "Star", label: "Estrela (VIP)" },
+      { key: "BadgeCheck", label: "Distintivo Verificado" },
+      { key: "UserCheck", label: "Membro Aprovado" },
+      { key: "Users", label: "Equipe / Grupo" },
+      { key: "UserPlus", label: "Recrutamento" },
+      { key: "HeartHandshake", label: "Aliança / Parceria" },
+      { key: "Briefcase", label: "Maleta Executiva" },
+      { key: "GraduationCap", label: "Treinamento / Graduação" },
+      { key: "Lock", label: "Segurança / Cadeado" },
+      { key: "Tag", label: "Tag Padrão" },
+    ],
+  },
+  {
+    category: "Comunicação & Mídia",
+    icons: [
+      { key: "MessageSquare", label: "Mensagem / Chat" },
+      { key: "Megaphone", label: "Megafone / Anúncio" },
+      { key: "Bell", label: "Sino / Notificações" },
+      { key: "Headphones", label: "Headset / Suporte" },
+      { key: "Send", label: "Despacho / Envio" },
+      { key: "AlertTriangle", label: "Alerta / Atenção" },
+      { key: "Info", label: "Informação" },
+      { key: "HelpCircle", label: "Ajuda / FAQ" },
+    ],
+  },
+  {
+    category: "Tecnologia & Dev",
+    icons: [
+      { key: "Code2", label: "Código Dev" },
+      { key: "Terminal", label: "Terminal" },
+      { key: "Cpu", label: "Processador / Chip" },
+      { key: "Bot", label: "Robô / Automação" },
+      { key: "Database", label: "Banco de Dados" },
+      { key: "Server", label: "Servidor" },
+      { key: "Sliders", label: "Controles" },
+      { key: "SlidersHorizontal", label: "Filtros / Níveis" },
+      { key: "Settings", label: "Configurações" },
+      { key: "CheckCircle2", label: "Concluído" },
+      { key: "Bookmark", label: "Favorito" },
+      { key: "Activity", label: "Atividade / Pulso" },
+      { key: "FileText", label: "Relatório / Documento" },
+    ],
+  },
+];
+
+export const ALL_AVAILABLE_ICONS = ICON_CATEGORIES.flatMap((c) => c.icons);
 
 export function CeoGerenciarTagsPage() {
   const { user, profile, isDevUser, hasTag, hasPermission } = useAuth();
@@ -331,6 +488,24 @@ export function CeoGerenciarTagsPage() {
   const [formDiscordRoleName, setFormDiscordRoleName] = useState<string | null>(null);
   const [formDiscordSyncEnabled, setFormDiscordSyncEnabled] = useState(true);
   const [formDiscordRolePosition, setFormDiscordRolePosition] = useState<number | null>(null);
+
+  // Estados de Personalização Avançada de Cores e Ícones
+  const [colorMode, setColorMode] = useState<"solid" | "gradient">("solid");
+  const [iconSearch, setIconSearch] = useState("");
+  const [selectedIconCategory, setSelectedIconCategory] = useState("all");
+  const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
+
+  const filteredIconsList = useMemo(() => {
+    let list = ALL_AVAILABLE_ICONS;
+    if (selectedIconCategory !== "all") {
+      const cat = ICON_CATEGORIES.find((c) => c.category === selectedIconCategory);
+      list = cat ? cat.icons : list;
+    }
+    if (!iconSearch.trim()) return list;
+    const q = iconSearch.toLowerCase().trim();
+    return list.filter((i) => i.key.toLowerCase().includes(q) || i.label.toLowerCase().includes(q));
+  }, [selectedIconCategory, iconSearch]);
+
   const { config: menuConfig } = useMenuConfig();
 
   // Modal de Integração Discord
@@ -368,9 +543,18 @@ export function CeoGerenciarTagsPage() {
   const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set());
   const [memberAssignSearch, setMemberAssignSearch] = useState("");
   const [memberAssignFilter, setMemberAssignFilter] = useState<"all" | "assigned" | "unassigned">("all");
+  const [memberAssignRankFilter, setMemberAssignRankFilter] = useState("all");
   const [memberAssignSavingId, setMemberAssignSavingId] = useState<string | null>(null);
   const [memberAssignAutoSaved, setMemberAssignAutoSaved] = useState(false);
   const memberAutoSavedTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const availableMemberRanks = useMemo(() => {
+    const set = new Set<string>();
+    members.forEach((m) => {
+      if (m.nivel && m.nivel.trim()) set.add(m.nivel.trim());
+    });
+    return Array.from(set).sort();
+  }, [members]);
 
   // Modal de Permissões e Regras da Tag
   const [tagForPerms, setTagForPerms] = useState<MemberTag | null>(null);
@@ -706,6 +890,89 @@ export function CeoGerenciarTagsPage() {
     void autoSavePermsAndRules(nextPerms, nextRules);
   };
 
+  const setSalesPermissions = () => {
+    if (!canManagePerms) {
+      toast.error("Você não tem permissão para alterar permissões de tags.");
+      return;
+    }
+    const salesKeys: Permission[] = [
+      "view_sales",
+      "create_sale",
+      "sales.view",
+      "sales.create",
+      "sales.history",
+      "view_products",
+      "view_prices",
+      "view_stock",
+    ].filter((p) => allPlatformPermissions.includes(p as Permission)) as Permission[];
+
+    const nextPerms = isDevMember
+      ? Array.from(new Set([...activePerms, ...salesKeys]))
+      : Array.from(new Set([...activePerms, ...salesKeys.filter((p) => visiblePlatformPermissions.includes(p))]));
+
+    const nextRules = {
+      ...activeRules,
+      can_sell: true,
+      allow_sales_counter: true,
+      can_view_all_sales: true,
+    };
+    setActiveRules(nextRules);
+    setActivePerms(nextPerms);
+    void autoSavePermsAndRules(nextPerms, nextRules);
+    toast.success("Predefinição de Vendas & Balcão aplicada!");
+  };
+
+  const setProductionPermissions = () => {
+    if (!canManagePerms) {
+      toast.error("Você não tem permissão para alterar permissões de tags.");
+      return;
+    }
+    const prodKeys: Permission[] = [
+      "productions.view",
+      "productions.create",
+      "production_management.view",
+      "raw_materials.view",
+      "raw_materials.create",
+      "raw_materials.edit",
+      "raw_materials.transfer_bau",
+      "view_stock",
+    ].filter((p) => allPlatformPermissions.includes(p as Permission)) as Permission[];
+
+    const nextPerms = isDevMember
+      ? Array.from(new Set([...activePerms, ...prodKeys]))
+      : Array.from(new Set([...activePerms, ...prodKeys.filter((p) => visiblePlatformPermissions.includes(p))]));
+
+    const nextRules = {
+      ...activeRules,
+      can_manage_productions: true,
+      can_manage_raw_materials: true,
+      can_manage_production_recipes: true,
+    };
+    setActiveRules(nextRules);
+    setActivePerms(nextPerms);
+    void autoSavePermsAndRules(nextPerms, nextRules);
+    toast.success("Predefinição de Produção & Fábrica aplicada!");
+  };
+
+  const handleToggleEntireCategory = (categoryCards: PageCardConfig[], markAll: boolean) => {
+    if (!canManagePerms) {
+      toast.error("Você não possui permissão para alterar permissões da tag.");
+      return;
+    }
+    const categoryPermKeys = categoryCards.flatMap((c) => c.permissions.map((p) => p.key));
+    let nextPerms: Permission[];
+    if (markAll) {
+      nextPerms = Array.from(new Set([...activePerms, ...categoryPermKeys]));
+    } else {
+      const set = new Set(activePerms);
+      categoryPermKeys.forEach((k) => set.delete(k));
+      nextPerms = Array.from(set);
+    }
+    setActivePerms(nextPerms);
+    void autoSavePermsAndRules(nextPerms, activeRules);
+    toast.success(markAll ? "Todas as permissões da categoria marcadas!" : "Todas as permissões da categoria desmarcadas!");
+  };
+
   const clearAllPermissions = () => {
     if (!canManagePerms) {
       toast.error("Você não tem permissão para alterar permissões de tags.");
@@ -781,7 +1048,10 @@ export function CeoGerenciarTagsPage() {
     setFormName("");
     setFormDesc("");
     setFormColor("#10b981");
+    setColorMode("solid");
     setFormIcon("Tag");
+    setIconSearch("");
+    setSelectedIconCategory("all");
     setFormIsActive(true);
     setFormIsSystem(false);
     setFormRules({});
@@ -802,8 +1072,12 @@ export function CeoGerenciarTagsPage() {
     setFormId(tag.id);
     setFormName(tag.name);
     setFormDesc(tag.description || "");
-    setFormColor(tag.color || "#10b981");
+    const tagColor = tag.color || "#10b981";
+    setFormColor(tagColor);
+    setColorMode(tagColor.includes("gradient") || tagColor.startsWith("linear-") ? "gradient" : "solid");
     setFormIcon(tag.icon || "Tag");
+    setIconSearch("");
+    setSelectedIconCategory("all");
     setFormIsActive(tag.is_active !== false);
     setFormIsSystem(Boolean(tag.is_system));
     setFormRules(parseMemberTagRules(tag.rules));
@@ -813,6 +1087,34 @@ export function CeoGerenciarTagsPage() {
     setFormDiscordSyncEnabled(tag.discord_sync_enabled !== false);
     setFormDiscordRolePosition(tag.discord_role_position !== undefined ? tag.discord_role_position : null);
     setIsTagModalOpen(true);
+  };
+
+  const handleDuplicateTag = (tag: MemberTag) => {
+    if (!canCreateTag) {
+      toast.error("Você não possui permissão para criar tags.");
+      return;
+    }
+    setEditingTag(null);
+    const baseSlug = `${tag.id}_copia`.toLowerCase().replace(/[^a-z0-9_-]/g, "_");
+    setFormId(baseSlug);
+    setFormName(`${tag.name} (Cópia)`);
+    setFormDesc(tag.description || "");
+    const tagColor = tag.color || "#10b981";
+    setFormColor(tagColor);
+    setColorMode(tagColor.includes("gradient") || tagColor.startsWith("linear-") ? "gradient" : "solid");
+    setFormIcon(tag.icon || "Tag");
+    setIconSearch("");
+    setSelectedIconCategory("all");
+    setFormIsActive(true);
+    setFormIsSystem(Boolean(tag.is_system));
+    setFormRules({ ...parseMemberTagRules(tag.rules) });
+    setFormDiscordRoleId(null);
+    setFormDiscordGuildId(null);
+    setFormDiscordRoleName(null);
+    setFormDiscordSyncEnabled(false);
+    setFormDiscordRolePosition(null);
+    setIsTagModalOpen(true);
+    toast.info("Configurações duplicadas com sucesso! Ajuste o que desejar e clique em Criar Tag.");
   };
 
   const handleSaveTagForm = async () => {
@@ -845,14 +1147,33 @@ export function CeoGerenciarTagsPage() {
       return;
     }
 
+    if (editingTag && cleanId !== editingTag.id) {
+      const isTaken = tags.some((t) => t.id.toLowerCase() === cleanId && t.id.toLowerCase() !== editingTag.id.toLowerCase());
+      if (isTaken) {
+        toast.error(`O identificador (slug) "${cleanId}" já está em uso por outra tag.`);
+        return;
+      }
+    } else if (!editingTag) {
+      const isTaken = tags.some((t) => t.id.toLowerCase() === cleanId);
+      if (isTaken) {
+        toast.error(`O identificador (slug) "${cleanId}" já está em uso.`);
+        return;
+      }
+    }
+
     try {
       const rawRules = editingTag
         ? { ...parseMemberTagRules(editingTag.rules), ...formRules }
         : formRules;
       const mergedRules = { ...rawRules, can_access_ceo: false, is_ceo: false };
 
+      if (editingTag && cleanId !== editingTag.id) {
+        toast.info("Slug alterado: migrando vínculos e regras para o novo identificador...");
+      }
+
       await saveTagMutation.mutateAsync({
-        id: editingTag ? editingTag.id : cleanId,
+        id: cleanId,
+        previousId: editingTag ? editingTag.id : undefined,
         name: formName.trim(),
         description: formDesc.trim() || null,
         color: formColor,
@@ -868,6 +1189,7 @@ export function CeoGerenciarTagsPage() {
         discord_role_position: formDiscordRolePosition,
       });
       setIsTagModalOpen(false);
+      setEditingTag(null);
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("tw_tags_updated"));
         window.dispatchEvent(new Event("tw_permissions_synced"));
@@ -1134,16 +1456,37 @@ export function CeoGerenciarTagsPage() {
     setSelectedMemberIds(existing);
     setMemberAssignSearch("");
     setMemberAssignFilter("all");
+    setMemberAssignRankFilter("all");
     setMemberAssignSavingId(null);
     setMemberAssignAutoSaved(false);
   };
 
+  const currentlyAssignedMembersList = useMemo(() => {
+    if (!tagForMembers) return [];
+    return members.filter((m) => {
+      const memId = m.user_id || m.id || "";
+      return (
+        (memId && selectedMemberIds.has(memId)) ||
+        (m.user_id && selectedMemberIds.has(m.user_id)) ||
+        (m.id && selectedMemberIds.has(m.id))
+      );
+    });
+  }, [tagForMembers, members, selectedMemberIds]);
+
   const filteredMembersForAssign = useMemo(() => {
     const list = members.filter((m) => {
       const memId = m.user_id || m.id || "";
-      const isAssigned = (memId ? selectedMemberIds.has(memId) : false) || (m.user_id && selectedMemberIds.has(m.user_id)) || (m.id && selectedMemberIds.has(m.id));
+      const isAssigned =
+        (memId ? selectedMemberIds.has(memId) : false) ||
+        (m.user_id && selectedMemberIds.has(m.user_id)) ||
+        (m.id && selectedMemberIds.has(m.id));
+
       if (memberAssignFilter === "assigned" && !isAssigned) return false;
       if (memberAssignFilter === "unassigned" && isAssigned) return false;
+
+      if (memberAssignRankFilter !== "all") {
+        if ((m.nivel || "").trim() !== memberAssignRankFilter) return false;
+      }
 
       if (!memberAssignSearch) return true;
       const q = memberAssignSearch.toLowerCase();
@@ -1156,8 +1499,12 @@ export function CeoGerenciarTagsPage() {
 
     // Ordenação: 1º Integrantes vinculados no topo, 2º Ordem alfabética
     return list.sort((a, b) => {
-      const isAssignedA = (a.user_id && selectedMemberIds.has(a.user_id)) || (a.id && selectedMemberIds.has(a.id));
-      const isAssignedB = (b.user_id && selectedMemberIds.has(b.user_id)) || (b.id && selectedMemberIds.has(b.id));
+      const isAssignedA =
+        (a.user_id && selectedMemberIds.has(a.user_id)) ||
+        (a.id && selectedMemberIds.has(a.id));
+      const isAssignedB =
+        (b.user_id && selectedMemberIds.has(b.user_id)) ||
+        (b.id && selectedMemberIds.has(b.id));
 
       if (isAssignedA !== isAssignedB) {
         return isAssignedA ? -1 : 1;
@@ -1167,7 +1514,7 @@ export function CeoGerenciarTagsPage() {
       const nameB = (b.nickname || b.nome || "").trim();
       return nameA.localeCompare(nameB, "pt-BR", { sensitivity: "base" });
     });
-  }, [members, memberAssignSearch, memberAssignFilter, selectedMemberIds]);
+  }, [members, memberAssignSearch, memberAssignFilter, memberAssignRankFilter, selectedMemberIds]);
 
   const handleToggleMember = async (member: { id?: string; user_id?: string }) => {
     if (!tagForMembers) return;
@@ -1803,7 +2150,10 @@ export function CeoGerenciarTagsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredTags.map((tag) => {
-            const assignedCount = assignments.filter((a) => a.tag_id === tag.id).length;
+            const tagAssignments = assignments.filter((a) => a.tag_id === tag.id);
+            const assignedCount = tagAssignments.length;
+            const assignedMemberIds = new Set(tagAssignments.map((a) => a.member_id));
+            const sampleAssignedMembers = members.filter((m) => assignedMemberIds.has(m.id || "") || (m.user_id && assignedMemberIds.has(m.user_id))).slice(0, 4);
             const permsCount = Array.isArray(tag.permissions) ? tag.permissions.length : 0;
             const isBlocked = Boolean(tag.rules?.is_blocked || tag.rules?.block_operations);
             const canSell = Boolean(tag.rules?.can_sell);
@@ -1865,9 +2215,25 @@ export function CeoGerenciarTagsPage() {
                                 <span>#{currentTagIndex + 1}</span>
                               )}
                             </Badge>
-                            <p className="text-[10px] font-mono text-muted-foreground truncate font-semibold">
-                              @{tag.id}
-                            </p>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void navigator.clipboard.writeText(tag.id);
+                                setCopiedSlug(tag.id);
+                                setTimeout(() => setCopiedSlug(null), 1500);
+                                toast.success(`Slug @${tag.id} copiado!`);
+                              }}
+                              className="inline-flex items-center gap-1 text-[10px] font-mono text-muted-foreground hover:text-foreground font-semibold px-1 py-0.5 rounded hover:bg-secondary/60 transition-colors cursor-pointer group"
+                              title="Clique para copiar o slug da tag"
+                            >
+                              <span>@{tag.id}</span>
+                              {copiedSlug === tag.id ? (
+                                <Check className="h-2.5 w-2.5 text-emerald-400 shrink-0" />
+                              ) : (
+                                <Copy className="h-2.5 w-2.5 opacity-50 group-hover:opacity-100 shrink-0" />
+                              )}
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -2060,6 +2426,34 @@ export function CeoGerenciarTagsPage() {
                         </span>
                       </div>
                     </div>
+
+                    {sampleAssignedMembers.length > 0 && (
+                      <div
+                        onClick={() => canAssignTag && handleOpenAssignMembersModal(tag)}
+                        className="flex items-center justify-between p-2 rounded-xl bg-secondary/15 border border-border/40 hover:bg-secondary/30 transition-colors cursor-pointer group"
+                        title="Clique para gerenciar membros vinculados"
+                      >
+                        <div className="flex items-center -space-x-2 overflow-hidden py-0.5">
+                          {sampleAssignedMembers.map((m) => (
+                            <Avatar key={m.id || m.user_id} className="h-6 w-6 border-2 border-background ring-1 ring-border/50 text-[10px] font-bold">
+                              <AvatarImage src={m.avatar_url || m.foto || undefined} alt={m.nome} />
+                              <AvatarFallback className="bg-primary/20 text-primary text-[9px]">
+                                {(m.nickname || m.nome || "M").slice(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                          ))}
+                          {assignedCount > sampleAssignedMembers.length && (
+                            <div className="h-6 w-6 rounded-full bg-secondary text-muted-foreground flex items-center justify-center text-[9px] font-extrabold border-2 border-background ring-1 ring-border/50">
+                              +{assignedCount - sampleAssignedMembers.length}
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-muted-foreground group-hover:text-primary transition-colors flex items-center gap-1 font-medium">
+                          <span>Ver todos</span>
+                          <ExternalLink className="h-2.5 w-2.5" />
+                        </span>
+                      </div>
+                    )}
                   </CardContent>
                 </div>
 
@@ -2112,6 +2506,18 @@ export function CeoGerenciarTagsPage() {
                     </div>
 
                     <div className="flex items-center gap-1">
+                      {canCreateTag && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDuplicateTag(tag)}
+                          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-indigo-400 hover:bg-indigo-500/10 cursor-pointer"
+                          title="Duplicar / Clonar Tag"
+                        >
+                          <CopyPlus className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                       {canEditTag && (
                         <Button
                           type="button"
@@ -2154,40 +2560,137 @@ export function CeoGerenciarTagsPage() {
 
       {/* MODAL 1: CRIAR / EDITAR TAG */}
       <Dialog open={isTagModalOpen} onOpenChange={setIsTagModalOpen}>
-        <DialogContent className="sm:max-w-lg surface-card border-border/80 shadow-2xl">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-2xl max-h-[92vh] overflow-y-auto surface-card border-border/80 shadow-2xl p-4 sm:p-6">
+          <DialogHeader className="pb-3 border-b border-border/60">
             <DialogTitle className="text-base font-bold flex items-center gap-2">
               <TagIcon className="h-5 w-5 text-primary" />
               <span>{editingTag ? "Editar Tag" : "Criar Nova Tag"}</span>
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Configure nome, identificador único, paleta de cor e ícone representativo.
+              Configure nome, identificador único (slug), paleta de cores (sólida ou degradê) e ícone representativo.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2 text-xs">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Nome da Tag</Label>
-              <Input
-                value={formName}
-                onChange={(e) => setFormName(e.target.value)}
-                placeholder="Ex: Supervisor Operacional, Vendedor VIP"
-                className="rounded-xl h-9 text-xs"
-              />
+            {/* PRÉ-VISUALIZAÇÃO EM TEMPO REAL */}
+            <div className="p-3.5 rounded-2xl bg-secondary/30 border border-border/70 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Eye className="h-3.5 w-3.5 text-primary" />
+                  <span>Pré-visualização em Tempo Real</span>
+                </span>
+                <Badge variant="outline" className="text-[10px] font-mono border-border/60 text-muted-foreground">
+                  {formIsSystem ? "Tag Pública de Sistema" : "Tag de Regras Interna"}
+                </Badge>
+              </div>
+              <div className="flex items-center flex-wrap gap-4 p-3 bg-background/80 rounded-xl border border-border/40 justify-center sm:justify-start">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-muted-foreground font-mono">md:</span>
+                  <MemberTagBadge
+                    tag={{
+                      id: formId || "preview",
+                      name: formName.trim() || "Prévia da Tag",
+                      color: formColor,
+                      icon: formIcon,
+                      is_system: formIsSystem,
+                      is_active: formIsActive,
+                      permissions: [],
+                      rules: {},
+                      created_at: "",
+                      updated_at: "",
+                    }}
+                    size="md"
+                    showIcon
+                  />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-muted-foreground font-mono">sm:</span>
+                  <MemberTagBadge
+                    tag={{
+                      id: formId || "preview",
+                      name: formName.trim() || "Prévia da Tag",
+                      color: formColor,
+                      icon: formIcon,
+                      is_system: formIsSystem,
+                      is_active: formIsActive,
+                      permissions: [],
+                      rules: {},
+                      created_at: "",
+                      updated_at: "",
+                    }}
+                    size="sm"
+                    showIcon
+                  />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-muted-foreground font-mono">xs:</span>
+                  <MemberTagBadge
+                    tag={{
+                      id: formId || "preview",
+                      name: formName.trim() || "Prévia da Tag",
+                      color: formColor,
+                      icon: formIcon,
+                      is_system: formIsSystem,
+                      is_active: formIsActive,
+                      permissions: [],
+                      rules: {},
+                      created_at: "",
+                      updated_at: "",
+                    }}
+                    size="xs"
+                    showIcon
+                  />
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Identificador Único (Slug)</Label>
-              <Input
-                value={formId}
-                onChange={(e) => setFormId(e.target.value)}
-                disabled={Boolean(editingTag)}
-                placeholder="Ex: supervisor_operacional"
-                className="rounded-xl h-9 text-xs font-mono"
-              />
-              <p className="text-[10px] text-muted-foreground">
-                Usado internamente pelo sistema e regras de permissão.
-              </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Nome da Tag</Label>
+                <Input
+                  value={formName}
+                  onChange={(e) => {
+                    const newName = e.target.value;
+                    setFormName(newName);
+                    if (!editingTag) {
+                      const autoSlug = newName
+                        .toLowerCase()
+                        .normalize("NFD")
+                        .replace(/[\u0300-\u036f]/g, "")
+                        .replace(/[^a-z0-9_-]/g, "_")
+                        .slice(0, 32);
+                      setFormId(autoSlug);
+                    }
+                  }}
+                  placeholder="Ex: Supervisor Operacional, Vendedor VIP"
+                  className="rounded-xl h-9 text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold flex items-center gap-1.5">
+                    <Hash className="h-3.5 w-3.5 text-primary" />
+                    <span>Identificador Único (Slug)</span>
+                  </Label>
+                  {editingTag && (
+                    <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-300 bg-amber-500/10">
+                      Edição Habilitada
+                    </Badge>
+                  )}
+                </div>
+                <Input
+                  value={formId}
+                  onChange={(e) => setFormId(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "_"))}
+                  placeholder="Ex: supervisor_operacional"
+                  className="rounded-xl h-9 text-xs font-mono"
+                />
+                <p className="text-[10px] text-muted-foreground leading-tight">
+                  {editingTag
+                    ? "Ao alterar o slug, os vínculos de todos os membros serão migrados automaticamente."
+                    : "Identificador único usado nas regras e banco de dados (letras minúsculas, números, '_' ou '-')."}
+                </p>
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -2201,45 +2704,168 @@ export function CeoGerenciarTagsPage() {
               />
             </div>
 
-            {/* SELEÇÃO DE COR */}
-            <div className="space-y-2">
-              <Label className="text-xs font-semibold">Paleta de Cor</Label>
-              <div className="flex flex-wrap items-center gap-2">
-                {AVAILABLE_PALETTES.map((p) => {
-                  const isSelected = formColor.toLowerCase() === p.hex.toLowerCase();
-                  return (
-                    <button
-                      key={p.hex}
-                      type="button"
-                      onClick={() => setFormColor(p.hex)}
-                      className={cn(
-                        "h-7 w-7 rounded-full transition-all border flex items-center justify-center",
-                        isSelected ? "scale-110 ring-2 ring-primary ring-offset-2 ring-offset-background" : "hover:scale-105 border-border/40"
-                      )}
-                      style={{ backgroundColor: p.hex }}
-                      title={p.label}
-                    >
-                      {isSelected && <Check className="h-3.5 w-3.5 text-white drop-shadow" />}
-                    </button>
-                  );
-                })}
-                <div className="flex items-center gap-1.5 ml-1">
+            {/* SELEÇÃO DE COR E DEGRADÊ */}
+            <div className="space-y-2 p-3 rounded-2xl bg-secondary/20 border border-border/60">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <Label className="text-xs font-semibold flex items-center gap-1.5">
+                  <Palette className="h-3.5 w-3.5 text-primary" />
+                  <span>Estilo Visual & Cor da Tag</span>
+                </Label>
+                <div className="flex items-center gap-1 bg-secondary/50 p-0.5 rounded-lg border border-border/50">
+                  <button
+                    type="button"
+                    onClick={() => setColorMode("solid")}
+                    className={cn(
+                      "px-2.5 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer",
+                      colorMode === "solid"
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Cores Sólidas ({SOLID_PALETTES.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setColorMode("gradient")}
+                    className={cn(
+                      "px-2.5 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer",
+                      colorMode === "gradient"
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Degradê Premium ({GRADIENT_PALETTES.length})
+                  </button>
+                </div>
+              </div>
+
+              {colorMode === "solid" ? (
+                <div className="grid grid-cols-7 sm:grid-cols-9 md:grid-cols-13 gap-1.5 p-2 rounded-xl bg-background/50 border border-border/60 max-h-32 overflow-y-auto">
+                  {SOLID_PALETTES.map((p) => {
+                    const isSelected = formColor.toLowerCase() === p.hex.toLowerCase();
+                    return (
+                      <button
+                        key={p.hex}
+                        type="button"
+                        onClick={() => setFormColor(p.hex)}
+                        className={cn(
+                          "h-7 w-7 rounded-lg transition-all border flex items-center justify-center cursor-pointer shadow-2xs shrink-0 mx-auto",
+                          isSelected
+                            ? "scale-110 ring-2 ring-primary ring-offset-2 ring-offset-background border-white"
+                            : "hover:scale-105 border-border/40 hover:border-foreground/40"
+                        )}
+                        style={{ backgroundColor: p.hex }}
+                        title={p.label}
+                      >
+                        {isSelected && <Check className="h-3.5 w-3.5 text-white drop-shadow" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 p-2 rounded-xl bg-background/50 border border-border/60 max-h-36 overflow-y-auto">
+                  {GRADIENT_PALETTES.map((g) => {
+                    const isSelected = formColor === g.gradient;
+                    return (
+                      <button
+                        key={g.label}
+                        type="button"
+                        onClick={() => setFormColor(g.gradient)}
+                        className={cn(
+                          "h-8 rounded-lg transition-all border flex items-center justify-between px-2 text-[10px] font-bold cursor-pointer text-white shadow-2xs relative overflow-hidden",
+                          isSelected
+                            ? "ring-2 ring-primary ring-offset-2 ring-offset-background border-white scale-[1.02]"
+                            : "hover:scale-[1.02] border-white/20 hover:border-white/40"
+                        )}
+                        style={{ background: g.gradient }}
+                        title={g.label}
+                      >
+                        <span className="truncate drop-shadow-md text-[9.5px]">{g.label}</span>
+                        {isSelected && <Check className="h-3 w-3 drop-shadow-md shrink-0 ml-1" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Input customizado de cor ou gradiente */}
+              <div className="flex items-center gap-2 pt-1">
+                <Input
+                  type="color"
+                  value={formColor.startsWith("#") ? formColor : "#10b981"}
+                  onChange={(e) => setFormColor(e.target.value)}
+                  className="h-7 w-9 p-0.5 rounded cursor-pointer border border-border/60 shrink-0"
+                  title="Seletor de cor nativo"
+                />
+                <div className="flex-1 relative">
                   <Input
-                    type="color"
                     value={formColor}
                     onChange={(e) => setFormColor(e.target.value)}
-                    className="h-7 w-9 p-0.5 rounded cursor-pointer border border-border/60"
+                    placeholder="Hex (#10b981) ou linear-gradient(...)"
+                    className="h-7 text-xs font-mono rounded-xl bg-background/60"
                   />
-                  <span className="font-mono text-[10px] text-muted-foreground uppercase">{formColor}</span>
                 </div>
               </div>
             </div>
 
             {/* SELEÇÃO DE ÍCONE */}
-            <div className="space-y-2">
-              <Label className="text-xs font-semibold">Ícone da Tag</Label>
-              <div className="grid grid-cols-7 gap-2 max-h-36 overflow-y-auto p-1 border rounded-xl bg-background/50 border-border/60">
-                {AVAILABLE_ICONS.map((iconKey) => {
+            <div className="space-y-2 p-3 rounded-2xl bg-secondary/20 border border-border/60">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <Label className="text-xs font-semibold">Ícone da Tag ({filteredIconsList.length})</Label>
+                <div className="relative w-44">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                  <Input
+                    value={iconSearch}
+                    onChange={(e) => setIconSearch(e.target.value)}
+                    placeholder="Buscar ícone..."
+                    className="h-7 pl-7 pr-6 text-[11px] rounded-lg bg-background/60"
+                  />
+                  {iconSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setIconSearch("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Categorias de Ícones */}
+              <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">
+                <button
+                  type="button"
+                  onClick={() => setSelectedIconCategory("all")}
+                  className={cn(
+                    "px-2 py-0.5 rounded-lg text-[10px] font-medium whitespace-nowrap transition-colors border cursor-pointer",
+                    selectedIconCategory === "all"
+                      ? "bg-primary text-primary-foreground border-primary font-bold"
+                      : "bg-secondary/40 text-muted-foreground border-border/40 hover:text-foreground"
+                  )}
+                >
+                  Todos ({ALL_AVAILABLE_ICONS.length})
+                </button>
+                {ICON_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.category}
+                    type="button"
+                    onClick={() => setSelectedIconCategory(cat.category)}
+                    className={cn(
+                      "px-2 py-0.5 rounded-lg text-[10px] font-medium whitespace-nowrap transition-colors border cursor-pointer",
+                      selectedIconCategory === cat.category
+                        ? "bg-primary text-primary-foreground border-primary font-bold"
+                        : "bg-secondary/40 text-muted-foreground border-border/40 hover:text-foreground"
+                    )}
+                  >
+                    {cat.category.split("&")[0].trim()}
+                  </button>
+                ))}
+              </div>
+
+              {/* Grid de Ícones */}
+              <div className="grid grid-cols-7 sm:grid-cols-9 md:grid-cols-12 gap-1.5 max-h-36 overflow-y-auto p-1.5 border rounded-xl bg-background/50 border-border/60">
+                {filteredIconsList.map(({ key: iconKey, label }) => {
                   const IconComp = resolveTagIcon(iconKey);
                   const isSelected = formIcon === iconKey;
                   return (
@@ -2248,12 +2874,12 @@ export function CeoGerenciarTagsPage() {
                       type="button"
                       onClick={() => setFormIcon(iconKey)}
                       className={cn(
-                        "p-2 rounded-lg border flex items-center justify-center transition-all",
+                        "p-2 rounded-lg border flex flex-col items-center justify-center transition-all cursor-pointer relative group",
                         isSelected
-                          ? "border-primary bg-primary/20 text-primary shadow-sm"
-                          : "border-border/40 hover:bg-secondary/40 text-muted-foreground hover:text-foreground"
+                          ? "border-primary bg-primary/20 text-primary shadow-xs ring-1 ring-primary"
+                          : "border-border/40 hover:bg-secondary/60 text-muted-foreground hover:text-foreground hover:border-border"
                       )}
-                      title={iconKey}
+                      title={`${iconKey} - ${label}`}
                     >
                       <IconComp className="h-4 w-4" />
                     </button>
@@ -2544,6 +3170,63 @@ export function CeoGerenciarTagsPage() {
           </DialogHeader>
 
           <div className="space-y-3 py-2 text-xs">
+            {/* CHIPS DE MEMBROS VINCULADOS COM 1-CLIQUE PARA REMOVER */}
+            {selectedMemberIds.size > 0 && (
+              <div className="p-2.5 rounded-xl bg-secondary/30 border border-border/50 space-y-1.5">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-semibold text-foreground flex items-center gap-1.5">
+                    <UserCheck className="h-3.5 w-3.5 text-emerald-400" />
+                    <span>Membros Vinculados ({selectedMemberIds.size})</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleClearAllFilteredMembers}
+                    className="text-[10px] text-rose-400 hover:underline cursor-pointer"
+                  >
+                    Desvincular todos
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
+                  {members
+                    .filter((m) => {
+                      const memId = m.user_id || m.id || "";
+                      return (
+                        (memId && selectedMemberIds.has(memId)) ||
+                        (m.user_id && selectedMemberIds.has(m.user_id)) ||
+                        (m.id && selectedMemberIds.has(m.id))
+                      );
+                    })
+                    .map((m) => {
+                      const isSaving =
+                        memberAssignSavingId === m.user_id || (m.id && memberAssignSavingId === m.id);
+                      return (
+                        <span
+                          key={m.user_id || m.id}
+                          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-background/80 border border-emerald-500/30 text-emerald-300 text-[11px] font-medium shadow-2xs group"
+                        >
+                          <Avatar className="h-4 w-4 shrink-0">
+                            <AvatarImage src={m.avatar_url || ""} />
+                            <AvatarFallback className="text-[8px]">
+                              {(m.nickname || m.nome || "M").slice(0, 1)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="max-w-[110px] truncate">{m.nickname || m.nome}</span>
+                          <button
+                            type="button"
+                            disabled={Boolean(isSaving)}
+                            onClick={() => handleToggleMember(m)}
+                            className="p-0.5 rounded hover:bg-rose-500/20 text-muted-foreground hover:text-rose-400 cursor-pointer disabled:opacity-50"
+                            title="Remover vínculo"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-col sm:flex-row items-center gap-2 justify-between">
               <div className="relative w-full sm:w-60">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -2600,6 +3283,37 @@ export function CeoGerenciarTagsPage() {
                 </div>
               </div>
             </div>
+
+            {/* FILTRO RÁPIDO DE CARGO / PATENTE */}
+            {availableMemberRanks.length > 0 && (
+              <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px] no-scrollbar">
+                <span className="text-[10px] text-muted-foreground shrink-0 font-medium mr-1 flex items-center gap-1">
+                  <Filter className="h-3 w-3" />
+                  <span>Patente:</span>
+                </span>
+                <Button
+                  type="button"
+                  variant={memberAssignRankFilter === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setMemberAssignRankFilter("all")}
+                  className="h-6 text-[10px] px-2 rounded-md shrink-0"
+                >
+                  Todas
+                </Button>
+                {availableMemberRanks.map((rank) => (
+                  <Button
+                    key={rank}
+                    type="button"
+                    variant={memberAssignRankFilter === rank ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setMemberAssignRankFilter(rank)}
+                    className="h-6 text-[10px] px-2 rounded-md shrink-0"
+                  >
+                    {rank}
+                  </Button>
+                ))}
+              </div>
+            )}
 
             <div className="border border-border/70 rounded-2xl max-h-72 overflow-y-auto divide-y divide-border/40 bg-background/40">
               {filteredMembersForAssign.length === 0 ? (
@@ -2837,9 +3551,29 @@ export function CeoGerenciarTagsPage() {
                         variant="outline"
                         size="sm"
                         className="h-7 text-xs px-2.5 font-medium border-border/60 hover:bg-secondary rounded-xl gap-1"
-                        onClick={setOperationalPermissions}
+                        onClick={setSalesPermissions}
+                      >
+                        <ShoppingCart className="h-3 w-3 text-emerald-400" />
+                        <span>Vendas & Balcão</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs px-2.5 font-medium border-border/60 hover:bg-secondary rounded-xl gap-1"
+                        onClick={setProductionPermissions}
                       >
                         <Factory className="h-3 w-3 text-amber-400" />
+                        <span>Produção & Fábrica</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs px-2.5 font-medium border-border/60 hover:bg-secondary rounded-xl gap-1"
+                        onClick={setOperationalPermissions}
+                      >
+                        <Zap className="h-3 w-3 text-amber-400" />
                         <span>Operacional Básico</span>
                       </Button>
                       <Button
@@ -2922,18 +3656,64 @@ export function CeoGerenciarTagsPage() {
 
                       if (filteredCards.length === 0) return null;
 
+                      const categoryPermKeys = filteredCards.flatMap((c) => c.permissions.map((p) => p.key));
+                      const activeInCat = categoryPermKeys.filter((k) => activePerms.includes(k)).length;
+                      const isAllCatActive = categoryPermKeys.length > 0 && activeInCat === categoryPermKeys.length;
+
                       return (
                         <div key={category} className="space-y-4">
-                          <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/60">
-                            <div className="flex items-center gap-2">
+                          <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/60 flex-wrap">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <FolderTree className="h-4 w-4 text-primary" />
                               <h3 className="text-xs uppercase tracking-widest font-bold text-foreground">
                                 Categoria: <span className="text-primary font-extrabold">{category}</span>
                               </h3>
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "text-[10px] font-mono",
+                                  activeInCat > 0
+                                    ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10 font-bold"
+                                    : "border-muted-foreground/30 text-muted-foreground bg-secondary/30"
+                                )}
+                              >
+                                {activeInCat} / {categoryPermKeys.length} ativas
+                              </Badge>
                             </div>
-                            <Badge variant="outline" className="text-[10px] font-mono border-primary/30 text-primary bg-primary/5">
-                              {filteredCards.length} {filteredCards.length === 1 ? "módulo" : "módulos"}
-                            </Badge>
+
+                            <div className="flex items-center gap-1.5">
+                              <Badge variant="outline" className="text-[10px] font-mono border-primary/30 text-primary bg-primary/5 hidden sm:inline-flex">
+                                {filteredCards.length} {filteredCards.length === 1 ? "módulo" : "módulos"}
+                              </Badge>
+                              {canManagePerms && categoryPermKeys.length > 0 && (
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleToggleEntireCategory(filteredCards, true)}
+                                    disabled={isAllCatActive}
+                                    className="h-6.5 text-[10px] px-2 rounded-lg border-primary/30 text-primary hover:bg-primary/10 cursor-pointer disabled:opacity-40"
+                                    title="Marcar todas as permissões desta categoria"
+                                  >
+                                    <Check className="h-3 w-3 mr-1" />
+                                    <span>Marcar Categoria</span>
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleToggleEntireCategory(filteredCards, false)}
+                                    disabled={activeInCat === 0}
+                                    className="h-6.5 text-[10px] px-2 rounded-lg text-rose-400 hover:bg-rose-500/10 cursor-pointer disabled:opacity-40"
+                                    title="Desmarcar todas as permissões desta categoria"
+                                  >
+                                    <X className="h-3 w-3 mr-1" />
+                                    <span>Desmarcar</span>
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
