@@ -63,6 +63,7 @@ import {
   LEVEL_DESCRIPTION,
   PERMISSIONS,
   ALL_PERMISSIONS,
+  PERMISSION_EQUIVALENCES,
   levelBadgeClass,
   getLevelLabel,
   type AppLevel,
@@ -596,6 +597,11 @@ function DevPermissoesContent() {
           ...(old || {}),
           [targetCargo]: nextPerms,
         } as Record<AppLevel, Permission[]>));
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("tw_permissions_synced", { detail: { type: "role_permissions", level: targetCargo } }));
+          window.dispatchEvent(new CustomEvent("tw_auth_reload", { detail: { type: "role_permissions", level: targetCargo } }));
+          window.dispatchEvent(new Event("tw_tickets_updated"));
+        }
       } catch (err) {
         toast.error("Falha ao salvar permissões do cargo.");
       } finally {
@@ -609,19 +615,24 @@ function DevPermissoesContent() {
   );
 
   const toggleCargoPermission = (permKey: Permission) => {
-    const next = activeCargoPermissions.includes(permKey)
-      ? activeCargoPermissions.filter((p) => p !== permKey)
-      : [...activeCargoPermissions, permKey];
+    const isRemoving = activeCargoPermissions.includes(permKey);
+    const equivs = (PERMISSION_EQUIVALENCES[permKey as string] || []) as Permission[];
+    const keysToRemove = new Set<Permission>([permKey, ...equivs]);
+    const next = isRemoving
+      ? activeCargoPermissions.filter((p) => !keysToRemove.has(p))
+      : Array.from(new Set([...activeCargoPermissions, permKey]));
     setActiveCargoPermissions(next);
     void autoSaveCargoPermissions(selectedCargo, next);
   };
 
   const toggleCargoCardPermissions = (card: PageCardConfig) => {
     const cardPermKeys = card.permissions.map((p) => p.key);
+    const allEquivKeys = cardPermKeys.flatMap((k) => [k, ...((PERMISSION_EQUIVALENCES[k as string] || []) as Permission[])]);
     const allCardActive = cardPermKeys.every((k) => activeCargoPermissions.includes(k));
     let next: Permission[];
     if (allCardActive) {
-      next = activeCargoPermissions.filter((k) => !cardPermKeys.includes(k));
+      const keysToRemove = new Set<Permission>(allEquivKeys);
+      next = activeCargoPermissions.filter((k) => !keysToRemove.has(k));
     } else {
       next = Array.from(new Set([...activeCargoPermissions, ...cardPermKeys]));
     }

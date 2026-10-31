@@ -5246,8 +5246,10 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
 
     // Painel Membro: soma das permissões das tags comuns do membro + cargo do membro (sem tag dev e sem tag ceo)
     const regularTagPerms = tagPermsList.filter((p) => p !== "view_dev_hub" && p !== "view_dev" && p !== "view_ceo" && p !== "view_ceo_dashboard");
-    const hasTagPerm = satisfiesPermission(regularTagPerms, perm);
-    const hasRolePerm = can(userLevel === "desenvolvedor" || userLevel === "ceo" ? "01" : userLevel, perm, customRoleMap);
+    const effectiveRole = (userLevel === "desenvolvedor" || userLevel === "ceo")
+      ? ((p as any)?.cargo || (p as any)?.role || (p as any)?.nivel || "membro")
+      : userLevel;
+    const hasRolePerm = can(effectiveRole, perm, customRoleMap);
     return hasTagPerm || hasRolePerm;
   };
 

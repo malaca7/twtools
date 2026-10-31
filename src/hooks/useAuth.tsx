@@ -1580,8 +1580,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return false;
         }
 
-        // Se o level base for "desenvolvedor" ou "ceo", no painel de membro avalia como cargo padrão "01"
-        const effectiveLevel = (level === "desenvolvedor" || level === "ceo") ? "01" : level;
+        // Se o level base for "desenvolvedor" ou "ceo", no painel de membro avalia de acordo com seu cargo operacional real (ou "membro")
+        const effectiveLevel = (level === "desenvolvedor" || level === "ceo")
+          ? ((profile as any)?.cargo || (profile as any)?.role || (profile as any)?.nivel || "membro")
+          : level;
         if (can(effectiveLevel, permission, customRolePermissions)) return true;
         if (satisfiesPermission(memberTagsPermissions, permission)) return true;
         return false;

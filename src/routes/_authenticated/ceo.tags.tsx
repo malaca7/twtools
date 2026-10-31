@@ -72,7 +72,7 @@ import { useMemberTags, useMemberTagAssignments, useMemberTagMutations } from "@
 import { useMenuConfig } from "@/hooks/useMenuConfig";
 import { MemberTagBadge, resolveTagIcon } from "@/components/ui/MemberTagBadge";
 import { PAGE_CARDS, READ_ONLY_PERMISSIONS, type PageCardConfig } from "@/lib/permissionCards";
-import { ALL_PERMISSIONS, type Permission, LEVEL_LABEL, levelBadgeClass } from "@/lib/permissions";
+import { ALL_PERMISSIONS, type Permission, LEVEL_LABEL, levelBadgeClass, PERMISSION_EQUIVALENCES } from "@/lib/permissions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -1332,7 +1332,11 @@ export function CeoGerenciarTagsPage() {
       return;
     }
     const isAdding = !activePerms.includes(perm);
-    const nextPerms = isAdding ? [...activePerms, perm] : activePerms.filter((p) => p !== perm);
+    const equivs = (PERMISSION_EQUIVALENCES[perm as string] || []) as Permission[];
+    const keysToRemove = new Set<Permission>([perm, ...equivs]);
+    const nextPerms = isAdding
+      ? Array.from(new Set([...activePerms, perm]))
+      : activePerms.filter((p) => !keysToRemove.has(p));
 
     let nextRules = { ...activeRules };
     if (perm === "view_all_tickets") {
@@ -1365,10 +1369,12 @@ export function CeoGerenciarTagsPage() {
       return;
     }
     const cardKeys = card.permissions.map((p) => p.key);
+    const allEquivKeys = cardKeys.flatMap((k) => [k, ...((PERMISSION_EQUIVALENCES[k as string] || []) as Permission[])]);
     const allIn = cardKeys.every((k) => activePerms.includes(k));
+    const keysToRemove = new Set<Permission>(allEquivKeys);
     const nextPerms = allIn
-      ? activePerms.filter((k) => !cardKeys.includes(k))
-      : [...activePerms, ...cardKeys.filter((k) => !activePerms.includes(k))];
+      ? activePerms.filter((k) => !keysToRemove.has(k))
+      : Array.from(new Set([...activePerms, ...cardKeys]));
 
     let nextRules = { ...activeRules };
     if (cardKeys.includes("view_all_tickets")) {
