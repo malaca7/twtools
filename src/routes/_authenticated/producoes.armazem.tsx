@@ -102,12 +102,11 @@ export function ArmazemPage() {
   const canTransferSale = hasPermission("warehouse.transfer_sale") || hasPermission("warehouse.transfer");
   const canTransfer = canTransferStorage || canTransferSale;
   const canAdjust = hasPermission("warehouse.adjust");
-  const canViewMovements = hasPermission("warehouse.history") || hasPermission("warehouse.view") || isDevUser;
+  const canViewMovements = hasPermission("warehouse.history") || hasPermission("warehouse.view");
   const canReverseMovement =
     hasPermission("reverse_movement") ||
     hasPermission("delete_movement") ||
-    hasPermission("warehouse.adjust") ||
-    isDevUser;
+    hasPermission("warehouse.adjust");
 
   const { data: rawStockList = [], isLoading: loadingStock } = useWarehouseStock();
   const { data: rawMaterials = [], isLoading: loadingRawMaterials } = useRawMaterials();

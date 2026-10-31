@@ -676,31 +676,31 @@ export function GestaoProducaoPage() {
             <BarChart3 className="h-3.5 w-3.5" />
             <span>Dashboard</span>
           </TabsTrigger>
-          {(canManageProducts || hasPermission("view_products") || isDevUser) && (
+          {(canManageProducts || hasPermission("view_products")) && (
             <TabsTrigger value="products" className="gap-2 rounded-xl text-xs font-bold py-2">
               <Boxes className="h-3.5 w-3.5" />
               <span>Produtos ({products.length})</span>
             </TabsTrigger>
           )}
-          {(canManageMaterials || hasPermission("raw_materials.view") || isDevUser) && (
+          {(canManageMaterials || hasPermission("raw_materials.view")) && (
             <TabsTrigger value="materials" className="gap-2 rounded-xl text-xs font-bold py-2">
               <Layers className="h-3.5 w-3.5" />
               <span>Matérias-Primas ({rawMaterials.length})</span>
             </TabsTrigger>
           )}
-          {(canAuditProductions || hasPermission("productions.view") || isDevUser) && (
+          {(canAuditProductions || hasPermission("productions.view")) && (
             <TabsTrigger value="productions" className="gap-2 rounded-xl text-xs font-bold py-2">
               <Factory className="h-3.5 w-3.5" />
               <span>Produções ({productions.length})</span>
             </TabsTrigger>
           )}
-          {(hasPermission("warehouse.history") || hasPermission("warehouse.view") || isDevUser) && (
+          {(hasPermission("warehouse.history") || hasPermission("warehouse.view")) && (
             <TabsTrigger value="movements" className="gap-2 rounded-xl text-xs font-bold py-2">
               <History className="h-3.5 w-3.5" />
               <span>Movimentações Armazém ({movements.length})</span>
             </TabsTrigger>
           )}
-          {(canManageSettings || isDevUser) && (
+          {canManageSettings && (
             <TabsTrigger value="settings" className="gap-2 rounded-xl text-xs font-bold py-2">
               <Settings className="h-3.5 w-3.5" />
               <span>Configurações</span>
@@ -1103,7 +1103,7 @@ export function GestaoProducaoPage() {
                             </td>
 
                             <td className="p-3.5 pr-5 text-right">
-                              {canManageProducts || isDevUser ? (
+                              {canManageProducts ? (
                                 <div className="flex items-center justify-end gap-1.5">
                                   {/* MOVER / GERENCIAR SALDO */}
                                   <Button

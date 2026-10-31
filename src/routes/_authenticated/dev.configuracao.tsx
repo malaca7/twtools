@@ -518,10 +518,36 @@ export function DevConfiguracaoContent({
 
   // Handler para alternar switches individuais
   const handleToggle = (key: keyof DevConfiguration) => {
-    setConfig((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+    const updated: DevConfiguration = {
+      ...config,
+      [key]: !config[key],
+    };
+    setConfig(updated);
+
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem(DEV_CONFIG_KEY, JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent(DEV_CONFIG_EVENT, { detail: updated }));
+        window.dispatchEvent(new Event("storage"));
+      }
+      void saveDevConfiguration(updated, user, profile, level);
+
+      if (key === "developerBypassMode") {
+        if (updated.developerBypassMode) {
+          toast.success("Bypass de Autorização Dev ATIVADO!", {
+            description: "Acesso Irrestrito Supremo concedido a todas as páginas e ações sem bloqueio de patente.",
+            icon: "⚡",
+          });
+        } else {
+          toast.info("Bypass de Autorização Dev DESATIVADO.", {
+            description: "O sistema agora aplicará as permissões estritas da tag dev e do cargo.",
+            icon: "🛡️",
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Falha ao salvar toggle dev:", e);
+    }
   };
 
   // Handler imediato para trocar a cor de um painel específico

@@ -954,12 +954,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  // Coleta as permissões de TODAS as tags ativas do membro (permissions[] + rules)
-  // As tags que o funcionário possuir somam permissões tanto no painel de membro quanto no painel CEO!
+  // Coleta as permissões das tags comuns criadas no sistema de tags do painel
+  // NÃO inclui tags DEV nem tags CEO no painel de membro!
   const memberTagsPermissions = useMemo<Permission[]>(() => {
     const permsSet = new Set<Permission>();
     for (const tag of memberTags) {
       if (tag.is_active === false) continue;
+      // Isolamento estrito: tags DEV e tags CEO NÃO concedem permissões no painel de membro
+      if (isDevTagItem(tag) || isCeoTagItem(tag)) continue;
 
       // Permissões explícitas da tag (array ou objeto)
       const tagPerms = Array.isArray(tag.permissions)
@@ -1101,21 +1103,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           permsSet.add("escalas.history");
         }
       }
-
-      // Acesso Executivo CEO
-      if (rules.can_access_ceo || rules.is_ceo) {
-        permsSet.add("view_ceo");
-        permsSet.add("view_ceo_dashboard");
-      }
-
-      // Acesso Desenvolvedor
-      if (rules.can_access_dev || rules.is_dev_test) {
-        permsSet.add("view_dev_hub");
-        permsSet.add("view_dev");
-      }
     }
     return Array.from(permsSet);
-  }, [memberTags]);
+  }, [memberTags, isDevTagItem, isCeoTagItem]);
 
   const systemTagPermissions = memberTagsPermissions;
 
@@ -1133,10 +1123,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     for (const tag of memberTags) {
       if (tag.is_active === false) continue;
       if (!isCeoTagItem(tag)) continue;
-      if (Array.isArray(tag.permissions)) {
-        for (const p of tag.permissions) {
-          if (p && typeof p === "string") permsSet.add(p as Permission);
-        }
+      const tagPerms = Array.isArray(tag.permissions)
+        ? tag.permissions
+        : (tag.permissions && typeof tag.permissions === "object" ? Object.values(tag.permissions) : []);
+      for (const p of tagPerms) {
+        if (p && typeof p === "string") permsSet.add(p as Permission);
+      }
+      const rules = parseMemberTagRules(tag.rules);
+      if (rules.can_view_all_tickets) {
+        permsSet.add("view_all_tickets");
+        permsSet.add("can_view_all_tickets" as Permission);
+      }
+      if (rules.can_view_financial_reports) {
+        permsSet.add("view_consolidated_financials");
+        permsSet.add("view_ceo_financials");
+      }
+      if (rules.can_manage_members) {
+        permsSet.add("view_members");
+        permsSet.add("approve_requests");
+        permsSet.add("promote_members");
+        permsSet.add("edit_members");
+      }
+      if (rules.can_access_ceo || rules.is_ceo) {
+        permsSet.add("view_ceo");
+        permsSet.add("view_ceo_dashboard");
       }
     }
     return Array.from(permsSet);
@@ -1154,10 +1164,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     for (const tag of memberTags) {
       if (tag.is_active === false) continue;
       if (!isDevTagItem(tag)) continue;
-      if (Array.isArray(tag.permissions)) {
-        for (const p of tag.permissions) {
-          if (p && typeof p === "string") permsSet.add(p as Permission);
-        }
+      const tagPerms = Array.isArray(tag.permissions)
+        ? tag.permissions
+        : (tag.permissions && typeof tag.permissions === "object" ? Object.values(tag.permissions) : []);
+      for (const p of tagPerms) {
+        if (p && typeof p === "string") permsSet.add(p as Permission);
+      }
+      const rules = parseMemberTagRules(tag.rules);
+      if (rules.can_access_dev || rules.is_dev_test) {
+        permsSet.add("view_dev_hub");
+        permsSet.add("view_dev");
       }
     }
     return Array.from(permsSet);
@@ -1294,16 +1310,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [memberTags]);
 
   const isPlatformLocked = useMemo(() => {
-    // Imunidade total ao bloqueio de plataforma para quem possui a Tag Dev
-    if (isDevUser) {
+    // Imunidade total ao bloqueio de plataforma para quem possui a Tag Dev com Bypass ativo
+    if (isDevUser && isDevBypassActive()) {
       return false;
     }
     return platformLockedTags.length > 0 || Boolean(activeSuspension?.blocks?.block_login);
-  }, [platformLockedTags, activeSuspension, isDevUser]);
+  }, [platformLockedTags, activeSuspension, isDevUser, devConfigTick]);
 
   const isMemberBlocked = useMemo(() => {
-    // Imunidade total a bloqueios operacionais para quem possui a Tag Dev
-    if (isDevUser) {
+    // Imunidade total a bloqueios operacionais para quem possui a Tag Dev com Bypass ativo
+    if (isDevUser && isDevBypassActive()) {
       return false;
     }
     return (
@@ -1320,7 +1336,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           (activeSuspension.blocks?.block_all_operations || activeSuspension.blocks?.block_login)
       )
     );
-  }, [memberTags, activeSuspension, isPlatformLocked, isDevUser]);
+  }, [memberTags, activeSuspension, isPlatformLocked, isDevUser, devConfigTick]);
 
   // Garante que membros comuns sem Tag Dev ou Tag CEO nunca fiquem travados em rotas ou modos de painel desautorizados
   useEffect(() => {
@@ -1362,6 +1378,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     (permission: Permission, panelOverride?: "member" | "dev" | "ceo") => {
       const bypassActive = isDevBypassActive();
 
+      // =========================================================================
+      // REGRA MESTRA: BYPASS DE AUTORIZAÇÃO DEV (ACESSO IRRESTRITO SUPREMO)
+      // Se a opção "Bypass de Autorização Dev" estiver ativada em dev tools,
+      // o membro terá Acesso Irrestrito Supremo com acesso completo a todas as
+      // páginas e ações sem bloqueio de patente!
+      // =========================================================================
+      if (isDevUser && bypassActive) {
+        if (profile?.is_verified === true && (permission === "verification.view_page" || permission === "verification.request")) {
+          return false;
+        }
+        return true;
+      }
+
       // Determinação estrita do painel ativo:
       // Se panelOverride for informado (ex: do Dispatcher ou de menu), usa-o diretamente com prioridade máxima.
       // Caso contrário, respeita a rota atual da janela (/dev/* -> dev, /ceo/* -> ceo, outras -> member).
@@ -1385,207 +1414,214 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // =========================================================================
       // 0. BLOQUEIOS OPERACIONAIS & DE PLATAFORMA (PRECEDÊNCIA MÁXIMA)
       // Regra absoluta do sistema: Bloqueios ficam ACIMA de qualquer cargo (01, 02, etc.),
-      // acima de outras tags e acima do painel CEO, EXCETO SE O MEMBRO TIVER A TAG DEV!
+      // acima de outras tags e acima do painel CEO, exceto se houver bypass ativo.
       // =========================================================================
-      if (!isDevUser) {
-        // 0.1. CHAVE MESTRA: BLOQUEIO TOTAL DE ACESSO À PLATAFORMA (block_login)
-        // Se o usuário possuir qualquer tag ativa com block_login OU suspensão com block_login:
-        // TODAS AS PERMISSÕES SÃO NEGADAS IMEDIATAMENTE!
-        const hasLoginBlock =
-          memberTags.some((t) => t.is_active !== false && t.rules?.block_login === true) ||
-          Boolean(activeSuspension?.blocks?.block_login);
-        if (hasLoginBlock) {
-          return false;
-        }
+      const hasLoginBlock =
+        memberTags.some((t) => t.is_active !== false && t.rules?.block_login === true) ||
+        Boolean(activeSuspension?.blocks?.block_login);
+      if (hasLoginBlock) {
+        return false;
+      }
 
-        // 0.15. MEMBRO JÁ VERIFICADO: Não visualiza página de solicitação e não solicita novo selo
-        if (profile?.is_verified === true) {
-          if (permission === "verification.view_page" || permission === "verification.request") {
-            return false;
-          }
-        }
-
-        const isOperationalAction =
-          permission.startsWith("create_") ||
-          permission.startsWith("delete_") ||
-          permission.startsWith("reverse_") ||
-          permission.startsWith("edit_") ||
-          permission.startsWith("manage_") ||
-          permission.includes(".create") ||
-          permission.includes(".edit") ||
-          permission.includes(".delete") ||
-          permission.includes(".transfer") ||
-          permission.includes(".adjust") ||
-          permission.includes(".cancel") ||
-          permission === "manage_cash_fund" ||
-          permission === "reverse_cash_fund" ||
-          permission === "delete_cash_movement" ||
-          permission === "manage_baus" ||
-          permission === "manage_products" ||
-          permission === "manage_categories" ||
-          permission === "buy_shop_items" ||
-          permission === "manage_shop" ||
-          permission === "adjust_stock_balance" ||
-          permission === "manage_stock_balance" ||
-          permission === "request_absence" ||
-          permission === "manage_absences" ||
-          permission === "create_ticket" ||
-          permission === "manage_goals" ||
-          permission === "manage_performance" ||
-          permission === "approve_requests" ||
-          permission === "promote_members" ||
-          permission === "edit_members" ||
-          permission === "delete_members" ||
-          permission === "change_roles" ||
-          permission === "manage_roles" ||
-          permission === "manage_permissions";
-
-        const isSalesPermission =
-          permission.startsWith("sales.") ||
-          permission.includes("sale") ||
-          permission === "view_sales" ||
-          permission === "view_all_sales" ||
-          permission === "create_sale" ||
-          permission === "reverse_sale" ||
-          permission === "delete_sale";
-
-        const isMovementPermission =
-          permission.includes("movement") ||
-          permission.includes("bau") ||
-          permission === "view_movements" ||
-          permission === "view_baus" ||
-          permission === "create_movement" ||
-          permission === "reverse_movement" ||
-          permission === "delete_movement" ||
-          permission === "manage_baus" ||
-          permission === "raw_materials.transfer_bau";
-
-        const isProductionPermission =
-          permission.startsWith("productions.") ||
-          permission.startsWith("raw_materials.") ||
-          permission.startsWith("warehouse.") ||
-          permission.startsWith("production_management.") ||
-          permission.includes("production") ||
-          permission.includes("raw_material") ||
-          permission.includes("warehouse") ||
-          permission === "view_productions";
-
-        const isCashPermission =
-          permission.includes("cash") ||
-          permission === "view_cash_fund" ||
-          permission === "manage_cash_fund" ||
-          permission === "reverse_cash_fund" ||
-          permission === "delete_cash_movement";
-
-        // 0.2. BLOQUEIO TOTAL DE OPERAÇÕES (is_blocked OU block_operations OU suspensão)
-        const hasOperationsBlock =
-          memberTags.some(
-            (t) =>
-              t.is_active !== false &&
-              (t.rules?.is_blocked === true || t.rules?.block_operations === true)
-          ) || Boolean(activeSuspension?.blocks?.block_all_operations);
-        const isEscalasOperational =
-          permission.startsWith("escalas.") &&
-          permission !== "escalas.view" &&
-          permission !== "escalas.details" &&
-          permission !== "escalas.history";
-        if (hasOperationsBlock) {
-          if (
-            isOperationalAction ||
-            isSalesPermission ||
-            isMovementPermission ||
-            isProductionPermission ||
-            isCashPermission ||
-            isEscalasOperational
-          ) {
-            return false;
-          }
-        }
-
-        // 0.2.5. BLOQUEIO ESPECÍFICO DE ESCALAS (block_escalas)
-        const hasEscalasBlock =
-          memberTags.some((t) => t.is_active !== false && t.rules?.block_escalas === true);
-        if (hasEscalasBlock && permission.startsWith("escalas.")) {
-          return false;
-        }
-
-        // 0.3. BLOQUEIOS ESPECÍFICOS: VENDAS (block_sales)
-        const hasSalesBlock =
-          memberTags.some((t) => t.is_active !== false && t.rules?.block_sales === true) ||
-          Boolean(activeSuspension?.blocks?.block_sales);
-        if (hasSalesBlock && isSalesPermission) {
-          return false;
-        }
-
-        // 0.4. BLOQUEIOS ESPECÍFICOS: MOVIMENTAÇÕES DE BAÚ (block_movements)
-        const hasMovementsBlock =
-          memberTags.some((t) => t.is_active !== false && t.rules?.block_movements === true) ||
-          Boolean(activeSuspension?.blocks?.block_movements);
-        if (hasMovementsBlock && isMovementPermission) {
-          return false;
-        }
-
-        // 0.5. BLOQUEIOS ESPECÍFICOS: PRODUÇÕES & ARMAZÉM (block_productions)
-        const hasProductionsBlock =
-          memberTags.some((t) => t.is_active !== false && t.rules?.block_productions === true) ||
-          Boolean(activeSuspension?.blocks?.block_productions);
-        if (hasProductionsBlock && isProductionPermission) {
-          return false;
-        }
-
-        // 0.6. BLOQUEIOS ESPECÍFICOS: FUNDO DE CAIXA (block_cash_fund)
-        const hasCashBlock =
-          memberTags.some((t) => t.is_active !== false && t.rules?.block_cash_fund === true) ||
-          Boolean(activeSuspension?.blocks?.block_cash_fund);
-        if (hasCashBlock && isCashPermission) {
+      // 0.15. MEMBRO JÁ VERIFICADO: Não visualiza página de solicitação e não solicita novo selo
+      if (profile?.is_verified === true) {
+        if (permission === "verification.view_page" || permission === "verification.request") {
           return false;
         }
       }
 
-      // Avaliação base de membro: soma permissões do CARGO do membro + permissões de TODAS as Tags do membro
+      const isOperationalAction =
+        permission.startsWith("create_") ||
+        permission.startsWith("delete_") ||
+        permission.startsWith("reverse_") ||
+        permission.startsWith("edit_") ||
+        permission.startsWith("manage_") ||
+        permission.includes(".create") ||
+        permission.includes(".edit") ||
+        permission.includes(".delete") ||
+        permission.includes(".transfer") ||
+        permission.includes(".adjust") ||
+        permission.includes(".cancel") ||
+        permission === "manage_cash_fund" ||
+        permission === "reverse_cash_fund" ||
+        permission === "delete_cash_movement" ||
+        permission === "manage_baus" ||
+        permission === "manage_products" ||
+        permission === "manage_categories" ||
+        permission === "buy_shop_items" ||
+        permission === "manage_shop" ||
+        permission === "adjust_stock_balance" ||
+        permission === "manage_stock_balance" ||
+        permission === "request_absence" ||
+        permission === "manage_absences" ||
+        permission === "create_ticket" ||
+        permission === "manage_goals" ||
+        permission === "manage_performance" ||
+        permission === "approve_requests" ||
+        permission === "promote_members" ||
+        permission === "edit_members" ||
+        permission === "delete_members" ||
+        permission === "change_roles" ||
+        permission === "manage_roles" ||
+        permission === "manage_permissions";
+
+      const isSalesPermission =
+        permission.startsWith("sales.") ||
+        permission.includes("sale") ||
+        permission === "view_sales" ||
+        permission === "view_all_sales" ||
+        permission === "create_sale" ||
+        permission === "reverse_sale" ||
+        permission === "delete_sale";
+
+      const isMovementPermission =
+        permission.includes("movement") ||
+        permission.includes("bau") ||
+        permission === "view_movements" ||
+        permission === "view_baus" ||
+        permission === "create_movement" ||
+        permission === "reverse_movement" ||
+        permission === "delete_movement" ||
+        permission === "manage_baus" ||
+        permission === "raw_materials.transfer_bau";
+
+      const isProductionPermission =
+        permission.startsWith("productions.") ||
+        permission.startsWith("raw_materials.") ||
+        permission.startsWith("warehouse.") ||
+        permission.startsWith("production_management.") ||
+        permission.includes("production") ||
+        permission.includes("raw_material") ||
+        permission.includes("warehouse") ||
+        permission === "view_productions";
+
+      const isCashPermission =
+        permission.includes("cash") ||
+        permission === "view_cash_fund" ||
+        permission === "manage_cash_fund" ||
+        permission === "reverse_cash_fund" ||
+        permission === "delete_cash_movement";
+
+      // 0.2. BLOQUEIO TOTAL DE OPERAÇÕES (is_blocked OU block_operations OU suspensão)
+      const hasOperationsBlock =
+        memberTags.some(
+          (t) =>
+            t.is_active !== false &&
+            (t.rules?.is_blocked === true || t.rules?.block_operations === true)
+        ) || Boolean(activeSuspension?.blocks?.block_all_operations);
+      const isEscalasOperational =
+        permission.startsWith("escalas.") &&
+        permission !== "escalas.view" &&
+        permission !== "escalas.details" &&
+        permission !== "escalas.history";
+      if (hasOperationsBlock) {
+        if (
+          isOperationalAction ||
+          isSalesPermission ||
+          isMovementPermission ||
+          isProductionPermission ||
+          isCashPermission ||
+          isEscalasOperational
+        ) {
+          return false;
+        }
+      }
+
+      // 0.2.5. BLOQUEIO ESPECÍFICO DE ESCALAS (block_escalas)
+      const hasEscalasBlock =
+        memberTags.some((t) => t.is_active !== false && t.rules?.block_escalas === true);
+      if (hasEscalasBlock && permission.startsWith("escalas.")) {
+        return false;
+      }
+
+      // 0.3. BLOQUEIOS ESPECÍFICOS: VENDAS (block_sales)
+      const hasSalesBlock =
+        memberTags.some((t) => t.is_active !== false && t.rules?.block_sales === true) ||
+        Boolean(activeSuspension?.blocks?.block_sales);
+      if (hasSalesBlock && isSalesPermission) {
+        return false;
+      }
+
+      // 0.4. BLOQUEIOS ESPECÍFICOS: MOVIMENTAÇÕES DE BAÚ (block_movements)
+      const hasMovementsBlock =
+        memberTags.some((t) => t.is_active !== false && t.rules?.block_movements === true) ||
+        Boolean(activeSuspension?.blocks?.block_movements);
+      if (hasMovementsBlock && isMovementPermission) {
+        return false;
+      }
+
+      // 0.5. BLOQUEIOS ESPECÍFICOS: PRODUÇÕES & ARMAZÉM (block_productions)
+      const hasProductionsBlock =
+        memberTags.some((t) => t.is_active !== false && t.rules?.block_productions === true) ||
+        Boolean(activeSuspension?.blocks?.block_productions);
+      if (hasProductionsBlock && isProductionPermission) {
+        return false;
+      }
+
+      // 0.6. BLOQUEIOS ESPECÍFICOS: FUNDO DE CAIXA (block_cash_fund)
+      const hasCashBlock =
+        memberTags.some((t) => t.is_active !== false && t.rules?.block_cash_fund === true) ||
+        Boolean(activeSuspension?.blocks?.block_cash_fund);
+      if (hasCashBlock && isCashPermission) {
+        return false;
+      }
+
+      // Avaliação base de membro: soma permissões do CARGO do membro + permissões das tags comuns do membro
+      // NÃO inclui permissões de Tag Dev nem de Tag CEO!
       const evaluateAsMember = () => {
-        if (can(level, permission, customRolePermissions)) return true;
+        // Bloqueia permissões exclusivas dos painéis executivos CEO e Dev no painel de membro
+        if (
+          permission === "view_ceo" ||
+          permission === "view_ceo_dashboard" ||
+          permission === "view_dev_hub" ||
+          permission === "view_dev" ||
+          permission.startsWith("manage_dev_")
+        ) {
+          return false;
+        }
+
+        // Se o level base for "desenvolvedor" ou "ceo", no painel de membro avalia como cargo padrão "01"
+        const effectiveLevel = (level === "desenvolvedor" || level === "ceo") ? "01" : level;
+        if (can(effectiveLevel, permission, customRolePermissions)) return true;
         if (satisfiesPermission(memberTagsPermissions, permission)) return true;
         return false;
       };
 
       // =========================================================================
-      // 1. PAINEL MEMBRO: Soma permissões do Cargo + Tags do Funcionário
+      // 1. PAINEL MEMBRO:
+      // O membro só tem as permissões do cargo dele somada às permissões das tags
+      // que ele possui criada no sistema de tags do painel.
+      // NÃO ter permissões das tag dev e tag ceo no painel de membro!
       // =========================================================================
       if (activePanel === "member") {
         return evaluateAsMember();
       }
 
       // =========================================================================
-      // 2. PAINEL CEO: Soma permissões da Tag CEO + Cargo do Funcionário + Tags do Funcionário
+      // 2. PAINEL CEO:
+      // O membro só tem as permissões da tag ceo.
+      // NÃO ter permissões das tag dev no painel de ceo!
       // =========================================================================
       if (activePanel === "ceo") {
-        if (isCeoUser || isDevUser) {
-          if (permission === "view_ceo" || permission === "view_ceo_dashboard") return true;
-          if (satisfiesPermission(ceoTagPermissions, permission)) return true;
-        }
-        return evaluateAsMember();
+        if (!isCeoUser) return false;
+        if (permission === "view_ceo" || permission === "view_ceo_dashboard") return true;
+        return satisfiesPermission(ceoTagPermissions, permission);
       }
 
       // =========================================================================
-      // 3. PAINEL DEV: Soma permissões Dev + Tag CEO + Cargo + Tags do Funcionário
+      // 3. PAINEL DEV:
+      // O membro só tem as permissões da tag dev.
       // =========================================================================
       if (activePanel === "dev") {
-        if (isDevUser) {
-          if (bypassActive) return true;
-          if (
-            permission === "view_dev_hub" ||
-            permission === "view_dev" ||
-            permission.startsWith("manage_dev_") ||
-            permission === "view_ceo" ||
-            permission === "view_ceo_dashboard"
-          ) {
-            return true;
-          }
-          if (satisfiesPermission(devTagPermissions, permission)) return true;
-          if (satisfiesPermission(ceoTagPermissions, permission)) return true;
+        if (!isDevUser) return false;
+        if (
+          permission === "view_dev_hub" ||
+          permission === "view_dev" ||
+          permission.startsWith("manage_dev_")
+        ) {
+          return true;
         }
-        return evaluateAsMember();
+        return satisfiesPermission(devTagPermissions, permission);
       }
 
       return evaluateAsMember();
@@ -1594,6 +1630,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       level,
       isDevUser,
       isCeoUser,
+      profile,
       memberTags,
       activeSuspension,
       memberTagsPermissions,
@@ -1608,37 +1645,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const hasMemberRolePermission = useCallback(
     (permission: Permission) => {
-      // 0. Bloqueios de login e operacionais (aplica para todos exceto quem possui a Tag Dev)
-      if (!isDevUser) {
-        const hasLoginBlock =
-          memberTags.some((t) => t.is_active !== false && t.rules?.block_login === true) ||
-          Boolean(activeSuspension?.blocks?.block_login);
-        if (hasLoginBlock) return false;
+      const bypassActive = isDevBypassActive();
+      if (isDevUser && bypassActive) return true;
 
-        const hasOperationsBlock =
-          memberTags.some(
-            (t) =>
-              t.is_active !== false &&
-              (t.rules?.is_blocked === true || t.rules?.block_operations === true)
-          ) || Boolean(activeSuspension?.blocks?.block_all_operations);
-        if (
-          hasOperationsBlock &&
-          (permission.startsWith("manage_") ||
-            permission.startsWith("approve_") ||
-            permission.startsWith("create_") ||
-            permission.startsWith("delete_"))
-        ) {
-          return false;
-        }
+      // 0. Bloqueios de login e operacionais
+      const hasLoginBlock =
+        memberTags.some((t) => t.is_active !== false && t.rules?.block_login === true) ||
+        Boolean(activeSuspension?.blocks?.block_login);
+      if (hasLoginBlock) return false;
+
+      const hasOperationsBlock =
+        memberTags.some(
+          (t) =>
+            t.is_active !== false &&
+            (t.rules?.is_blocked === true || t.rules?.block_operations === true)
+        ) || Boolean(activeSuspension?.blocks?.block_all_operations);
+      if (
+        hasOperationsBlock &&
+        (permission.startsWith("manage_") ||
+          permission.startsWith("approve_") ||
+          permission.startsWith("create_") ||
+          permission.startsWith("delete_"))
+      ) {
+        return false;
       }
 
-      // Soma permissões do cargo + tags de membros
+      if (
+        permission === "view_ceo" ||
+        permission === "view_ceo_dashboard" ||
+        permission === "view_dev_hub" ||
+        permission === "view_dev" ||
+        permission.startsWith("manage_dev_")
+      ) {
+        return false;
+      }
+
+      // Soma permissões do cargo + tags de membros (sem dev e sem ceo)
+      const effectiveLevel = (level === "desenvolvedor" || level === "ceo") ? "01" : level;
       return (
-        can(level, permission, customRolePermissions) ||
+        can(effectiveLevel, permission, customRolePermissions) ||
         satisfiesPermission(memberTagsPermissions, permission)
       );
     },
-    [level, isDevUser, memberTags, activeSuspension, customRolePermissions, memberTagsPermissions]
+    [level, isDevUser, memberTags, activeSuspension, customRolePermissions, memberTagsPermissions, devConfigTick]
   );
 
   const value = useMemo<AuthContextValue>(

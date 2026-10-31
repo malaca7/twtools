@@ -70,8 +70,8 @@ function TicketsWrapper() {
 }
 
 export function TicketsPage() {
-  const { hasPermission, loading, isDevUser } = useAuth();
-  const canView = hasPermission("view_tickets") || isDevUser;
+  const { hasPermission, loading } = useAuth();
+  const canView = hasPermission("view_tickets");
 
   if (loading) {
     return (
@@ -89,17 +89,17 @@ export function TicketsPage() {
 }
 
 function TicketsContent() {
-  const { user, profile, hasPermission, isDevUser } = useAuth();
-  const canView = hasPermission("view_tickets") || isDevUser;
+  const { user, profile, hasPermission } = useAuth();
+  const canView = hasPermission("view_tickets");
 
   if (!canView) {
     return <NoAccess message="Você não tem permissão para acessar a área de Tickets / Ouvidoria." />;
   }
 
-  const canManage = hasPermission("manage_tickets") || isDevUser;
-  const canViewAll = hasPermission("view_all_tickets") || canManage || isDevUser;
+  const canManage = hasPermission("manage_tickets");
+  const canViewAll = hasPermission("view_all_tickets") || canManage;
   const canSeeAll = canViewAll;
-  const canCreate = hasPermission("create_ticket") || canManage || isDevUser;
+  const canCreate = hasPermission("create_ticket") || canManage;
 
   const { data: tickets = [], isLoading, isFetching } = useTickets();
   const queryClient = useQueryClient();

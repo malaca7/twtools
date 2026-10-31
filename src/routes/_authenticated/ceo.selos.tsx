@@ -131,14 +131,14 @@ export function CeoSelosPage() {
       ? "ceo"
       : "member";
 
-  // Permissões Granulares de Verificação no painel efetivo (com fallback total para CEO e Desenvolvedor)
-  const canManage = hasPermission("verification.manage", effectivePanel) || isCeoUser || isDevUser;
-  const canReview = hasPermission("verification.review", effectivePanel) || isCeoUser || isDevUser;
-  const canGrant = hasPermission("verification.grant_direct", effectivePanel) || isCeoUser || isDevUser;
-  const canRevoke = hasPermission("verification.revoke", effectivePanel) || isCeoUser || isDevUser;
-  const canConfig = hasPermission("verification.config", effectivePanel) || isCeoUser || isDevUser;
-  const canRequirements = hasPermission("verification.requirements", effectivePanel) || isCeoUser || isDevUser;
-  const canAudit = hasPermission("verification.audit", effectivePanel) || isCeoUser || isDevUser;
+  // Permissões Granulares de Verificação no painel efetivo
+  const canManage = hasPermission("verification.manage", effectivePanel);
+  const canReview = hasPermission("verification.review", effectivePanel);
+  const canGrant = hasPermission("verification.grant_direct", effectivePanel);
+  const canRevoke = hasPermission("verification.revoke", effectivePanel);
+  const canConfig = hasPermission("verification.config", effectivePanel);
+  const canRequirements = hasPermission("verification.requirements", effectivePanel);
+  const canAudit = hasPermission("verification.audit", effectivePanel);
   const canView = canManage;
 
   const { data: members = [], isLoading: loadingMembers } = useMembers();

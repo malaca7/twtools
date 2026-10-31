@@ -36,7 +36,7 @@ import type {
   ActionScaleHistory,
 } from "./app-types";
 import { LEVEL_LABEL, can, satisfiesPermission, type AppLevel, type Permission } from "./permissions";
-import { DEFAULT_CEO_PERMISSIONS } from "@/services/devService";
+import { DEFAULT_CEO_PERMISSIONS, isDevBypassActive } from "@/services/devService";
 import type {
   Ticket,
   TicketCategory,
@@ -4903,7 +4903,7 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
           const simLevel = (sim.nivel as AppLevel) || "membro";
           const isDev = Boolean(sim.is_developer);
           const isCeo = Boolean(sim.is_ceo);
-          const isSuper = isDev || simLevel === "desenvolvedor" || simLevel === "01";
+          const isSuper = (isDev && isDevBypassActive()) || simLevel === "01";
           const customMap = await getRolePermissions();
           const ceoPerms = customMap?.["ceo"] || (DEFAULT_CEO_PERMISSIONS as Permission[]);
 
@@ -4994,7 +4994,7 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
           const devLevel = (dev.nivel as AppLevel) || "membro";
           const isDev = Boolean(dev.is_developer);
           const isCeo = Boolean(dev.is_ceo);
-          const isSuper = isDev || devLevel === "desenvolvedor" || devLevel === "01";
+          const isSuper = (isDev && isDevBypassActive()) || devLevel === "01";
           const customMap = await getRolePermissions();
           const ceoPerms = customMap?.["ceo"] || (DEFAULT_CEO_PERMISSIONS as Permission[]);
 
@@ -5127,7 +5127,7 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
     p?.is_ceo === true || p?.custom_theme?.is_ceo === true
   );
   const userLevel = (roleRow?.nivel as AppLevel) || (isDevUser ? "desenvolvedor" : "membro");
-  const isSuperUser = isDevUser || userLevel === "desenvolvedor" || userLevel === "01";
+  const isSuperUser = (isDevUser && isDevBypassActive()) || userLevel === "01";
 
   // 5. Carregar tags ativas do membro (incluindo permissões e regras das tags)
   let userTags: any[] = [];
@@ -5229,32 +5229,25 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
   // 7. Determinação do painel ativo e avaliador granular estrito de permissão
   const pathname = typeof window !== "undefined" ? window.location.pathname.toLowerCase() : "";
   const isDevPanel = isDevUser && (pathname.startsWith("/dev") || pathname.includes("/dev/"));
-  const isCeoPanel = !isDevPanel && (isCeoUser || isDevUser) && (pathname.startsWith("/ceo") || pathname.includes("/ceo/"));
+  const isCeoPanel = !isDevPanel && isCeoUser && (pathname.startsWith("/ceo") || pathname.includes("/ceo/"));
 
   const checkPerm = (perm: Permission): boolean => {
     if (isSuperUser) return true;
-    const hasRolePerm = can(userLevel, perm, customRoleMap);
 
     if (isDevPanel) {
-      // Painel Dev: soma das permissões da tag dev + permissões do cargo do membro
-      const hasDevTagPerm = isDevUser && (
-        satisfiesPermission(devPerms, perm) ||
-        satisfiesPermission(tagPermsList, perm)
-      );
-      return hasDevTagPerm || hasRolePerm;
+      // Painel Dev: apenas permissões da tag dev
+      return satisfiesPermission(devPerms, perm);
     }
 
     if (isCeoPanel) {
-      // Painel CEO: soma das permissões da tag ceo + permissões do cargo do membro
-      const hasCeoTagPerm = isCeoUser && (
-        satisfiesPermission(ceoPerms, perm) ||
-        satisfiesPermission(tagPermsList, perm)
-      );
-      return hasCeoTagPerm || hasRolePerm;
+      // Painel CEO: apenas permissões da tag ceo (NÃO tem permissões da tag dev)
+      return satisfiesPermission(ceoPerms, perm);
     }
 
-    // Painel Membro: soma das permissões das tags do membro + permissões do cargo do membro
-    const hasTagPerm = satisfiesPermission(tagPermsList, perm);
+    // Painel Membro: soma das permissões das tags comuns do membro + cargo do membro (sem tag dev e sem tag ceo)
+    const regularTagPerms = tagPermsList.filter((p) => p !== "view_dev_hub" && p !== "view_dev" && p !== "view_ceo" && p !== "view_ceo_dashboard");
+    const hasTagPerm = satisfiesPermission(regularTagPerms, perm);
+    const hasRolePerm = can(userLevel === "desenvolvedor" || userLevel === "ceo" ? "01" : userLevel, perm, customRoleMap);
     return hasTagPerm || hasRolePerm;
   };
 

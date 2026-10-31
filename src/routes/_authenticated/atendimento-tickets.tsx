@@ -78,11 +78,10 @@ function AtendimentoTicketsWrapper() {
 }
 
 export function AtendimentoTicketsPage() {
-  const { hasPermission, loading, isDevUser } = useAuth();
+  const { hasPermission, loading } = useAuth();
   const canAccess =
     hasPermission("atendimento_tickets.view" as Permission) ||
-    hasPermission("view_atendimento_tickets" as Permission) ||
-    isDevUser;
+    hasPermission("view_atendimento_tickets" as Permission);
 
   if (loading) {
     return (
@@ -102,11 +101,10 @@ export function AtendimentoTicketsPage() {
 }
 
 export function AtendimentoTicketsContent() {
-  const { user, profile, hasPermission, isDevUser } = useAuth();
+  const { user, profile, hasPermission } = useAuth();
   const canAccess =
     hasPermission("atendimento_tickets.view" as Permission) ||
-    hasPermission("view_atendimento_tickets" as Permission) ||
-    isDevUser;
+    hasPermission("view_atendimento_tickets" as Permission);
 
   if (!canAccess) {
     return (
@@ -114,10 +112,10 @@ export function AtendimentoTicketsContent() {
     );
   }
 
-  const canManage = hasPermission("manage_tickets") || isDevUser;
+  const canManage = hasPermission("manage_tickets");
   const canClaim = hasPermission("claim_tickets") || hasPermission("claim_ticket" as Permission) || canManage;
   const canCreate = hasPermission("create_ticket") || canManage;
-  const canViewAll = hasPermission("view_all_tickets") || canManage || isDevUser;
+  const canViewAll = hasPermission("view_all_tickets") || canManage;
 
   const { data: tickets = [], isLoading, isFetching } = useTickets();
   const queryClient = useQueryClient();

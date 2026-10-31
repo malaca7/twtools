@@ -121,8 +121,7 @@ export function MateriasPrimasPage() {
   const canViewHistory =
     hasPermission("raw_materials.history") ||
     hasPermission("raw_materials.view") ||
-    hasPermission("production_management.raw_materials") ||
-    isDevUser;
+    hasPermission("production_management.raw_materials");
 
   // Dados
   const { data: rawMaterials = [], isLoading: loadingMaterials } = useRawMaterials();

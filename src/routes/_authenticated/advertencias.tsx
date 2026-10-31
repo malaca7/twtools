@@ -131,7 +131,6 @@ function AdvertenciasContent() {
 
   // Permissões granulares
   const canViewGlobal = useMemo(() => {
-    if (isDevUser) return true;
     return Boolean(
       hasPermission("view_all_warnings") ||
       hasPermission("view_warnings") ||
@@ -141,21 +140,19 @@ function AdvertenciasContent() {
       hasPermission("manage_ceo_warnings") ||
       hasPermission("manage_dev_warnings")
     );
-  }, [hasPermission, isDevUser]);
+  }, [hasPermission]);
 
   const canCreateWarning =
     hasPermission("create_warning") ||
     hasPermission("manage_warnings") ||
     hasPermission("manage_ceo_warnings") ||
-    hasPermission("manage_dev_warnings") ||
-    isDevUser;
+    hasPermission("manage_dev_warnings");
 
   const canCreateSuspension =
     hasPermission("create_suspension") ||
     hasPermission("manage_warnings") ||
     hasPermission("manage_ceo_warnings") ||
-    hasPermission("manage_dev_warnings") ||
-    isDevUser;
+    hasPermission("manage_dev_warnings");
 
   const canCreate = canCreateWarning || canCreateSuspension;
 
@@ -163,36 +160,31 @@ function AdvertenciasContent() {
     hasPermission("edit_warning") ||
     hasPermission("manage_warnings") ||
     hasPermission("manage_ceo_warnings") ||
-    hasPermission("manage_dev_warnings") ||
-    isDevUser;
+    hasPermission("manage_dev_warnings");
 
   const canRevoke =
     hasPermission("revoke_warning") ||
     hasPermission("manage_warnings") ||
     hasPermission("manage_ceo_warnings") ||
-    hasPermission("manage_dev_warnings") ||
-    isDevUser;
+    hasPermission("manage_dev_warnings");
 
   const canDelete =
     hasPermission("delete_warning") ||
     hasPermission("manage_warnings") ||
     hasPermission("manage_ceo_warnings") ||
-    hasPermission("manage_dev_warnings") ||
-    isDevUser;
+    hasPermission("manage_dev_warnings");
 
   const canViewDetails =
     hasPermission("view_warning_details") ||
     hasPermission("manage_warnings") ||
     hasPermission("manage_ceo_warnings") ||
-    hasPermission("manage_dev_warnings") ||
-    isDevUser;
+    hasPermission("manage_dev_warnings");
 
   const canExport =
     hasPermission("export_warnings") ||
     hasPermission("manage_warnings") ||
     hasPermission("manage_ceo_warnings") ||
-    hasPermission("manage_dev_warnings") ||
-    isDevUser;
+    hasPermission("manage_dev_warnings");
 
   // Aba principal ("gestao" para admins/líderes, "prontuario" para histórico pessoal)
   const [mainTab, setMainTab] = useState<"gestao" | "prontuario">("gestao");
