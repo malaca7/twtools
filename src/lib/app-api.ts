@@ -4950,7 +4950,7 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
           const canManage = isSuper || checkSimPerm("manage_tickets");
           const canViewAll = isSuper || canManage || checkSimPerm("view_all_tickets");
           const canCreate = isSuper || canManage || checkSimPerm("create_ticket");
-          const canReply = isSuper || canManage || canViewAll || checkSimPerm("reply_tickets") || checkSimPerm("reply_ticket" as Permission);
+          const canReply = isSuper || checkSimPerm("reply_tickets") || checkSimPerm("reply_ticket" as Permission);
           const canClaim = isSuper || checkSimPerm("claim_tickets") || checkSimPerm("claim_ticket" as Permission);
           const canTransfer = isSuper || canManage || checkSimPerm("transfer_tickets") || checkSimPerm("transfer_ticket" as Permission);
           const canChangeStatus = isSuper || canManage || checkSimPerm("change_ticket_status");
@@ -5041,7 +5041,7 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
           const canManage = isSuper || checkDevPerm("manage_tickets");
           const canViewAll = isSuper || canManage || checkDevPerm("view_all_tickets");
           const canCreate = isSuper || canManage || checkDevPerm("create_ticket");
-          const canReply = isSuper || canManage || canViewAll || checkDevPerm("reply_tickets") || checkDevPerm("reply_ticket" as Permission);
+          const canReply = isSuper || checkDevPerm("reply_tickets") || checkDevPerm("reply_ticket" as Permission);
           const canClaim = isSuper || checkDevPerm("claim_tickets") || checkDevPerm("claim_ticket" as Permission);
           const canTransfer = isSuper || canManage || checkDevPerm("transfer_tickets") || checkDevPerm("transfer_ticket" as Permission);
           const canChangeStatus = isSuper || canManage || checkDevPerm("change_ticket_status");
@@ -5256,7 +5256,6 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
   const canCreate = isSuperUser || canManage || checkPerm("create_ticket");
   const canReply =
     isSuperUser ||
-    canManage ||
     checkPerm("reply_tickets") ||
     checkPerm("reply_ticket" as Permission);
   const canClaim =
@@ -5447,14 +5446,15 @@ export async function addTicketMessage(
 
   const ticket = allRawTickets[targetIndex];
 
-  // Verificação de autorização: Criador do ticket, Responsável atribuído, Membro participante adicionado, Gerência ou SuperUser
+  // Verificação de autorização: deve ter acesso ao chamado e permissão estrita de responder
   const isCreator = ticket.user_id === auth.user.id;
   const isAssigned = ticket.assigned_to_id === auth.user.id;
   const isMember = (ticket.members || []).some((m) => m.user_id === auth.user.id);
-  const canReply = isCreator || isAssigned || isMember || auth.canManage || auth.canReply || auth.isSuperUser;
+  const hasTicketAccess = isCreator || isAssigned || isMember || auth.canManage || auth.canViewAll || auth.isSuperUser;
+  const canReply = (auth.canReply || auth.isSuperUser) && hasTicketAccess;
 
   if (!canReply) {
-    throw new Error("Você não tem permissão para responder a este ticket");
+    throw new Error("Você não possui permissão para responder ou enviar mensagens neste chamado.");
   }
 
   // Apenas quem possui manage_tickets, internal_notes_tickets ou isSuperUser pode enviar nota interna privada

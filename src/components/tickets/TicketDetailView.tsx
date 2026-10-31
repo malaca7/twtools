@@ -167,10 +167,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
     effectiveCanManage;
   const canReply =
     hasPermission("reply_tickets") ||
-    hasPermission("reply_ticket") ||
-    effectiveCanManage ||
-    isCreator ||
-    isParticipant;
+    hasPermission("reply_ticket" as Permission);
 
   // Lista de membros do grupo disponíveis para adicionar (não criador e ainda não participante)
   const availableMembersToAdd = useMemo(() => {
@@ -200,6 +197,10 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
   );
 
   const handleImageFile = async (file: File) => {
+    if (!canReply) {
+      toast.error("Você não possui a permissão 'Responder e Enviar Mensagens nos Chamados'.");
+      return;
+    }
     if (!file.type.startsWith("image/")) {
       toast.error("Apenas imagens são aceitas como anexo.");
       return;
@@ -223,6 +224,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
+    if (!canReply) return;
     const items = e.clipboardData?.items;
     if (!items) return;
     for (let i = 0; i < items.length; i++) {
@@ -238,7 +240,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
 
   const handleSendReply = async () => {
     if (!canReply) {
-      toast.error("Você não tem permissão para responder a este chamado.");
+      toast.error("Você não possui a permissão 'Responder e Enviar Mensagens nos Chamados'.");
       return;
     }
 
@@ -940,6 +942,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
                 value={replyContent}
                 onChange={(e) => setReplyContent(e.target.value)}
                 onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
                 placeholder={
                   isInternalNote
                     ? "🔒 Digite uma nota interna confidencial (visível apenas para a gerência)..."
@@ -970,9 +973,14 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
             </div>
           </div>
         ) : (
-          <div className="border-t border-border/80 bg-secondary/15 p-3.5 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
-            <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-            <span>Você não possui permissão para responder ou enviar mensagens neste chamado.</span>
+          <div className="border-t border-border/70 bg-gradient-to-r from-amber-500/5 via-secondary/20 to-amber-500/5 p-3.5 sm:p-4 text-center text-xs text-muted-foreground flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-2.5 shrink-0">
+            <div className="flex items-center gap-2 font-medium text-amber-400/90">
+              <Lock className="h-4 w-4 shrink-0 text-amber-400" />
+              <span>Modo Somente Leitura:</span>
+            </div>
+            <span className="text-muted-foreground">
+              Você não possui a permissão <strong className="text-foreground">"Responder e Enviar Mensagens nos Chamados"</strong> atribuída ao seu cargo ou tag.
+            </span>
           </div>
         )
       ) : (
