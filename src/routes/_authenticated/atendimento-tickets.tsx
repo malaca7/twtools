@@ -26,6 +26,7 @@ import {
   Check,
   Zap,
   Sparkles,
+  Eye,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -113,7 +114,7 @@ export function AtendimentoTicketsContent() {
   }
 
   const canManage = hasPermission("manage_tickets");
-  const canClaim = hasPermission("claim_tickets") || hasPermission("claim_ticket" as Permission) || canManage;
+  const canClaim = hasPermission("claim_tickets") || hasPermission("claim_ticket" as Permission);
   const canCreate = hasPermission("create_ticket") || canManage;
   const canViewAll = hasPermission("view_all_tickets") || canManage;
 
@@ -658,15 +659,27 @@ export function AtendimentoTicketsContent() {
                             </Button>
                           )}
 
-                          <Button
-                            size="sm"
-                            variant="default"
-                            onClick={() => setSelectedTicketId(ticket.id)}
-                            className="h-7 px-3 text-[11px] font-bold gap-1 rounded-lg shadow-xs"
-                          >
-                            <span>Atender</span>
-                            <ChevronRight className="h-3 w-3" />
-                          </Button>
+                          {canClaim ? (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => setSelectedTicketId(ticket.id)}
+                              className="h-7 px-3 text-[11px] font-bold gap-1 rounded-lg shadow-xs"
+                            >
+                              <span>Atender</span>
+                              <ChevronRight className="h-3 w-3" />
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setSelectedTicketId(ticket.id)}
+                              className="h-7 px-3 text-[11px] font-medium gap-1 rounded-lg border-border/70 hover:bg-secondary/60 text-muted-foreground hover:text-foreground shadow-xs"
+                            >
+                              <Eye className="h-3 w-3" />
+                              <span>Visualizar</span>
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>

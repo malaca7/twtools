@@ -1411,8 +1411,6 @@ export function satisfiesPermission(
       permission === "create_ticket" ||
       permission === "reply_tickets" ||
       permission === "reply_ticket" ||
-      permission === "claim_tickets" ||
-      permission === "claim_ticket" ||
       permission === "transfer_tickets" ||
       permission === "transfer_ticket" ||
       permission === "change_ticket_status" ||
@@ -1461,7 +1459,7 @@ export function satisfiesPermission(
   }
   if (
     (permission === "claim_tickets" || permission === "claim_ticket") &&
-    (list.includes("claim_tickets") || list.includes("claim_ticket") || list.includes("manage_tickets"))
+    (list.includes("claim_tickets") || list.includes("claim_ticket"))
   ) {
     return true;
   }
@@ -2919,8 +2917,6 @@ export function can(
       permission === "create_ticket" ||
       permission === "reply_tickets" ||
       permission === "reply_ticket" ||
-      permission === "claim_tickets" ||
-      permission === "claim_ticket" ||
       permission === "transfer_tickets" ||
       permission === "transfer_ticket" ||
       permission === "change_ticket_status" ||

@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   FolderOpen,
   Calendar,
+  UserCheck,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -97,6 +98,7 @@ function TicketsContent() {
   }
 
   const canManage = hasPermission("manage_tickets");
+  const canClaim = hasPermission("claim_tickets") || hasPermission("claim_ticket" as Permission);
   const canViewAll = hasPermission("view_all_tickets") || canManage;
   const canSeeAll = canViewAll;
   const canCreate = hasPermission("create_ticket") || canManage;
@@ -675,6 +677,21 @@ function TicketsContent() {
                             <MessageSquare className="h-3 w-3" />
                             <span className="text-[10px]">{msgCount}</span>
                           </span>
+                        )}
+
+                        {canClaim && !t.assigned_to_id && t.status !== "fechado" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedTicketId(t.id);
+                            }}
+                            className="h-5 px-1.5 text-[10px] font-bold gap-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 rounded"
+                          >
+                            <UserCheck className="h-3 w-3" />
+                            <span>Atender</span>
+                          </Button>
                         )}
 
                         <span className="text-[10px] text-muted-foreground/80">

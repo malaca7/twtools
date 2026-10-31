@@ -134,11 +134,10 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
   const isParticipant = (ticket.members || []).some((m) => m.user_id === user?.id);
   const isAssigned = ticket.assigned_to_id === user?.id;
 
-  // Permissões granulares estritas — cada ação depende da sua respectiva permissão marcada ou de manage_tickets
+  // Permissões granulares estritas — cada ação depende da sua respectiva permissão marcada
   const canClaim =
     hasPermission("claim_tickets") ||
-    hasPermission("claim_ticket") ||
-    effectiveCanManage;
+    hasPermission("claim_ticket" as Permission);
   const canTransfer =
     hasPermission("transfer_tickets") ||
     hasPermission("transfer_ticket") ||
@@ -540,7 +539,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
         {/* Linha 4: Barra de Ações */}
         {(canClaim || canTransfer || canChangeStatus || canClose || canReopen || canDelete) && (
           <div className="flex items-center gap-2 pt-2 border-t border-border/50 flex-wrap">
-            {/* Assumir (Apenas quem tem permissão para assumir atendimento) */}
+            {/* Atender / Assumir (Apenas quem tem permissão para assumir atendimento) */}
             {canClaim && ticket.assigned_to_id !== user?.id && !isClosed && (
               <Button
                 variant="outline"
@@ -550,7 +549,7 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
                 className="h-7 text-xs gap-1.5 border-sky-500/30 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20"
               >
                 <UserCheck className="h-3.5 w-3.5" />
-                Assumir Atendimento
+                Atender Chamado
               </Button>
             )}
 

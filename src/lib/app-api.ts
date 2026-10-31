@@ -4951,7 +4951,7 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
           const canViewAll = isSuper || canManage || checkSimPerm("view_all_tickets");
           const canCreate = isSuper || canManage || checkSimPerm("create_ticket");
           const canReply = isSuper || canManage || canViewAll || checkSimPerm("reply_tickets") || checkSimPerm("reply_ticket" as Permission);
-          const canClaim = isSuper || canManage || checkSimPerm("claim_tickets") || checkSimPerm("claim_ticket" as Permission);
+          const canClaim = isSuper || checkSimPerm("claim_tickets") || checkSimPerm("claim_ticket" as Permission);
           const canTransfer = isSuper || canManage || checkSimPerm("transfer_tickets") || checkSimPerm("transfer_ticket" as Permission);
           const canChangeStatus = isSuper || canManage || checkSimPerm("change_ticket_status");
           const canClose = isSuper || canManage || checkSimPerm("close_tickets") || checkSimPerm("close_ticket" as Permission);
@@ -5042,7 +5042,7 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
           const canViewAll = isSuper || canManage || checkDevPerm("view_all_tickets");
           const canCreate = isSuper || canManage || checkDevPerm("create_ticket");
           const canReply = isSuper || canManage || canViewAll || checkDevPerm("reply_tickets") || checkDevPerm("reply_ticket" as Permission);
-          const canClaim = isSuper || canManage || checkDevPerm("claim_tickets") || checkDevPerm("claim_ticket" as Permission);
+          const canClaim = isSuper || checkDevPerm("claim_tickets") || checkDevPerm("claim_ticket" as Permission);
           const canTransfer = isSuper || canManage || checkDevPerm("transfer_tickets") || checkDevPerm("transfer_ticket" as Permission);
           const canChangeStatus = isSuper || canManage || checkDevPerm("change_ticket_status");
           const canClose = isSuper || canManage || checkDevPerm("close_tickets") || checkDevPerm("close_ticket" as Permission);
@@ -5261,7 +5261,6 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
     checkPerm("reply_ticket" as Permission);
   const canClaim =
     isSuperUser ||
-    canManage ||
     checkPerm("claim_tickets") ||
     checkPerm("claim_ticket" as Permission);
   const canTransfer =
