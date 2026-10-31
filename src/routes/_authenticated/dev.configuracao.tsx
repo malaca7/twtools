@@ -27,6 +27,7 @@ import {
   Palette,
   Crown,
   Check,
+  User,
   Users,
   Sparkles,
   Layers,
