@@ -275,7 +275,9 @@ export async function getMemberTags(): Promise<MemberTag[]> {
       is_system: Boolean(t.is_system),
       is_active: t.is_active !== false,
       order_index: typeof t.order_index === "number" ? t.order_index : 0,
-      permissions: Array.isArray(t.permissions) ? t.permissions : [],
+      permissions: Array.isArray(t.permissions)
+        ? t.permissions
+        : (t.permissions && typeof t.permissions === "object" ? Object.values(t.permissions) : []),
       rules: parseMemberTagRules(t.rules),
       created_at: t.created_at || new Date().toISOString(),
       updated_at: t.updated_at || new Date().toISOString(),
@@ -438,7 +440,9 @@ export async function getMemberTagsForMember(memberId: string): Promise<MemberTa
       is_system: Boolean(t.is_system),
       is_active: t.is_active !== false,
       order_index: typeof t.order_index === "number" ? t.order_index : 0,
-      permissions: Array.isArray(t.permissions) ? t.permissions : [],
+      permissions: Array.isArray(t.permissions)
+        ? t.permissions
+        : (t.permissions && typeof t.permissions === "object" ? Object.values(t.permissions) : []),
       rules: parseMemberTagRules(t.rules),
       created_at: t.created_at,
       updated_at: t.updated_at,

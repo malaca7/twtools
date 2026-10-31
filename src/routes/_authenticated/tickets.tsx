@@ -140,17 +140,11 @@ function TicketsContent() {
   }, [canSeeAll, setActiveTab, queryClient]);
 
   // Se o usuário não tem permissão para ver todos os chamados, força a aba "my"
-  // Caso tenha permissão e ainda não tenha selecionado manualmente, abre "all" se não houver ?tab=my na URL
+  // Caso tenha permissão e ainda não tenha selecionado manualmente, abre "all" automaticamente
   useEffect(() => {
     if (!canSeeAll && activeTab !== "my") {
       setActiveTab("my");
-    } else if (
-      canSeeAll &&
-      !hasManuallySelectedTab &&
-      typeof window !== "undefined" &&
-      !window.location.search.includes("tab=my") &&
-      activeTab !== "all"
-    ) {
+    } else if (canSeeAll && !hasManuallySelectedTab && activeTab !== "all") {
       setActiveTab("all");
     }
   }, [canSeeAll, activeTab, setActiveTab, hasManuallySelectedTab]);
@@ -172,11 +166,20 @@ function TicketsContent() {
   // Candidatos de identificação do usuário autenticado para conferência segura
   const myCandidateIds = useMemo(() => {
     return new Set(
-      [user?.id, profile?.id, profile?.user_id, profile?.game_id]
+      [
+        user?.id,
+        user?.email,
+        profile?.id,
+        profile?.user_id,
+        profile?.game_id,
+        (profile as any)?.passaporte,
+        profile?.discord_id,
+        profile?.discord_email,
+      ]
         .filter(Boolean)
         .map((id) => String(id).trim().toLowerCase())
     );
-  }, [user?.id, profile?.id, profile?.user_id, profile?.game_id]);
+  }, [user?.id, user?.email, profile?.id, profile?.user_id, profile?.game_id, (profile as any)?.passaporte, profile?.discord_id, profile?.discord_email]);
 
   const checkIsMyTicket = useCallback(
     (t: Ticket) => {
@@ -257,7 +260,7 @@ function TicketsContent() {
       }
 
       // Filtro por Responsável
-      if (filterAssignee === "my_assigned" && t.assigned_to_id !== user?.id) {
+      if (filterAssignee === "my_assigned" && !myCandidateIds.has(String(t.assigned_to_id || "").trim().toLowerCase())) {
         return false;
       }
       if (filterAssignee === "unassigned" && t.assigned_to_id) {
@@ -266,7 +269,7 @@ function TicketsContent() {
 
       return true;
     });
-  }, [tickets, activeTab, user?.id, searchTerm, filterCategory, filterStatus, filterPriority, filterAssignee]);
+  }, [tickets, activeTab, canSeeAll, checkIsMyTicket, myCandidateIds, searchTerm, filterCategory, filterStatus, filterPriority, filterAssignee]);
 
   // Selected ticket
   const selectedTicket = useMemo(() => {

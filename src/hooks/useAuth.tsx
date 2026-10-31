@@ -762,6 +762,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             profile?.user_id,
             profile?.id,
             session?.user?.id,
+            profile?.discord_id,
+            profile?.discord_email,
+            session?.user?.email,
+            profile?.discord_username,
+            profile?.nickname,
+            profile?.nome,
           ]
             .filter(Boolean)
             .map((id) => String(id).trim().toLowerCase())
@@ -955,22 +961,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     for (const tag of memberTags) {
       if (tag.is_active === false) continue;
 
-      // Permissões explícitas no array permissions da tag
-      if (Array.isArray(tag.permissions)) {
-        for (const p of tag.permissions) {
-          if (p && typeof p === "string") {
-            permsSet.add(p as Permission);
+      // Permissões explícitas da tag (array ou objeto)
+      const tagPerms = Array.isArray(tag.permissions)
+        ? tag.permissions
+        : (tag.permissions && typeof tag.permissions === "object" ? Object.values(tag.permissions) : []);
+      for (const p of tagPerms) {
+        if (p && typeof p === "string") {
+          permsSet.add(p as Permission);
+          if (p === "view_all_tickets" || p === "can_view_all_tickets") {
+            permsSet.add("view_all_tickets");
+            permsSet.add("can_view_all_tickets" as Permission);
+          }
 
-            if (p === "manage_absences" || p === "view_all_absences" || p === "request_absence") {
-              permsSet.add("view_absences");
-            }
-            if (p === "manage_warnings" || p === "view_all_warnings" || p === "create_warning" || p === "create_suspension") {
-              permsSet.add("view_warnings");
-            }
-            if (p === "create_movement" || p === "view_all_movements") {
-              permsSet.add("view_movements");
-              permsSet.add("view_stock");
-            }
+          if (p === "manage_absences" || p === "view_all_absences" || p === "request_absence") {
+            permsSet.add("view_absences");
+          }
+          if (p === "manage_warnings" || p === "view_all_warnings" || p === "create_warning" || p === "create_suspension") {
+            permsSet.add("view_warnings");
+          }
+          if (p === "create_movement" || p === "view_all_movements") {
+            permsSet.add("view_movements");
+            permsSet.add("view_stock");
           }
         }
       }
@@ -1055,6 +1066,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       if (rules.can_view_all_tickets) {
         permsSet.add("view_all_tickets");
+        permsSet.add("can_view_all_tickets" as Permission);
       }
       if (rules.can_create_announcements) {
         permsSet.add("create_announcements" as any);

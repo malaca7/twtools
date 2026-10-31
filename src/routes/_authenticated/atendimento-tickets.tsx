@@ -170,11 +170,20 @@ export function AtendimentoTicketsContent() {
   // Candidatos de identificação do usuário autenticado para conferência segura
   const myCandidateIds = useMemo(() => {
     return new Set(
-      [user?.id, profile?.id, profile?.user_id, profile?.game_id]
+      [
+        user?.id,
+        profile?.id,
+        profile?.user_id,
+        profile?.game_id,
+        (profile as any)?.passaporte,
+        profile?.discord_id,
+        profile?.discord_email,
+        user?.email,
+      ]
         .filter(Boolean)
         .map((id) => String(id).trim().toLowerCase())
     );
-  }, [user?.id, profile?.id, profile?.user_id, profile?.game_id]);
+  }, [user?.id, user?.email, profile?.id, profile?.user_id, profile?.game_id, (profile as any)?.passaporte, profile?.discord_id, profile?.discord_email]);
 
   const checkIsMyTicket = useCallback(
     (t: Ticket) => {
@@ -197,14 +206,14 @@ export function AtendimentoTicketsContent() {
   const stats = useMemo(() => {
     const list = canViewAll ? tickets : tickets.filter(checkIsMyTicket);
     const total = list.length;
-    const assignedMe = list.filter((t) => t.assigned_to_id === user?.id && t.status !== "fechado").length;
+    const assignedMe = list.filter((t) => myCandidateIds.has(String(t.assigned_to_id || "").trim().toLowerCase()) && t.status !== "fechado").length;
     const unassigned = list.filter((t) => !t.assigned_to_id && t.status !== "fechado").length;
     const urgent = list.filter((t) => (t.priority === "urgente" || t.priority === "alta") && t.status !== "fechado").length;
     const closed = list.filter((t) => t.status === "fechado").length;
     const inProgress = list.filter((t) => t.status === "em_atendimento").length;
 
     return { total, assignedMe, unassigned, urgent, closed, inProgress };
-  }, [tickets, user?.id, canViewAll, checkIsMyTicket]);
+  }, [tickets, canViewAll, checkIsMyTicket, myCandidateIds]);
 
   // Filtragem dos tickets para a lista de atendimento
   const filteredTickets = useMemo(() => {
@@ -216,7 +225,7 @@ export function AtendimentoTicketsContent() {
 
       // 1. Tab filtro
       if (activeTab === "assigned_me") {
-        if (t.assigned_to_id !== user?.id || t.status === "fechado") return false;
+        if (!myCandidateIds.has(String(t.assigned_to_id || "").trim().toLowerCase()) || t.status === "fechado") return false;
       } else if (activeTab === "unassigned") {
         if (Boolean(t.assigned_to_id) || t.status === "fechado") return false;
       } else if (activeTab === "urgent") {
@@ -258,7 +267,7 @@ export function AtendimentoTicketsContent() {
 
       return true;
     });
-  }, [tickets, activeTab, user?.id, searchTerm, filterCategory, filterPriority]);
+  }, [tickets, activeTab, canViewAll, checkIsMyTicket, myCandidateIds, searchTerm, filterCategory, filterPriority]);
 
   const selectedTicket = useMemo(() => {
     if (!selectedTicketId) return null;

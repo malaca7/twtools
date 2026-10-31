@@ -1430,8 +1430,12 @@ export function satisfiesPermission(
   }
 
   // Visualizar Todos os Chamados na Fila Geral (Estrita: requer view_all_tickets ou manage_tickets)
-  if (permission === "view_all_tickets") {
-    if (list.includes("view_all_tickets") || list.includes("manage_tickets")) {
+  if (permission === "view_all_tickets" || permission === "can_view_all_tickets") {
+    if (
+      list.includes("view_all_tickets") ||
+      list.includes("can_view_all_tickets") ||
+      list.includes("manage_tickets")
+    ) {
       return true;
     }
   }
@@ -2899,9 +2903,10 @@ export function can(
     }
   }
 
-  if (permission === "view_all_tickets") {
+  if (permission === "view_all_tickets" || permission === "can_view_all_tickets") {
     if (
       rolePerms.includes("view_all_tickets") ||
+      rolePerms.includes("can_view_all_tickets") ||
       rolePerms.includes("manage_tickets")
     ) {
       return true;

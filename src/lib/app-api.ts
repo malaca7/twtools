@@ -4907,9 +4907,42 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
           const customMap = await getRolePermissions();
           const ceoPerms = customMap?.["ceo"] || (DEFAULT_CEO_PERMISSIONS as Permission[]);
 
+          let simTagPerms: Permission[] = [];
+          try {
+            const [allTags, allAssignments] = await Promise.all([
+              getMemberTags(),
+              getMemberTagAssignments(),
+            ]);
+            const simCandIds = new Set(
+              [sim.id, sim.user_id, sim.discord_id, sim.game_id, sim.discord_email]
+                .filter(Boolean)
+                .map((x: any) => String(x).trim().toLowerCase())
+            );
+            const myTagIds = new Set<string>();
+            for (const a of allAssignments) {
+              const mId = String(a.member_id || "").trim().toLowerCase();
+              const uId = String((a as any).user_id || "").trim().toLowerCase();
+              if ((mId && simCandIds.has(mId)) || (uId && simCandIds.has(uId))) {
+                myTagIds.add(String(a.tag_id).trim().toLowerCase());
+              }
+            }
+            const matchingTags = allTags.filter((t) => myTagIds.has(String(t.id).trim().toLowerCase()) || myTagIds.has(String(t.name || "").trim().toLowerCase()));
+            matchingTags.forEach((t) => {
+              const tagPerms = Array.isArray(t.permissions)
+                ? t.permissions
+                : (t.permissions && typeof t.permissions === "object" ? Object.values(t.permissions) : []);
+              tagPerms.forEach((p: any) => { if (p) simTagPerms.push(p as Permission); });
+              if (t.rules?.can_view_all_tickets) {
+                simTagPerms.push("view_all_tickets");
+                simTagPerms.push("can_view_all_tickets" as Permission);
+              }
+            });
+          } catch {}
+
           const checkSimPerm = (perm: Permission) => {
             if (isSuper) return true;
             if (can(simLevel, perm, customMap)) return true;
+            if (satisfiesPermission(simTagPerms, perm)) return true;
             if (isCeo && satisfiesPermission(ceoPerms, perm)) return true;
             return false;
           };
@@ -4925,7 +4958,8 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
           const canReopen = isSuper || canManage || checkSimPerm("reopen_tickets") || checkSimPerm("reopen_ticket" as Permission);
           const canDelete = isSuper || canManage || checkSimPerm("delete_tickets") || checkSimPerm("delete_ticket" as Permission);
           const canManageMembers = isSuper || canManage || checkSimPerm("manage_ticket_members");
-          const canView = isSuper || checkSimPerm("view_tickets") || checkSimPerm("atendimento_tickets.view" as Permission) || checkSimPerm("view_atendimento_tickets" as Permission);
+          const canInternalNotes = isSuper || canManage || checkSimPerm("internal_notes_tickets") || isCeo;
+          const canView = isSuper || canViewAll || checkSimPerm("view_tickets") || checkSimPerm("atendimento_tickets.view" as Permission) || checkSimPerm("view_atendimento_tickets" as Permission);
 
           return {
             user: { id: sim.user_id || sim.id, email: sim.discord_email || null },
@@ -4964,9 +4998,42 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
           const customMap = await getRolePermissions();
           const ceoPerms = customMap?.["ceo"] || (DEFAULT_CEO_PERMISSIONS as Permission[]);
 
+          let devTagPerms: Permission[] = [];
+          try {
+            const [allTags, allAssignments] = await Promise.all([
+              getMemberTags(),
+              getMemberTagAssignments(),
+            ]);
+            const devCandIds = new Set(
+              [dev.id, dev.user_id, dev.discord_id, dev.game_id, dev.discord_email]
+                .filter(Boolean)
+                .map((x: any) => String(x).trim().toLowerCase())
+            );
+            const myTagIds = new Set<string>();
+            for (const a of allAssignments) {
+              const mId = String(a.member_id || "").trim().toLowerCase();
+              const uId = String((a as any).user_id || "").trim().toLowerCase();
+              if ((mId && devCandIds.has(mId)) || (uId && devCandIds.has(uId))) {
+                myTagIds.add(String(a.tag_id).trim().toLowerCase());
+              }
+            }
+            const matchingTags = allTags.filter((t) => myTagIds.has(String(t.id).trim().toLowerCase()) || myTagIds.has(String(t.name || "").trim().toLowerCase()));
+            matchingTags.forEach((t) => {
+              const tagPerms = Array.isArray(t.permissions)
+                ? t.permissions
+                : (t.permissions && typeof t.permissions === "object" ? Object.values(t.permissions) : []);
+              tagPerms.forEach((p: any) => { if (p) devTagPerms.push(p as Permission); });
+              if (t.rules?.can_view_all_tickets) {
+                devTagPerms.push("view_all_tickets");
+                devTagPerms.push("can_view_all_tickets" as Permission);
+              }
+            });
+          } catch {}
+
           const checkDevPerm = (perm: Permission) => {
             if (isSuper) return true;
             if (can(devLevel, perm, customMap)) return true;
+            if (satisfiesPermission(devTagPerms, perm)) return true;
             if (isCeo && satisfiesPermission(ceoPerms, perm)) return true;
             return false;
           };
@@ -4983,7 +5050,7 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
           const canDelete = isSuper || canManage || checkDevPerm("delete_tickets") || checkDevPerm("delete_ticket" as Permission);
           const canManageMembers = isSuper || canManage || checkDevPerm("manage_ticket_members");
           const canInternalNotes = isSuper || canManage || checkDevPerm("internal_notes_tickets") || isCeo;
-          const canView = isSuper || checkDevPerm("view_tickets") || checkDevPerm("atendimento_tickets.view" as Permission) || checkDevPerm("view_atendimento_tickets" as Permission);
+          const canView = isSuper || canViewAll || checkDevPerm("view_tickets") || checkDevPerm("atendimento_tickets.view" as Permission) || checkDevPerm("view_atendimento_tickets" as Permission);
 
           return {
             user: { id: dev.user_id, email: dev.discord_email || null },
@@ -5074,6 +5141,12 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
         (p as any)?.passaporte,
         discordId,
         discordEmail,
+        p?.discord_id,
+        p?.discord_email,
+        session?.user?.email,
+        p?.discord_username,
+        p?.nickname,
+        p?.nome,
       ]
         .filter(Boolean)
         .map((id) => String(id).trim().toLowerCase())
@@ -5118,8 +5191,11 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
     if (t.is_active === false) return false;
     if (!isDevUser && (t.rules?.is_blocked || t.rules?.block_operations)) return false;
     const rules = parseMemberTagRules(t.rules);
+    const tagPerms = Array.isArray(t.permissions)
+      ? t.permissions
+      : (t.permissions && typeof t.permissions === "object" ? Object.values(t.permissions) : []);
     const hasRule = Boolean(rules.can_view_all_tickets);
-    const hasPerm = Array.isArray(t.permissions) && t.permissions.includes("view_all_tickets");
+    const hasPerm = tagPerms.includes("view_all_tickets") || tagPerms.includes("can_view_all_tickets");
     return hasRule || hasPerm;
   });
 
@@ -5129,14 +5205,16 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
     if (t.is_active === false) return;
     if (!isDevUser && (t.rules?.is_blocked || t.rules?.block_operations)) return;
     const rules = parseMemberTagRules(t.rules);
-    if (rules.can_view_all_tickets || (Array.isArray(t.permissions) && t.permissions.includes("view_all_tickets"))) {
+    const tagPerms = Array.isArray(t.permissions)
+      ? t.permissions
+      : (t.permissions && typeof t.permissions === "object" ? Object.values(t.permissions) : []);
+    if (rules.can_view_all_tickets || tagPerms.includes("view_all_tickets") || tagPerms.includes("can_view_all_tickets")) {
       tagPermsList.push("view_all_tickets");
+      tagPermsList.push("can_view_all_tickets" as Permission);
     }
-    if (Array.isArray(t.permissions)) {
-      t.permissions.forEach((perm: string) => {
-        if (perm) tagPermsList.push(perm as Permission);
-      });
-    }
+    tagPerms.forEach((perm: string) => {
+      if (perm) tagPermsList.push(perm as Permission);
+    });
   });
 
   // 6. Matriz de permissões dos cargos do banco de dados
@@ -5204,7 +5282,7 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
   const canDelete = isSuperUser || canManage || checkPerm("delete_tickets") || checkPerm("delete_ticket" as Permission);
   const canManageMembers = isSuperUser || canManage || checkPerm("manage_ticket_members");
   const canInternalNotes = isSuperUser || canManage || checkPerm("internal_notes_tickets");
-  const canView = isSuperUser || checkPerm("view_tickets") || checkPerm("atendimento_tickets.view" as Permission) || checkPerm("view_atendimento_tickets" as Permission);
+  const canView = isSuperUser || canViewAll || checkPerm("view_tickets") || checkPerm("atendimento_tickets.view" as Permission) || checkPerm("view_atendimento_tickets" as Permission);
 
   const nome = p?.nome || "Membro";
   const nickname = p?.nickname || null;
