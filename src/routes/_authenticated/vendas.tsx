@@ -55,12 +55,13 @@ export const Route = createFileRoute("/_authenticated/vendas")({
 });
 
 export function VendasPage() {
-  const { hasPermission, isDevMode, isCeoMode } = useAuth();
+  const { profile, hasPermission, isDevMode, isCeoMode, tagRules } = useAuth();
   const queryClient = useQueryClient();
   const prefix = isDevMode ? "/dev" : isCeoMode ? "/ceo" : "";
   const canView = hasPermission("view_sales") || hasPermission("sales.view") || hasPermission("sales.history") || hasPermission("create_sale") || hasPermission("sales.create");
-  const canCreate = hasPermission("create_sale") || hasPermission("sales.create");
-  const canReverse = hasPermission("reverse_sale") || hasPermission("sales.cancel") || hasPermission("sales.edit") || hasPermission("delete_sale");
+  const canCreate = (hasPermission("create_sale") || hasPermission("sales.create")) && (isDevMode || isCeoMode || tagRules?.can_sell !== false);
+  const canReverse = (hasPermission("reverse_sale") || hasPermission("sales.cancel") || hasPermission("sales.edit") || hasPermission("delete_sale")) && (isDevMode || isCeoMode || tagRules?.can_reverse_sales !== false);
+  const canViewAll = hasPermission("view_all_sales") || isCeoMode || isDevMode || tagRules?.can_view_all_sales === true;
 
   const { data: sales = [], isLoading: loadingSales } = useSales();
   const { data: products = [] } = useProducts();
@@ -100,6 +101,9 @@ export function VendasPage() {
   // Filtered sales
   const filteredSales = (sales || []).filter((s) => {
     if (!s) return false;
+    if (!canViewAll && profile?.id && s.seller_id !== profile.id && s.created_by !== profile.id) {
+      return false;
+    }
     const pName = (productName(products, s.product_id) || "").toLowerCase();
     const seller = (nameOf(members, s.seller_id) || "").toLowerCase();
     const buyer = (s.buyer_name || "").toLowerCase();
@@ -112,8 +116,11 @@ export function VendasPage() {
     return matchesSearch && matchesPayment && matchesStatus;
   });
 
-  // Calculate statistics
-  const activeSales = (sales || []).filter((s) => s && s.status === "concluida");
+  // Calculate statistics (baseado nas vendas acessíveis pelo integrante)
+  const accessibleSales = canViewAll
+    ? (sales || [])
+    : (sales || []).filter((s) => s && profile?.id && (s.seller_id === profile.id || s.created_by === profile.id));
+  const activeSales = accessibleSales.filter((s) => s && s.status === "concluida");
   const totalRevenue = activeSales.reduce((acc, s) => acc + Number(s.total_price || 0), 0);
   const totalSalesCount = activeSales.length;
   const avgTicket = totalSalesCount > 0 ? totalRevenue / totalSalesCount : 0;

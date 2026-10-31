@@ -73,10 +73,12 @@ export function FundoCaixaPage() {
 }
 
 function FundoCaixaContent() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, isDevMode, isCeoMode, tagRules } = useAuth();
   const queryClient = useQueryClient();
 
-  const canManage = hasPermission("manage_cash_fund");
+  const canDeposit = hasPermission("manage_cash_fund") && (isDevMode || isCeoMode || tagRules?.can_deposit_cash_fund !== false);
+  const canWithdraw = hasPermission("manage_cash_fund") && (isDevMode || isCeoMode || tagRules?.can_withdraw_cash_fund !== false);
+  const canManage = canDeposit || canWithdraw;
   const canReverse = hasPermission("reverse_cash_fund");
   const canDelete = hasPermission("delete_cash_movement");
 
@@ -105,6 +107,12 @@ function FundoCaixaContent() {
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!canManage) throw new Error("Você não possui permissão para lançar movimentações no fundo de caixa.");
+      if (type === "entrada" && !canDeposit) {
+        throw new Error("Sua tag não possui permissão para realizar aportes/depósitos no fundo de caixa.");
+      }
+      if (type === "saida" && !canWithdraw) {
+        throw new Error("Sua tag não possui permissão para realizar saques/retiradas no fundo de caixa.");
+      }
       const val = parseCurrencyInput(amount);
       if (!Number.isFinite(val) || val <= 0) {
         throw new Error("Informe um valor válido e maior que zero.");
@@ -590,6 +598,7 @@ function FundoCaixaContent() {
                 <Button
                   type="button"
                   variant={type === "entrada" ? "default" : "outline"}
+                  disabled={!canDeposit}
                   className={
                     type === "entrada"
                       ? "bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
@@ -602,6 +611,7 @@ function FundoCaixaContent() {
                 <Button
                   type="button"
                   variant={type === "saida" ? "default" : "outline"}
+                  disabled={!canWithdraw}
                   className={
                     type === "saida"
                       ? "bg-rose-600 hover:bg-rose-500 text-white font-bold"

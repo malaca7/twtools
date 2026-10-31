@@ -56,6 +56,7 @@ import {
   ArrowUpDown,
   ChevronsUp,
   ChevronsDown,
+  ChevronUp,
   ExternalLink,
   Link2,
   Unlink,
@@ -125,6 +126,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -568,6 +577,35 @@ export function CeoGerenciarTagsPage() {
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const autoSaveTimerRef = React.useRef<NodeJS.Timeout | null>(null);
   const debounceDiscountRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Scroll ref e detecção de topo/final no modal de permissões para balão flutuante
+  const permModalBodyRef = React.useRef<HTMLDivElement>(null);
+  const [isModalAtTop, setIsModalAtTop] = useState(true);
+
+  const handleModalScroll = useCallback(() => {
+    if (!permModalBodyRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = permModalBodyRef.current;
+    const isNearBottom = clientHeight + scrollTop >= scrollHeight - 60;
+    setIsModalAtTop(!isNearBottom && scrollTop < 200);
+  }, []);
+
+  const scrollToModalBottom = useCallback(() => {
+    if (permModalBodyRef.current) {
+      permModalBodyRef.current.scrollTo({
+        top: permModalBodyRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+  }, []);
+
+  const scrollToModalTop = useCallback(() => {
+    if (permModalBodyRef.current) {
+      permModalBodyRef.current.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    }
+  }, []);
 
   // Métricas
   const metrics = useMemo(() => {
@@ -1683,42 +1721,6 @@ export function CeoGerenciarTagsPage() {
     let validPerms = rawPerms.filter((p) => allPlatformPermissions.includes(p));
     const parsedRules = parseMemberTagRules(tag.rules);
 
-    // Sincronização inicial bidirecional de permissões e regras da tag
-    if (parsedRules.can_view_all_tickets && !validPerms.includes("view_all_tickets")) {
-      validPerms.push("view_all_tickets");
-    }
-    if (validPerms.includes("view_all_tickets")) {
-      parsedRules.can_view_all_tickets = true;
-    }
-
-    if (parsedRules.can_view_sensitive_data && !validPerms.includes("view_sensitive_data")) {
-      validPerms.push("view_sensitive_data");
-    }
-    if (validPerms.includes("view_sensitive_data")) {
-      parsedRules.can_view_sensitive_data = true;
-    }
-
-    if (parsedRules.can_create_announcements && !validPerms.includes("create_announcements" as any)) {
-      validPerms.push("create_announcements" as any, "manage_announcements");
-    }
-    if (validPerms.includes("create_announcements" as any) || validPerms.includes("manage_announcements")) {
-      parsedRules.can_create_announcements = true;
-    }
-
-    if (parsedRules.can_view_all_sales && !validPerms.includes("view_all_sales")) {
-      validPerms.push("view_all_sales");
-    }
-    if (validPerms.includes("view_all_sales")) {
-      parsedRules.can_view_all_sales = true;
-    }
-
-    if (parsedRules.can_reverse_sales && !validPerms.includes("reverse_sale")) {
-      validPerms.push("reverse_sale", "sales.cancel");
-    }
-    if (validPerms.includes("reverse_sale") || validPerms.includes("sales.cancel")) {
-      parsedRules.can_reverse_sales = true;
-    }
-
     parsedRules.can_access_ceo = false;
     parsedRules.is_ceo = false;
     validPerms = validPerms.filter((p) => p !== "view_ceo" && p !== "view_ceo_dashboard");
@@ -1729,6 +1731,7 @@ export function CeoGerenciarTagsPage() {
     setPermCategoryFilter("all");
     setPermSubTab(canManagePerms || !canManageRules ? "permissions" : "rules");
     setAutoSaveStatus("idle");
+    setIsModalAtTop(true);
   };
 
   const autoSavePermsAndRules = async (newPerms: Permission[], newRules: MemberTagRules) => {
@@ -1736,22 +1739,21 @@ export function CeoGerenciarTagsPage() {
     setAutoSaveStatus("saving");
     try {
       let permsToSave = newPerms;
-      let rulesToSave = newRules;
-      if (!isDevMember && tagForPerms.permissions) {
-        const existingRawPerms = Array.isArray(tagForPerms.permissions) ? tagForPerms.permissions : [];
-        const existingRestricted = existingRawPerms.filter((p) => restrictedPermissionKeys.has(p));
-        permsToSave = Array.from(new Set([...permsToSave, ...existingRestricted]));
+      let rulesToSave = { ...newRules };
+      if (!isDevMember) {
+        if (tagForPerms.permissions) {
+          const existingRawPerms = Array.isArray(tagForPerms.permissions) ? tagForPerms.permissions : [];
+          const existingRestricted = existingRawPerms.filter((p) => restrictedPermissionKeys.has(p));
+          permsToSave = Array.from(new Set([...permsToSave, ...existingRestricted]));
+        }
 
         const existingRules = parseMemberTagRules(tagForPerms.rules);
         rulesToSave = {
-          ...existingRules,
-          ...newRules,
-          block_login: existingRules.block_login,
-          can_manage_members: existingRules.can_manage_members,
-          can_view_sensitive_data: existingRules.can_view_sensitive_data,
-          can_manage_escalas: existingRules.can_manage_escalas,
-          can_access_ceo: false,
-          is_ceo: false,
+          ...rulesToSave,
+          can_access_ceo: Boolean(existingRules.can_access_ceo),
+          is_ceo: Boolean(existingRules.is_ceo),
+          can_access_dev: Boolean(existingRules.can_access_dev),
+          is_dev_test: Boolean(existingRules.is_dev_test),
         };
       }
 
@@ -1762,6 +1764,10 @@ export function CeoGerenciarTagsPage() {
         rules: safeRules,
         silent: true,
       });
+
+      // Atualiza o estado da tag no modal para evitar snapshot defasado
+      setTagForPerms((prev) => (prev ? { ...prev, permissions: permsToSave, rules: safeRules } : null));
+
       setAutoSaveStatus("saved");
       if (typeof window !== "undefined") {
         window.dispatchEvent(
@@ -3514,7 +3520,7 @@ export function CeoGerenciarTagsPage() {
           </div>
 
           {/* CORPO DO MODAL */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+          <div ref={permModalBodyRef} onScroll={handleModalScroll} className="flex-1 overflow-y-auto p-4 sm:p-5 pb-24">
             {permSubTab === "permissions" && (
               <div className="space-y-6">
                 {!canManagePerms && (
@@ -4535,6 +4541,196 @@ export function CeoGerenciarTagsPage() {
               </div>
             )}
           </div>
+
+          {/* BALÃO FLUTUANTE DE NAVEGAÇÃO E FILTROS RÁPIDOS (ESTILO DEV.PERMISSOES) */}
+          {permSubTab === "permissions" && tagForPerms && (
+            <div className="absolute z-[40] pointer-events-none bottom-16 sm:bottom-18 left-0 right-0 flex justify-center items-center px-2 sm:px-4 max-w-full">
+              <div
+                className={cn(
+                  "surface-card floating-widget pointer-events-auto",
+                  "flex items-center gap-1.5 sm:gap-2.5 p-1.5 sm:p-2 rounded-2xl bg-card/95 backdrop-blur-2xl",
+                  "shadow-[0_20px_50px_rgba(0,0,0,0.75)] ring-1 ring-border/60 max-w-[calc(100vw-2rem)] sm:max-w-fit",
+                  "border transition-all duration-200 ease-out animate-in fade-in zoom-in-95"
+                )}
+                style={{
+                  borderColor: `${tagForPerms.color || "#10b981"}70`,
+                  boxShadow: `0 20px 50px rgba(0,0,0,0.75), 0 0 30px ${tagForPerms.color || "#10b981"}25`,
+                }}
+              >
+                {/* Tag Badge & Contador de Permissões */}
+                <div className="flex items-center gap-2 bg-secondary/40 px-2.5 py-1.5 rounded-xl border border-border/50 shrink-0">
+                  <MemberTagBadge tag={tagForPerms} size="sm" showIcon className="font-bold text-xs" />
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-mono px-1.5 py-0 font-bold hidden sm:inline-flex"
+                    style={{
+                      borderColor: `${tagForPerms.color || "#10b981"}50`,
+                      color: tagForPerms.color || "#10b981",
+                      backgroundColor: `${tagForPerms.color || "#10b981"}15`,
+                    }}
+                  >
+                    {isDevMember
+                      ? activePerms.length
+                      : activePerms.filter((p) => visiblePlatformPermissions.includes(p)).length}{" "}
+                    ativas
+                  </Badge>
+                </div>
+
+                {/* Divisor vertical */}
+                <div className="h-6 w-px bg-border/60 shrink-0" />
+
+                {/* Filtro de Categorias no Balão Flutuante */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className={cn(
+                        "h-8 sm:h-8.5 px-2.5 sm:px-3 text-xs font-bold gap-1.5 rounded-xl border-border/80 hover:bg-secondary/80 cursor-pointer shadow-xs transition-all text-foreground shrink-0",
+                        permCategoryFilter !== "all" && "border-primary/50 shadow-sm"
+                      )}
+                      style={
+                        permCategoryFilter !== "all"
+                          ? {
+                              borderColor: `${tagForPerms.color || "#10b981"}70`,
+                              backgroundColor: `${tagForPerms.color || "#10b981"}15`,
+                              color: tagForPerms.color || "#10b981",
+                            }
+                          : undefined
+                      }
+                      title="Filtrar por categoria de permissões"
+                    >
+                      <Filter
+                        className="h-3.5 w-3.5 shrink-0"
+                        style={{
+                          color: permCategoryFilter !== "all" ? tagForPerms.color || "#10b981" : undefined,
+                        }}
+                      />
+                      <span className="max-w-[80px] sm:max-w-[130px] truncate text-left">
+                        {permCategoryFilter === "all" ? "Categorias" : permCategoryFilter}
+                      </span>
+                      <ChevronUp className="h-3 w-3 opacity-60 shrink-0" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    side="top"
+                    align="center"
+                    sideOffset={10}
+                    className="w-56 max-h-[300px] overflow-y-auto z-[10000] p-1.5 rounded-xl border-border/80 shadow-2xl bg-card/95 backdrop-blur-xl"
+                  >
+                    <DropdownMenuLabel className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-1">
+                      Categorias de Módulos
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator className="my-1" />
+                    <DropdownMenuItem
+                      onClick={() => setPermCategoryFilter("all")}
+                      className={cn(
+                        "text-xs font-medium cursor-pointer rounded-lg px-2 py-1.5 flex items-center justify-between",
+                        permCategoryFilter === "all" && "font-bold bg-secondary/80 text-foreground"
+                      )}
+                    >
+                      <span>Todas as Categorias</span>
+                      {permCategoryFilter === "all" && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                    </DropdownMenuItem>
+                    {groupedPageCards.map((g) => {
+                      const isSelected = permCategoryFilter === g.category;
+                      return (
+                        <DropdownMenuItem
+                          key={`float-cat-${g.category}`}
+                          onClick={() => setPermCategoryFilter(g.category)}
+                          className={cn(
+                            "text-xs font-medium cursor-pointer rounded-lg px-2 py-1.5 flex items-center justify-between",
+                            isSelected && "font-bold bg-secondary/80 text-foreground"
+                          )}
+                        >
+                          <span className="truncate pr-2">{g.category}</span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              ({g.cards.length})
+                            </span>
+                            {isSelected && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                          </div>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Divisor vertical */}
+                <div className="h-6 w-px bg-border/60 shrink-0" />
+
+                {/* Presets Rápidos */}
+                {canManagePerms && (
+                  <div className="hidden md:flex items-center gap-1 bg-secondary/40 p-1 rounded-xl border border-border/50">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs px-2 font-bold text-emerald-400 hover:bg-emerald-500/10 rounded-lg cursor-pointer"
+                      onClick={setSalesPermissions}
+                      title="Predefinição rápida: Vendas Comerciais"
+                    >
+                      <ShoppingCart className="h-3 w-3 mr-1" />
+                      Vendas
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs px-2 font-bold text-amber-400 hover:bg-amber-500/10 rounded-lg cursor-pointer"
+                      onClick={setProductionPermissions}
+                      title="Predefinição rápida: Produção & Armazém"
+                    >
+                      <Factory className="h-3 w-3 mr-1" />
+                      Produção
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs px-2 text-rose-400 hover:bg-rose-500/10 rounded-lg cursor-pointer"
+                      onClick={clearAllPermissions}
+                      title="Limpar permissões"
+                    >
+                      Limpar
+                    </Button>
+                  </div>
+                )}
+
+                {canManagePerms && <div className="hidden md:block h-6 w-px bg-border/60 shrink-0" />}
+
+                {/* Botão de Rolagem: Ir para o Final / Ir para o Início */}
+                {isModalAtTop ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={scrollToModalBottom}
+                    className="h-8 sm:h-8.5 px-2.5 sm:px-3 text-xs font-bold gap-1.5 rounded-xl border-border/80 hover:bg-secondary/80 cursor-pointer shadow-xs transition-all text-foreground hover:border-primary/50 shrink-0"
+                    title="Ir para o final da lista de permissões"
+                  >
+                    <ChevronsDown className="h-3.5 w-3.5 text-primary animate-bounce shrink-0" />
+                    <span className="hidden sm:inline">Ir para o final</span>
+                    <span className="sm:hidden">Final</span>
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={scrollToModalTop}
+                    className="h-8 sm:h-8.5 px-2.5 sm:px-3 text-xs font-bold gap-1.5 rounded-xl border-border/80 hover:bg-secondary/80 cursor-pointer shadow-xs transition-all text-foreground hover:border-primary/50 shrink-0"
+                    title="Voltar ao início da lista de permissões"
+                  >
+                    <ChevronsUp className="h-3.5 w-3.5 text-primary animate-bounce shrink-0" />
+                    <span className="hidden sm:inline">Ir para o início</span>
+                    <span className="sm:hidden">Início</span>
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* RODAPÉ DO MODAL */}
           <DialogFooter className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 sm:p-4 border-t border-border/60 bg-secondary/15">

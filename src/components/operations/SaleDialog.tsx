@@ -50,7 +50,7 @@ export type SaleItemState = {
 };
 
 export function SaleDialog({ trigger }: { trigger: ReactNode }) {
-  const { hasPermission } = useAuth();
+  const { hasPermission, isDevMode, isCeoMode, tagRules } = useAuth();
   const [open, setOpen] = useState(false);
 
   // Múltiplos produtos na venda
@@ -114,6 +114,10 @@ export function SaleDialog({ trigger }: { trigger: ReactNode }) {
   const discountValue = Math.max(0, parseCurrencyInput(discountInput));
   const finalTotal = Math.max(0, subtotal - discountValue);
 
+  const maxDiscountPct = isDevMode || isCeoMode ? 100 : (tagRules?.max_discount_pct ?? 100);
+  const maxDiscountAllowed = subtotal > 0 ? (subtotal * maxDiscountPct) / 100 : 0;
+  const isDiscountOverLimit = discountValue > maxDiscountAllowed + 0.01;
+
   // Validação de estoque e itens
   const hasInsufficientStock = items.some((item) => {
     if (!item.productId) return false;
@@ -132,8 +136,11 @@ export function SaleDialog({ trigger }: { trigger: ReactNode }) {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!hasPermission("create_sale")) {
+      if (!hasPermission("create_sale") || (!isDevMode && !isCeoMode && tagRules?.can_sell === false)) {
         throw new Error("Você não possui permissão para lançar vendas.");
+      }
+      if (isDiscountOverLimit) {
+        throw new Error(`O desconto máximo permitido para sua tag é de ${maxDiscountPct}% (${currency(maxDiscountAllowed)}).`);
       }
       if (!buyer.trim()) {
         throw new Error("Informe o nome do comprador.");
@@ -376,8 +383,17 @@ export function SaleDialog({ trigger }: { trigger: ReactNode }) {
                 <span>Desconto no Valor (R$)</span>
               </Label>
               {discountValue > 0 && (
-                <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/30">
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-[10px] font-mono",
+                    isDiscountOverLimit
+                      ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                      : "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                  )}
+                >
                   -{currency(discountValue)}
+                  {maxDiscountPct < 100 && ` (Máx: ${maxDiscountPct}%)`}
                 </Badge>
               )}
             </div>
@@ -386,8 +402,18 @@ export function SaleDialog({ trigger }: { trigger: ReactNode }) {
               placeholder="R$ 0,00 (opcional)"
               value={discountInput}
               onChange={(e) => setDiscountInput(formatCurrencyInput(e.target.value))}
-              className="h-9 text-xs font-mono font-bold text-amber-400"
+              className={cn(
+                "h-9 text-xs font-mono font-bold",
+                isDiscountOverLimit
+                  ? "border-rose-500/80 text-rose-400 focus-visible:ring-rose-500"
+                  : "text-amber-400"
+              )}
             />
+            {isDiscountOverLimit && (
+              <p className="text-[11px] text-rose-400 font-medium">
+                Desconto excede o limite máximo permitido para sua tag ({maxDiscountPct}% = {currency(maxDiscountAllowed)}).
+              </p>
+            )}
           </div>
 
           {/* OBSERVAÇÕES */}
@@ -434,7 +460,7 @@ export function SaleDialog({ trigger }: { trigger: ReactNode }) {
           <Button
             type="button"
             size="sm"
-            disabled={mutation.isPending || hasInsufficientStock || hasInvalidItems || !buyer.trim()}
+            disabled={mutation.isPending || hasInsufficientStock || hasInvalidItems || !buyer.trim() || isDiscountOverLimit}
             onClick={() => mutation.mutate()}
             className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs gap-1.5"
           >
