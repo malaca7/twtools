@@ -4925,8 +4925,7 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
           const canReopen = isSuper || canManage || checkSimPerm("reopen_tickets") || checkSimPerm("reopen_ticket" as Permission);
           const canDelete = isSuper || canManage || checkSimPerm("delete_tickets") || checkSimPerm("delete_ticket" as Permission);
           const canManageMembers = isSuper || canManage || checkSimPerm("manage_ticket_members");
-          const canInternalNotes = isSuper || canManage || checkSimPerm("internal_notes_tickets") || isCeo;
-          const canView = isSuper || canManage || canViewAll || canCreate || canReply || checkSimPerm("view_tickets");
+          const canView = isSuper || checkSimPerm("view_tickets") || checkSimPerm("atendimento_tickets.view" as Permission) || checkSimPerm("view_atendimento_tickets" as Permission);
 
           return {
             user: { id: sim.user_id || sim.id, email: sim.discord_email || null },
@@ -4984,7 +4983,7 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
           const canDelete = isSuper || canManage || checkDevPerm("delete_tickets") || checkDevPerm("delete_ticket" as Permission);
           const canManageMembers = isSuper || canManage || checkDevPerm("manage_ticket_members");
           const canInternalNotes = isSuper || canManage || checkDevPerm("internal_notes_tickets") || isCeo;
-          const canView = isSuper || canManage || canViewAll || canCreate || canReply || checkDevPerm("view_tickets");
+          const canView = isSuper || checkDevPerm("view_tickets") || checkDevPerm("atendimento_tickets.view" as Permission) || checkDevPerm("view_atendimento_tickets" as Permission);
 
           return {
             user: { id: dev.user_id, email: dev.discord_email || null },
@@ -5132,9 +5131,6 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
     const rules = parseMemberTagRules(t.rules);
     if (rules.can_view_all_tickets || (Array.isArray(t.permissions) && t.permissions.includes("view_all_tickets"))) {
       tagPermsList.push("view_all_tickets");
-      tagPermsList.push("view_tickets");
-      tagPermsList.push("atendimento_tickets.view" as Permission);
-      tagPermsList.push("view_atendimento_tickets" as Permission);
     }
     if (Array.isArray(t.permissions)) {
       t.permissions.forEach((perm: string) => {
@@ -5208,7 +5204,7 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
   const canDelete = isSuperUser || canManage || checkPerm("delete_tickets") || checkPerm("delete_ticket" as Permission);
   const canManageMembers = isSuperUser || canManage || checkPerm("manage_ticket_members");
   const canInternalNotes = isSuperUser || canManage || checkPerm("internal_notes_tickets");
-  const canView = isSuperUser || canManage || canViewAll || canCreate || canReply || checkPerm("view_tickets") || checkPerm("atendimento_tickets.view" as Permission) || checkPerm("view_atendimento_tickets" as Permission);
+  const canView = isSuperUser || checkPerm("view_tickets") || checkPerm("atendimento_tickets.view" as Permission) || checkPerm("view_atendimento_tickets" as Permission);
 
   const nome = p?.nome || "Membro";
   const nickname = p?.nickname || null;
@@ -5246,6 +5242,7 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
 export async function getTickets(): Promise<Ticket[]> {
   const auth = await getEffectiveTicketAuth();
   if (!auth) return [];
+  if (!auth.canView) return [];
 
   const rawTickets = await fetchAllRawTickets();
 

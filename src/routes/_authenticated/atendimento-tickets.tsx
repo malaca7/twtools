@@ -82,8 +82,6 @@ export function AtendimentoTicketsPage() {
   const canAccess =
     hasPermission("atendimento_tickets.view" as Permission) ||
     hasPermission("view_atendimento_tickets" as Permission) ||
-    hasPermission("view_all_tickets") ||
-    hasPermission("manage_tickets") ||
     isDevUser;
 
   if (loading) {
@@ -105,6 +103,17 @@ export function AtendimentoTicketsPage() {
 
 export function AtendimentoTicketsContent() {
   const { user, profile, hasPermission, isDevUser } = useAuth();
+  const canAccess =
+    hasPermission("atendimento_tickets.view" as Permission) ||
+    hasPermission("view_atendimento_tickets" as Permission) ||
+    isDevUser;
+
+  if (!canAccess) {
+    return (
+      <NoAccess message="Você não tem permissão para acessar a central de Atendimento de Tickets." />
+    );
+  }
+
   const canManage = hasPermission("manage_tickets") || isDevUser;
   const canClaim = hasPermission("claim_tickets") || hasPermission("claim_ticket" as Permission) || canManage;
   const canCreate = hasPermission("create_ticket") || canManage;

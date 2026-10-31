@@ -960,23 +960,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         for (const p of tag.permissions) {
           if (p && typeof p === "string") {
             permsSet.add(p as Permission);
-            if (p === "view_all_tickets") {
-              permsSet.add("view_tickets");
-              permsSet.add("atendimento_tickets.view" as Permission);
-              permsSet.add("view_atendimento_tickets" as Permission);
-            }
-            if (
-              p === "claim_tickets" ||
-              p === "claim_ticket" ||
-              p === "reply_tickets" ||
-              p === "reply_ticket" ||
-              p === "transfer_tickets" ||
-              p === "create_ticket" ||
-              p === "atendimento_tickets.view" ||
-              p === "view_atendimento_tickets"
-            ) {
-              permsSet.add("view_tickets");
-            }
+
             if (p === "manage_absences" || p === "view_all_absences" || p === "request_absence") {
               permsSet.add("view_absences");
             }
@@ -1070,10 +1054,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         permsSet.add("view_sensitive_data");
       }
       if (rules.can_view_all_tickets) {
-        permsSet.add("view_tickets");
         permsSet.add("view_all_tickets");
-        permsSet.add("atendimento_tickets.view" as Permission);
-        permsSet.add("view_atendimento_tickets" as Permission);
       }
       if (rules.can_create_announcements) {
         permsSet.add("create_announcements" as any);

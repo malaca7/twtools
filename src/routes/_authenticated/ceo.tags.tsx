@@ -1222,7 +1222,7 @@ export function CeoGerenciarTagsPage() {
 
     // Sincronização inicial bidirecional de permissões e regras da tag
     if (parsedRules.can_view_all_tickets && !validPerms.includes("view_all_tickets")) {
-      validPerms.push("view_all_tickets", "view_tickets");
+      validPerms.push("view_all_tickets");
     }
     if (validPerms.includes("view_all_tickets")) {
       parsedRules.can_view_all_tickets = true;
@@ -1320,11 +1320,6 @@ export function CeoGerenciarTagsPage() {
     let nextRules = { ...activeRules };
     if (perm === "view_all_tickets") {
       nextRules.can_view_all_tickets = isAdding;
-      if (isAdding) {
-        if (!nextPerms.includes("view_tickets")) nextPerms.push("view_tickets");
-        if (!nextPerms.includes("atendimento_tickets.view" as Permission)) nextPerms.push("atendimento_tickets.view" as Permission);
-        if (!nextPerms.includes("view_atendimento_tickets" as Permission)) nextPerms.push("view_atendimento_tickets" as Permission);
-      }
     }
     if (perm === "manage_members") {
       nextRules.can_manage_members = isAdding;
@@ -1401,7 +1396,7 @@ export function CeoGerenciarTagsPage() {
 
     // Sincronização view_all_tickets
     if (newRules.can_view_all_tickets && !nextPerms.includes("view_all_tickets")) {
-      nextPerms.push("view_all_tickets", "view_tickets");
+      nextPerms.push("view_all_tickets");
     } else if (!newRules.can_view_all_tickets && nextPerms.includes("view_all_tickets")) {
       nextPerms = nextPerms.filter((p) => p !== "view_all_tickets");
     }

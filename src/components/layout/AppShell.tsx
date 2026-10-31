@@ -893,17 +893,11 @@ function DynamicSidebarNavigation() {
           if (item.id === "atendimento-tickets" || item.url === "/atendimento-tickets") {
             return (
               hasPermission("atendimento_tickets.view" as Permission, "dev") ||
-              hasPermission("view_atendimento_tickets" as Permission, "dev") ||
-              hasPermission("view_all_tickets", "dev") ||
-              hasPermission("manage_tickets", "dev")
+              hasPermission("view_atendimento_tickets" as Permission, "dev")
             );
           }
           if (item.id === "tickets" || item.url === "/tickets") {
-            return (
-              hasPermission("view_tickets", "dev") ||
-              hasPermission("view_all_tickets", "dev") ||
-              hasPermission("manage_tickets", "dev")
-            );
+            return hasPermission("view_tickets", "dev");
           }
           const reqPerm = item.perm || resolveRequiredPermission(item.id, item.url);
           return reqPerm ? hasPermission(reqPerm, "dev") : true;
@@ -959,17 +953,11 @@ function DynamicSidebarNavigation() {
           if (item.id === "atendimento-tickets" || item.url === "/atendimento-tickets") {
             return (
               hasPermission("atendimento_tickets.view" as Permission, "ceo") ||
-              hasPermission("view_atendimento_tickets" as Permission, "ceo") ||
-              hasPermission("view_all_tickets", "ceo") ||
-              hasPermission("manage_tickets", "ceo")
+              hasPermission("view_atendimento_tickets" as Permission, "ceo")
             );
           }
           if (item.id === "tickets" || item.url === "/tickets") {
-            return (
-              hasPermission("view_tickets", "ceo") ||
-              hasPermission("view_all_tickets", "ceo") ||
-              hasPermission("manage_tickets", "ceo")
-            );
+            return hasPermission("view_tickets", "ceo");
           }
           const reqPerm = item.perm || resolveRequiredPermission(item.id, item.url);
           return reqPerm ? hasPermission(reqPerm, "ceo") : true;
@@ -1023,17 +1011,11 @@ function DynamicSidebarNavigation() {
       if (item.id === "atendimento-tickets" || item.url === "/atendimento-tickets") {
         return (
           hasPermission("atendimento_tickets.view" as Permission, "member") ||
-          hasPermission("view_atendimento_tickets" as Permission, "member") ||
-          hasPermission("view_all_tickets", "member") ||
-          hasPermission("manage_tickets", "member")
+          hasPermission("view_atendimento_tickets" as Permission, "member")
         );
       }
       if (item.id === "tickets" || item.url === "/tickets") {
-        return (
-          hasPermission("view_tickets", "member") ||
-          hasPermission("view_all_tickets", "member") ||
-          hasPermission("manage_tickets", "member")
-        );
+        return hasPermission("view_tickets", "member");
       }
       const requiredPerm = item.perm || resolveRequiredPermission(item.id, item.url);
       return requiredPerm ? hasPermission(requiredPerm, "member") : true;

@@ -342,9 +342,7 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       return <NoAccess message="Você não tem permissão para acessar a área de Configurações." />;
     }
   } else if (normalizedPage === "tickets") {
-    const canAccessTickets =
-      hasPermission("view_tickets", mode) ||
-      hasPermission("manage_tickets", mode);
+    const canAccessTickets = hasPermission("view_tickets", mode);
     if (!canAccessTickets) {
       return <NoAccess message="Você não tem permissão para acessar a área de Tickets / Ouvidoria." />;
     }
@@ -355,7 +353,7 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
   ) {
     const canAccessAtendimento =
       hasPermission("atendimento_tickets.view" as Permission, mode) ||
-      hasPermission("manage_tickets", mode);
+      hasPermission("view_atendimento_tickets" as Permission, mode);
     if (!canAccessAtendimento) {
       return (
         <NoAccess message="Você não tem permissão para acessar a central de Atendimento de Tickets." />
