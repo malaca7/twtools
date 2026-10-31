@@ -63,9 +63,12 @@ import {
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { PageHeader, NoAccess, EmptyState } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
 import { useUrlTab } from "@/hooks/useUrlTab";
+import { useMembers } from "@/hooks/useData";
+import { toast } from "sonner";
 import {
   useAbsences,
   useCreateAbsence,
@@ -228,6 +231,8 @@ function getAbsenceTimelineStatus(absence: MemberAbsence): {
 
 export function AusenciasPage() {
   const { user, profile, level, hasPermission } = useAuth();
+  const currentUserId = user?.id || profile?.user_id || "";
+  const { data: members = [] } = useMembers();
   const { data: absences = [], isLoading, refetch } = useAbsences();
   const createMutation = useCreateAbsence();
   const reviewMutation = useReviewAbsence();
@@ -261,11 +266,65 @@ export function AusenciasPage() {
   // Create Modal state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [formData, setFormData] = useState({
+    user_id: "",
     start_date: new Date().toISOString().slice(0, 10),
     end_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     reason: "ferias" as AbsenceReason,
     reason_details: "",
+    auto_approve: false,
   });
+  const [memberSearch, setMemberSearch] = useState("");
+
+  // Keep target user_id in sync when opening modal
+  useEffect(() => {
+    if (isCreateOpen) {
+      setFormData((prev) => ({
+        ...prev,
+        user_id: prev.user_id || currentUserId || "",
+      }));
+      setMemberSearch("");
+    }
+  }, [isCreateOpen, currentUserId]);
+
+  const sortedMembers = useMemo(() => {
+    return [...members].sort((a, b) => {
+      const nameA = (a.nickname || a.nome || "").toLowerCase();
+      const nameB = (b.nickname || b.nome || "").toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+  }, [members]);
+
+  const filteredMembersForSelect = useMemo(() => {
+    if (!memberSearch.trim()) return sortedMembers;
+    const q = memberSearch.toLowerCase();
+    return sortedMembers.filter((m) => {
+      const nameMatch = (m.nome || "").toLowerCase().includes(q);
+      const nickMatch = (m.nickname || "").toLowerCase().includes(q);
+      const idMatch = (m.game_id || "").toLowerCase().includes(q);
+      return nameMatch || nickMatch || idMatch;
+    });
+  }, [sortedMembers, memberSearch]);
+
+  const targetSelectedUserId = formData.user_id || currentUserId;
+  const selectedMember = useMemo(() => {
+    if (!targetSelectedUserId) return null;
+    return members.find((m) => m.user_id === targetSelectedUserId || m.id === targetSelectedUserId) || null;
+  }, [targetSelectedUserId, members]);
+
+  const displayMember = useMemo(() => {
+    if (selectedMember) return selectedMember;
+    if (targetSelectedUserId && targetSelectedUserId === currentUserId) {
+      return {
+        user_id: currentUserId,
+        nome: profile?.nome || "Membro Atual",
+        nickname: profile?.nickname || null,
+        avatar_url: profile?.avatar_url || profile?.discord_avatar_url || null,
+        nivel: (level as AppLevel) || "membro",
+        status: "ativo",
+      };
+    }
+    return null;
+  }, [selectedMember, targetSelectedUserId, currentUserId, profile, level]);
 
   // Review Modal state
   const [reviewModal, setReviewModal] = useState<{
@@ -293,6 +352,19 @@ export function AusenciasPage() {
     }
   }, [formData.start_date, formData.end_date]);
 
+  // Preset days handler
+  const handleApplyDaysPreset = (days: number) => {
+    try {
+      const s = new Date(formData.start_date || new Date().toISOString().slice(0, 10));
+      if (isNaN(s.getTime())) return;
+      const e = new Date(s.getTime() + Math.max(0, days - 1) * 24 * 60 * 60 * 1000);
+      setFormData((prev) => ({
+        ...prev,
+        end_date: e.toISOString().slice(0, 10),
+      }));
+    } catch {}
+  };
+
   // KPIs & Metrics
   const today = new Date().toISOString().slice(0, 10);
 
@@ -319,9 +391,14 @@ export function AusenciasPage() {
 
   // Member's Personal Metrics
   const myAbsences = useMemo(() => {
-    if (!user?.id) return [];
-    return absences.filter((a) => a.user_id === user.id);
-  }, [absences, user?.id]);
+    if (!currentUserId && !user?.id) return [];
+    return absences.filter(
+      (a) =>
+        a.user_id === currentUserId ||
+        (user?.id && a.user_id === user.id) ||
+        (profile?.user_id && a.user_id === profile.user_id)
+    );
+  }, [absences, currentUserId, user?.id, profile?.user_id]);
 
   const myAbsencesCount = myAbsences.length;
 
@@ -410,15 +487,20 @@ export function AusenciasPage() {
   // Filtered absences list
   const filteredAbsences = useMemo(() => {
     return absences.filter((a) => {
+      const isMine =
+        a.user_id === currentUserId ||
+        (user?.id && a.user_id === user.id) ||
+        (profile?.user_id && a.user_id === profile.user_id);
+
       // Security: Non-managers can ONLY see their own absences
       if (!isManagerView) {
-        if (a.user_id !== user?.id) return false;
+        if (!isMine) return false;
         if (activeTab === "ativas" && !(a.status === "aprovado" && today >= a.start_date && today <= a.end_date)) return false;
         if (activeTab === "pendentes" && a.status !== "pendente") return false;
         if (activeTab === "aprovadas" && a.status !== "aprovado") return false;
       } else {
         // Manager View tab filtering
-        if (activeTab === "minhas" && a.user_id !== user?.id) return false;
+        if (activeTab === "minhas" && !isMine) return false;
         if (activeTab === "pendentes" && a.status !== "pendente") return false;
         if (activeTab === "ativas" && !(a.status === "aprovado" && today >= a.start_date && today <= a.end_date)) return false;
       }
@@ -441,23 +523,48 @@ export function AusenciasPage() {
 
       return true;
     });
-  }, [absences, isManagerView, activeTab, user?.id, today, statusFilter, reasonFilter, searchTerm]);
+  }, [absences, isManagerView, activeTab, currentUserId, user?.id, profile?.user_id, today, statusFilter, reasonFilter, searchTerm]);
 
   // Handlers
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (new Date(formData.end_date) < new Date(formData.start_date)) {
+      toast.error("A data de retorno não pode ser anterior à data de início.");
       return;
     }
 
-    await createMutation.mutateAsync(formData);
+    const targetUserId = formData.user_id || currentUserId;
+    if (!targetUserId) {
+      toast.error("Selecione um membro para registrar a ausência.");
+      return;
+    }
+
+    const targetMember = members.find((m) => m.user_id === targetUserId || m.id === targetUserId);
+
+    await createMutation.mutateAsync({
+      user_id: targetUserId,
+      member_name: targetMember?.nome || (targetUserId === currentUserId ? profile?.nome : "Membro"),
+      member_nickname: targetMember?.nickname !== undefined ? targetMember.nickname : (targetUserId === currentUserId ? profile?.nickname : null),
+      member_role: targetMember?.nivel || (targetUserId === currentUserId ? (level as AppLevel) : "membro"),
+      member_avatar: targetMember?.avatar_url || targetMember?.discord_avatar_url || (targetUserId === currentUserId ? (profile?.avatar_url || profile?.discord_avatar_url) : null),
+      start_date: formData.start_date,
+      end_date: formData.end_date,
+      reason: formData.reason,
+      reason_details: formData.reason_details,
+      auto_approve: isManagerView && formData.auto_approve,
+      review_notes: formData.auto_approve ? "Aprovado no momento do cadastro pela liderança" : undefined,
+    });
+
     setIsCreateOpen(false);
     setFormData({
+      user_id: currentUserId || "",
       start_date: new Date().toISOString().slice(0, 10),
       end_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
       reason: "ferias",
       reason_details: "",
+      auto_approve: false,
     });
+    setMemberSearch("");
   };
 
   const handleReviewConfirm = async () => {
@@ -915,7 +1022,10 @@ export function AusenciasPage() {
               const reasonCfg = REASON_CONFIG[item.reason] || REASON_CONFIG.outro;
               const ReasonIcon = reasonCfg.icon;
               const timeline = getAbsenceTimelineStatus(item);
-              const isOwner = item.user_id === user?.id;
+              const isOwner =
+                item.user_id === currentUserId ||
+                (user?.id && item.user_id === user.id) ||
+                (profile?.user_id && item.user_id === profile.user_id);
 
               return (
                 <Card
@@ -1102,44 +1212,207 @@ export function AusenciasPage() {
 
       {/* ─── MODAL DE INFORMAR AUSÊNCIA ─── */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="sm:max-w-md bg-card border-border/80">
+        <DialogContent className="sm:max-w-lg bg-card border-border/80 max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base font-extrabold text-foreground flex items-center gap-2">
               <CalendarOff className="h-5 w-5 text-amber-400" />
               Informar Período de Ausência
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Cadastre o período que você estará ausente das atividades do grupo.
+              Cadastre o período que você ou um membro da equipe estará ausente das atividades.
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleCreateSubmit} className="space-y-4 pt-2">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold">Data de Início</Label>
-                <Input
-                  type="date"
-                  required
-                  value={formData.start_date}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, start_date: e.target.value }))}
-                  className="h-9 text-xs bg-secondary/50 font-mono font-bold"
-                />
+            {/* 1. SELEÇÃO DE USUÁRIO / MEMBRO */}
+            <div className="space-y-2 p-3 rounded-xl bg-secondary/30 border border-border/60">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold flex items-center gap-1.5 text-foreground">
+                  <User className="h-3.5 w-3.5 text-primary" />
+                  Membro / Usuário da Ausência
+                </Label>
+                {isManagerView && currentUserId && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setFormData((prev) => ({ ...prev, user_id: currentUserId }));
+                      setMemberSearch("");
+                    }}
+                    className={cn(
+                      "h-6 px-2 text-[10.5px] font-bold rounded-lg border",
+                      (!formData.user_id || formData.user_id === currentUserId)
+                        ? "border-primary/50 text-primary bg-primary/10"
+                        : "border-border text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Eu Mesmo
+                  </Button>
+                )}
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold">Data de Retorno (Volta)</Label>
-                <Input
-                  type="date"
-                  required
-                  min={formData.start_date}
-                  value={formData.end_date}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, end_date: e.target.value }))}
-                  className="h-9 text-xs bg-secondary/50 font-mono font-bold"
-                />
+              {/* Se o usuário tem permissão gerencial ou se não tem usuário autenticado detectado, exibe busca e dropdown de membros */}
+              {(isManagerView || !currentUserId) && (
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      placeholder="Filtrar membro por nome ou apelido..."
+                      value={memberSearch}
+                      onChange={(e) => setMemberSearch(e.target.value)}
+                      className="h-8.5 pl-8 text-xs bg-secondary/60 border-border/80"
+                    />
+                    {memberSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setMemberSearch("")}
+                        className="absolute right-2 top-2 text-muted-foreground hover:text-foreground text-xs font-bold"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+
+                  <Select
+                    value={formData.user_id || currentUserId || ""}
+                    onValueChange={(val) => setFormData((prev) => ({ ...prev, user_id: val }))}
+                  >
+                    <SelectTrigger className="h-9.5 text-xs bg-secondary/60 font-semibold border-border/80">
+                      <SelectValue placeholder="Selecione o membro desejado..." />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60">
+                      {filteredMembersForSelect.map((m) => {
+                        const mId = m.user_id || m.id || "";
+                        const isSelf = mId === currentUserId;
+                        return (
+                          <SelectItem key={mId} value={mId} className="text-xs">
+                            <div className="flex items-center gap-2 py-0.5">
+                              <Avatar className="h-6 w-6 border border-primary/20 shrink-0">
+                                <AvatarImage src={m.avatar_url || m.discord_avatar_url || undefined} />
+                                <AvatarFallback className="text-[9px] font-bold">
+                                  {(m.nickname || m.nome || "MB").slice(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex items-center gap-1.5 truncate">
+                                <span className="font-bold text-foreground">
+                                  {m.nickname ? `${m.nickname} (${m.nome})` : m.nome}
+                                </span>
+                                {isSelf && (
+                                  <Badge variant="outline" className="text-[9px] font-mono px-1 py-0 text-primary border-primary/40 bg-primary/10">
+                                    Você
+                                  </Badge>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-muted-foreground ml-auto font-mono shrink-0">
+                                {getLevelLabel(m.nivel)}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Card de pré-visualização do membro selecionado */}
+              {displayMember ? (
+                <div className="flex items-center justify-between p-2 rounded-lg bg-card/80 border border-border/60 mt-1.5">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Avatar className="h-8 w-8 border border-primary/30 shrink-0">
+                      <AvatarImage src={displayMember.avatar_url || undefined} alt={displayMember.nome} />
+                      <AvatarFallback className="text-[10px] font-bold bg-primary/20 text-primary">
+                        {(displayMember.nickname || displayMember.nome || "MB").slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-foreground truncate">
+                          {displayMember.nickname ? `${displayMember.nickname} (${displayMember.nome})` : displayMember.nome}
+                        </span>
+                        <VerifiedBadge userId={displayMember.user_id} size="xs" />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground block font-mono">
+                        {getLevelLabel(displayMember.nivel)}
+                      </span>
+                    </div>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-[9px] font-mono shrink-0",
+                      displayMember.user_id === currentUserId
+                        ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
+                        : "border-sky-500/40 text-sky-400 bg-sky-500/10"
+                    )}
+                  >
+                    {displayMember.user_id === currentUserId ? "Você" : "Membro Selecionado"}
+                  </Badge>
+                </div>
+              ) : (
+                <div className="p-2.5 rounded-lg border border-amber-500/40 bg-amber-500/10 text-xs text-amber-300 flex items-center gap-2">
+                  <Info className="h-4 w-4 shrink-0" />
+                  <span>Nenhum membro selecionado. Por favor, escolha um membro no campo acima.</span>
+                </div>
+              )}
+            </div>
+
+            {/* 2. DATAS DE INÍCIO E RETORNO + PRESETS RÁPIDOS */}
+            <div className="space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold">Data de Início</Label>
+                  <Input
+                    type="date"
+                    required
+                    value={formData.start_date}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, start_date: e.target.value }))}
+                    className="h-9 text-xs bg-secondary/50 font-mono font-bold"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold">Data de Retorno (Volta)</Label>
+                  <Input
+                    type="date"
+                    required
+                    min={formData.start_date}
+                    value={formData.end_date}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, end_date: e.target.value }))}
+                    className="h-9 text-xs bg-secondary/50 font-mono font-bold"
+                  />
+                </div>
+              </div>
+
+              {/* Botões rápidos de duração pré-definida */}
+              <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                <span className="text-[10.5px] text-muted-foreground font-semibold flex items-center gap-1">
+                  <Sparkles className="h-3 w-3 text-amber-400" /> Duração rápida:
+                </span>
+                {[
+                  { label: "+2d (Fds)", days: 2 },
+                  { label: "+3d", days: 3 },
+                  { label: "+7d (1 sem)", days: 7 },
+                  { label: "+15d", days: 15 },
+                  { label: "+30d (1 mês)", days: 30 },
+                ].map((preset) => (
+                  <Button
+                    key={preset.days}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleApplyDaysPreset(preset.days)}
+                    className="h-6 px-2 text-[10px] font-mono font-bold border-border/80 hover:bg-secondary/70 hover:border-primary/40"
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
               </div>
             </div>
 
-            {/* Dynamic Days Counter Badge */}
+            {/* 3. DURAÇÃO CALCULADA DINÂMICA */}
             <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between text-xs text-amber-400 font-bold">
               <span className="flex items-center gap-1.5">
                 <Clock className="h-4 w-4" /> Duração calculada:
@@ -1147,6 +1420,7 @@ export function AusenciasPage() {
               <span className="font-mono text-sm font-black">{calculatedDays} dia(s) de ausência</span>
             </div>
 
+            {/* 4. MOTIVO DO AFASTAMENTO */}
             <div className="space-y-1.5">
               <Label className="text-xs font-bold">Motivo do Afastamento</Label>
               <Select
@@ -1172,6 +1446,7 @@ export function AusenciasPage() {
               </Select>
             </div>
 
+            {/* 5. JUSTIFICATIVA / DETALHES ADICIONAIS */}
             <div className="space-y-1.5">
               <Label className="text-xs font-bold">Justificativa / Detalhes Adicionais</Label>
               <Textarea
@@ -1182,6 +1457,25 @@ export function AusenciasPage() {
                 className="text-xs bg-secondary/50 resize-none leading-relaxed"
               />
             </div>
+
+            {/* 6. APROVAÇÃO IMEDIATA PELA LIDERANÇA */}
+            {isManagerView && (
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-400">
+                    <ShieldCheck className="h-4 w-4" />
+                    <span>Aprovar Ausência Imediatamente</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-tight">
+                    Por possuir permissão de liderança, aprove esta ausência direto sem necessidade de revisão.
+                  </p>
+                </div>
+                <Switch
+                  checked={formData.auto_approve}
+                  onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, auto_approve: checked }))}
+                />
+              </div>
+            )}
 
             <DialogFooter className="pt-2">
               <Button
@@ -1196,10 +1490,10 @@ export function AusenciasPage() {
               <Button
                 type="submit"
                 size="sm"
-                disabled={createMutation.isPending}
-                className="h-9 text-xs font-bold bg-gradient-brand text-primary-foreground"
+                disabled={createMutation.isPending || (!formData.user_id && !currentUserId)}
+                className="h-9 text-xs font-bold bg-gradient-brand text-primary-foreground shadow-md hover:opacity-90 cursor-pointer"
               >
-                {createMutation.isPending ? "Enviando..." : "Registrar Ausência"}
+                {createMutation.isPending ? "Registrando..." : "Registrar Ausência"}
               </Button>
             </DialogFooter>
           </form>

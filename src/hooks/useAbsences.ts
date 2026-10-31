@@ -128,9 +128,14 @@ export function useCreateAbsence() {
     onSuccess: (newAbsence) => {
       void queryClient.invalidateQueries({ queryKey: ["absences"] });
       broadcastAbsencesRealtimeUpdate();
-      toast.success("Solicitação de ausência enviada com sucesso!", {
-        description: `Período: ${newAbsence.days_count} dia(s) (${newAbsence.start_date} até ${newAbsence.end_date})`,
-      });
+      toast.success(
+        newAbsence.status === "aprovado"
+          ? `Ausência de ${newAbsence.member_name} registrada e APROVADA!`
+          : "Solicitação de ausência enviada com sucesso!",
+        {
+          description: `Membro: ${newAbsence.member_name} • ${newAbsence.days_count} dia(s) (${newAbsence.start_date} até ${newAbsence.end_date})`,
+        }
+      );
     },
     onError: (err: any) => {
       toast.error(err?.message || "Erro ao registrar solicitação de ausência.");

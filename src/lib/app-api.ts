@@ -3817,26 +3817,62 @@ export async function getAbsences(): Promise<MemberAbsence[]> {
 }
 
 export async function createAbsence(payload: CreateAbsencePayload): Promise<MemberAbsence> {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.user) throw new Error("Usuário não autenticado");
+  const currentAuth = await getCurrentAuth().catch(() => ({ user: null, profile: null, level: null }));
+  const { data: { session } } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
 
-  // Fetch current user's profile and role
-  const { data: profileRow } = await (supabase.from("profiles" as any))
-    .select("nome, nickname, avatar_url, discord_avatar_url")
-    .eq("user_id", session.user.id)
-    .maybeSingle();
+  // Caller ID and author info
+  const callerUserId = session?.user?.id || currentAuth.user?.id || currentAuth.profile?.user_id || "sistema";
+  const callerName = currentAuth.profile?.nickname || currentAuth.profile?.nome || "Liderança";
+  const callerAvatar = currentAuth.profile?.avatar_url || currentAuth.profile?.discord_avatar_url || null;
 
-  const { data: roleRow } = await supabase
-    .from("user_roles")
-    .select("nivel")
-    .eq("user_id", session.user.id)
-    .maybeSingle();
+  // Target user ID for the absence
+  const targetUserId = payload.user_id || callerUserId;
 
-  const p = profileRow as any;
-  const memberName = p?.nome || "Membro";
-  const memberNickname = p?.nickname || null;
-  const memberAvatar = p?.avatar_url || p?.discord_avatar_url || null;
-  const memberRole = (roleRow?.nivel as AppLevel) || "membro";
+  if (!targetUserId || targetUserId === "sistema") {
+    throw new Error("Usuário não identificado. Selecione um membro na lista para registrar a ausência.");
+  }
+
+  // Resolve target member information
+  let memberName = payload.member_name || "";
+  let memberNickname = payload.member_nickname !== undefined ? payload.member_nickname : null;
+  let memberAvatar = payload.member_avatar || null;
+  let memberRole: AppLevel = (payload.member_role as AppLevel) || "membro";
+
+  // If registering for caller and we have current profile, use it
+  if (targetUserId === callerUserId && currentAuth.profile) {
+    memberName = memberName || currentAuth.profile.nome || "Membro";
+    memberNickname = memberNickname !== null ? memberNickname : (currentAuth.profile.nickname || null);
+    memberAvatar = memberAvatar || currentAuth.profile.avatar_url || currentAuth.profile.discord_avatar_url || null;
+    memberRole = (currentAuth.level as AppLevel) || memberRole;
+  }
+
+  // If details are still missing, query profiles & user_roles
+  if (!memberName || memberName === "Membro") {
+    try {
+      const { data: profileRow } = await (supabase.from("profiles" as any))
+        .select("nome, nickname, avatar_url, discord_avatar_url")
+        .eq("user_id", targetUserId)
+        .maybeSingle();
+
+      const { data: roleRow } = await supabase
+        .from("user_roles")
+        .select("nivel")
+        .eq("user_id", targetUserId)
+        .maybeSingle();
+
+      const p = profileRow as any;
+      if (p) {
+        memberName = p.nome || memberName || "Membro";
+        if (memberNickname === null && p.nickname !== undefined) memberNickname = p.nickname;
+        if (!memberAvatar) memberAvatar = p.avatar_url || p.discord_avatar_url || null;
+      }
+      if (roleRow?.nivel) {
+        memberRole = roleRow.nivel as AppLevel;
+      }
+    } catch {}
+  }
+
+  if (!memberName) memberName = "Membro";
 
   // Calculate days count
   const start = new Date(payload.start_date);
@@ -3844,9 +3880,12 @@ export async function createAbsence(payload: CreateAbsencePayload): Promise<Memb
   const diffTime = Math.abs(end.getTime() - start.getTime());
   const daysCount = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1);
 
+  const isAutoApproved = Boolean(payload.auto_approve === true);
+  const now = new Date().toISOString();
+
   const newAbsence: MemberAbsence = {
     id: `abs_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-    user_id: session.user.id,
+    user_id: targetUserId,
     member_name: memberName,
     member_nickname: memberNickname,
     member_role: memberRole,
@@ -3856,8 +3895,12 @@ export async function createAbsence(payload: CreateAbsencePayload): Promise<Memb
     days_count: daysCount,
     reason: payload.reason,
     reason_details: payload.reason_details?.trim() || null,
-    status: "pendente",
-    created_at: new Date().toISOString(),
+    status: isAutoApproved ? "aprovado" : "pendente",
+    reviewed_by: isAutoApproved ? callerUserId : null,
+    reviewed_by_name: isAutoApproved ? callerName : null,
+    reviewed_at: isAutoApproved ? now : null,
+    review_notes: isAutoApproved ? (payload.review_notes || "Aprovado no momento do cadastro pela liderança") : null,
+    created_at: now,
   };
 
   const currentList = await getAbsences();
@@ -3868,30 +3911,48 @@ export async function createAbsence(payload: CreateAbsencePayload): Promise<Memb
   await persistRolePermissionsData(ABSENCES_DB_LEVEL, { absences: updatedList });
 
   void logAuditAction(
-    "create_absence",
+    isAutoApproved ? "create_and_approve_absence" : "create_absence",
     "absences",
     {
       member_name: memberName,
+      target_user_id: targetUserId,
       start_date: payload.start_date,
       end_date: payload.end_date,
       days: daysCount,
       reason: payload.reason,
+      status: newAbsence.status,
+      created_by_name: callerName,
     },
     undefined,
     newAbsence.id
   );
 
-  void createNotification({
-    title: "Nova Solicitação de Licença",
-    message: `${memberName} solicitou licença de ${daysCount} dia(s) (${payload.start_date} a ${payload.end_date}). Motivo: ${payload.reason}`,
-    type: "absence",
-    category: "warning",
-    target_roles: ["01", "02", "gerente", "desenvolvedor"],
-    link: "/ausencias",
-    sender_id: session.user.id,
-    sender_name: memberName,
-    sender_avatar: memberAvatar,
-  });
+  // Notifications
+  if (isAutoApproved && targetUserId !== callerUserId) {
+    void createNotification({
+      title: "Licença Concedida 🏖️",
+      message: `Uma licença de ${daysCount} dia(s) (${payload.start_date} a ${payload.end_date}) foi concedida para você por ${callerName}.`,
+      type: "absence",
+      category: "success",
+      user_id: targetUserId,
+      link: "/ausencias",
+      sender_id: callerUserId,
+      sender_name: callerName,
+      sender_avatar: callerAvatar,
+    });
+  } else if (!isAutoApproved) {
+    void createNotification({
+      title: "Nova Solicitação de Licença",
+      message: `${memberName} solicitou licença de ${daysCount} dia(s) (${payload.start_date} a ${payload.end_date}). Motivo: ${payload.reason}`,
+      type: "absence",
+      category: "warning",
+      target_roles: ["01", "02", "gerente", "desenvolvedor"],
+      link: "/ausencias",
+      sender_id: callerUserId,
+      sender_name: callerName,
+      sender_avatar: memberAvatar || callerAvatar,
+    });
+  }
 
   return newAbsence;
 }
@@ -3900,30 +3961,27 @@ export async function reviewAbsence(
   absenceId: string,
   payload: { status: "aprovado" | "rejeitado"; review_notes?: string }
 ): Promise<MemberAbsence> {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.user) throw new Error("Usuário não autenticado");
+  const currentAuth = await getCurrentAuth().catch(() => ({ user: null, profile: null, level: null }));
+  const { data: { session } } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
 
-  const { data: reviewerProfile } = await (supabase.from("profiles" as any))
-    .select("nome, nickname")
-    .eq("user_id", session.user.id)
-    .maybeSingle();
-
-  const rev = reviewerProfile as any;
-  const reviewerName = rev?.nickname || rev?.nome || "Liderança";
+  const reviewerId = session?.user?.id || currentAuth.user?.id || currentAuth.profile?.user_id || "lideranca";
+  const reviewerName = currentAuth.profile?.nickname || currentAuth.profile?.nome || "Liderança";
+  const reviewerAvatar = currentAuth.profile?.avatar_url || currentAuth.profile?.discord_avatar_url || null;
 
   const currentList = await getAbsences();
   const targetIndex = currentList.findIndex((a) => a.id === absenceId);
   if (targetIndex === -1) throw new Error("Solicitação de ausência não encontrada.");
 
   const target = currentList[targetIndex];
+  const now = new Date().toISOString();
   const updatedAbsence: MemberAbsence = {
     ...target,
     status: payload.status,
-    reviewed_by: session.user.id,
+    reviewed_by: reviewerId,
     reviewed_by_name: reviewerName,
-    reviewed_at: new Date().toISOString(),
+    reviewed_at: now,
     review_notes: payload.review_notes?.trim() || null,
-    updated_at: new Date().toISOString(),
+    updated_at: now,
   };
 
   const updatedList = [...currentList];
@@ -3953,8 +4011,9 @@ export async function reviewAbsence(
     category: payload.status === "aprovado" ? "success" : "error",
     user_id: target.user_id,
     link: "/ausencias",
-    sender_id: session.user.id,
+    sender_id: reviewerId,
     sender_name: reviewerName,
+    sender_avatar: reviewerAvatar,
   });
 
   return updatedAbsence;

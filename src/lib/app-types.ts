@@ -534,10 +534,17 @@ export type MemberAbsence = {
 };
 
 export type CreateAbsencePayload = {
+  user_id?: string;
+  member_name?: string;
+  member_nickname?: string | null;
+  member_role?: string | null;
+  member_avatar?: string | null;
   start_date: string;
   end_date: string;
   reason: AbsenceReason;
   reason_details?: string | null;
+  auto_approve?: boolean;
+  review_notes?: string | null;
 };
 
 export type WeeklyGoalType = "financeiro" | "quantidade" | "vendas" | "geral";
