@@ -182,13 +182,10 @@ const MASTER_NAV_ITEMS: BaseNavItem[] = [
   { id: "metas", title: "Metas", url: "/metas", icon: Target, perm: "view_goals", defaultCat: "Gestão", defaultOrder: 17 },
   { id: "avisos", title: "Enviar Avisos", url: "/avisos", icon: Megaphone, perm: "manage_announcements", defaultCat: "Gestão", defaultOrder: 18 },
   { id: "cargos", title: "Gerenciamento de Cargos", url: "/cargos", icon: ShieldCheck, perm: "manage_roles", defaultCat: "Administração", defaultOrder: 19 },
-  { id: "permissoes", title: "Permissões", url: "/permissoes", icon: Settings, perm: "manage_permissions", defaultCat: "Administração", defaultOrder: 20 },
-  { id: "atualizacoes", title: "Atualizações", url: "/atualizacoes", icon: Sparkles, perm: "view_patch_notes", defaultCat: "Administração", defaultOrder: 21 },
-  { id: "advertencias", title: "Advertências", url: "/advertencias", icon: ShieldAlert, perm: "view_warnings", defaultCat: "Administração", defaultOrder: 21.5 },
-  { id: "perfil", title: "Meu Perfil", url: "/perfil", icon: User, perm: "view_profile", defaultCat: "Gestão", defaultOrder: 22 },
-  { id: "configuracoes", title: "Configurações", url: "/configuracoes", icon: Wrench, perm: "manage_platform_settings", defaultCat: "Administração", defaultOrder: 23 },
-  { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", icon: Tags, perm: "view_ceo_tag_permissions", defaultCat: "Administração", defaultOrder: 24 },
-  { id: "ceo-selos", title: "Gerenciar Selos", url: "/ceo/selos", icon: BadgeCheck, perm: "verification.manage", defaultCat: "CEO", defaultOrder: 25 },
+  { id: "advertencias", title: "Advertências", url: "/advertencias", icon: ShieldAlert, perm: "view_warnings", defaultCat: "Administração", defaultOrder: 20 },
+  { id: "perfil", title: "Meu Perfil", url: "/perfil", icon: User, perm: "view_profile", defaultCat: "Gestão", defaultOrder: 21 },
+  { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", icon: Tags, perm: "view_ceo_tag_permissions", defaultCat: "Administração", defaultOrder: 22 },
+  { id: "ceo-selos", title: "Gerenciar Selos", url: "/ceo/selos", icon: BadgeCheck, perm: "verification.manage", defaultCat: "CEO", defaultOrder: 23 },
 ];
 
 const URL_TO_PERMISSION_MAP: Record<string, Permission> = {

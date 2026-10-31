@@ -84,12 +84,18 @@ import { uploadTicketAttachment } from "@/lib/app-api";
 interface TicketDetailViewProps {
   ticket: Ticket;
   onClose: () => void;
-  canManage: boolean;
+  canManage?: boolean;
+  isMemberPortal?: boolean;
 }
 
-export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailViewProps) {
+export function TicketDetailView({
+  ticket,
+  onClose,
+  canManage = false,
+  isMemberPortal = false,
+}: TicketDetailViewProps) {
   const { user, profile, hasPermission } = useAuth();
-  const effectiveCanManage = canManage || hasPermission("manage_tickets");
+  const effectiveCanManage = !isMemberPortal && (canManage || hasPermission("manage_tickets"));
   const { data: members = [] } = useMembers();
 
   // Mutations
@@ -134,37 +140,45 @@ export function TicketDetailView({ ticket, onClose, canManage }: TicketDetailVie
   const isParticipant = (ticket.members || []).some((m) => m.user_id === user?.id);
   const isAssigned = ticket.assigned_to_id === user?.id;
 
-  // Permissões granulares estritas — cada ação depende da sua respectiva permissão marcada
+  // Permissões granulares estritas — se for portal de membro, desativa todas ações de gestão e atendimento
   const canClaim =
-    hasPermission("claim_tickets") ||
-    hasPermission("claim_ticket" as Permission);
+    !isMemberPortal &&
+    (hasPermission("claim_tickets") ||
+      hasPermission("claim_ticket" as Permission));
   const canTransfer =
-    hasPermission("transfer_tickets") ||
-    hasPermission("transfer_ticket") ||
-    effectiveCanManage;
+    !isMemberPortal &&
+    (hasPermission("transfer_tickets") ||
+      hasPermission("transfer_ticket") ||
+      effectiveCanManage);
   const canChangeStatus =
-    hasPermission("change_ticket_status") ||
-    effectiveCanManage;
+    !isMemberPortal &&
+    (hasPermission("change_ticket_status") ||
+      effectiveCanManage);
   const canInternalNotes =
-    hasPermission("internal_notes_tickets") ||
-    effectiveCanManage;
+    !isMemberPortal &&
+    (hasPermission("internal_notes_tickets") ||
+      effectiveCanManage);
   const canManageMembers =
-    hasPermission("manage_ticket_members") ||
-    effectiveCanManage;
-  const canClose =
-    hasPermission("close_tickets") ||
-    hasPermission("close_ticket") ||
-    effectiveCanManage ||
-    isCreator;
+    !isMemberPortal &&
+    (hasPermission("manage_ticket_members") ||
+      effectiveCanManage);
+  const canClose = isMemberPortal
+    ? (isCreator && !isClosed)
+    : (hasPermission("close_tickets") ||
+      hasPermission("close_ticket") ||
+      effectiveCanManage ||
+      isCreator);
   const canReopen =
-    hasPermission("reopen_tickets") ||
-    hasPermission("reopen_ticket") ||
-    effectiveCanManage ||
-    isCreator;
+    !isMemberPortal &&
+    (hasPermission("reopen_tickets") ||
+      hasPermission("reopen_ticket") ||
+      effectiveCanManage ||
+      isCreator);
   const canDelete =
-    hasPermission("delete_tickets") ||
-    hasPermission("delete_ticket") ||
-    effectiveCanManage;
+    !isMemberPortal &&
+    (hasPermission("delete_tickets") ||
+      hasPermission("delete_ticket") ||
+      effectiveCanManage);
   const canReply =
     hasPermission("reply_tickets") ||
     hasPermission("reply_ticket" as Permission);

@@ -75,7 +75,19 @@ import {
   Coins,
   Award,
   KeyRound,
+  Volume2,
+  MessageSquare,
+  Menu,
+  SlidersHorizontal,
 } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { chatSound } from "@/lib/chatSound";
+import { playGamerSuccessSound, playGamerOnlineAlertSound } from "@/lib/sound-effects";
+import { PlatformMenuEditor } from "@/components/menu/PlatformMenuEditor";
+import { UserAppearanceSettings } from "@/components/profile/UserAppearanceSettings";
+import { PublicProfileCustomizer } from "@/components/profile/PublicProfileCustomizer";
+import { useMembers } from "@/hooks/useData";
+import { LEVELS, LEVEL_LABEL, LEVEL_DESCRIPTION, levelBadgeClass } from "@/lib/permissions";
 import { DevMaintenanceManagerModal } from "@/components/maintenance/DevMaintenanceManagerModal";
 import {
   PANEL_COLOR_STYLES,
@@ -160,11 +172,27 @@ export function DevConfiguracaoContent({
   const queryClient = useQueryClient();
   const { data: allAuditLogs = [] } = useAuditLogs();
 
+  const VALID_DEV_MAIN_TABS = [
+    "plataforma",
+    "operacional",
+    "audio-notificacoes",
+    "menu-lateral",
+    "aparencia",
+    "permissoes",
+    "rodape",
+    "paineis",
+    "dev-tools",
+  ];
+
   const [activeMainTab, setActiveMainTab] = useState<string>(() => {
     const normalizeTab = (t?: string | null) => {
       if (!t) return null;
       if (t === "cores" || t === "paineis") return "paineis";
-      if (["plataforma", "rodape", "paineis", "dev-tools"].includes(t)) return t;
+      if (t === "menu") return "menu-lateral";
+      if (t === "audio" || t === "sons" || t === "notificacoes") return "audio-notificacoes";
+      if (t === "regras") return "operacional";
+      if (t === "perfis") return "aparencia";
+      if (VALID_DEV_MAIN_TABS.includes(t)) return t;
       return null;
     };
 
@@ -179,7 +207,6 @@ export function DevConfiguracaoContent({
       if (normParam) return normParam;
 
       const parts = window.location.pathname.split("/").filter(Boolean);
-      // Ex: /dev/configuracao/plataforma/midia -> tab é parts[2] ou parts[1]
       const confIdx = parts.indexOf("configuracao");
       if (confIdx !== -1 && parts[confIdx + 1]) {
         const normPath = normalizeTab(parts[confIdx + 1]);
@@ -196,7 +223,7 @@ export function DevConfiguracaoContent({
     if (defaultTab) {
       if (defaultTab === "cores" || defaultTab === "paineis") {
         setActiveMainTab("paineis");
-      } else if (["plataforma", "rodape", "dev-tools"].includes(defaultTab)) {
+      } else if (VALID_DEV_MAIN_TABS.includes(defaultTab)) {
         setActiveMainTab(defaultTab);
       }
     }
@@ -322,7 +349,7 @@ export function DevConfiguracaoContent({
       const confIdx = parts.indexOf("configuracao");
       if (confIdx !== -1 && parts[confIdx + 1]) {
         const tabPart = parts[confIdx + 1];
-        if (["plataforma", "rodape", "paineis", "dev-tools"].includes(tabPart)) {
+        if (VALID_DEV_MAIN_TABS.includes(tabPart)) {
           setActiveMainTab(tabPart);
         }
       }
@@ -957,8 +984,48 @@ export function DevConfiguracaoContent({
                 </TabsTrigger>
 
                 <TabsTrigger
-                  value="rodape"
+                  value="operacional"
                   className="data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400 text-xs font-bold gap-2 py-2 px-3 rounded-lg transition-all"
+                >
+                  <Sliders className="h-4 w-4" />
+                  Parâmetros Operacionais
+                </TabsTrigger>
+
+                <TabsTrigger
+                  value="audio-notificacoes"
+                  className="data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-400 text-xs font-bold gap-2 py-2 px-3 rounded-lg transition-all"
+                >
+                  <Volume2 className="h-4 w-4" />
+                  Áudio & Notificações
+                </TabsTrigger>
+
+                <TabsTrigger
+                  value="menu-lateral"
+                  className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400 text-xs font-bold gap-2 py-2 px-3 rounded-lg transition-all"
+                >
+                  <Menu className="h-4 w-4" />
+                  Menu Lateral & Módulos
+                </TabsTrigger>
+
+                <TabsTrigger
+                  value="aparencia"
+                  className="data-[state=active]:bg-pink-500/20 data-[state=active]:text-pink-400 text-xs font-bold gap-2 py-2 px-3 rounded-lg transition-all"
+                >
+                  <Palette className="h-4 w-4" />
+                  Aparência & Perfis
+                </TabsTrigger>
+
+                <TabsTrigger
+                  value="permissoes"
+                  className="data-[state=active]:bg-indigo-500/20 data-[state=active]:text-indigo-400 text-xs font-bold gap-2 py-2 px-3 rounded-lg transition-all"
+                >
+                  <KeyRound className="h-4 w-4" />
+                  Permissões & Cargos
+                </TabsTrigger>
+
+                <TabsTrigger
+                  value="rodape"
+                  className="data-[state=active]:bg-teal-500/20 data-[state=active]:text-teal-400 text-xs font-bold gap-2 py-2 px-3 rounded-lg transition-all"
                 >
                   <LayoutTemplate className="h-4 w-4" />
                   Rodapé
@@ -968,8 +1035,8 @@ export function DevConfiguracaoContent({
                   value="paineis"
                   className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary text-xs font-bold gap-2 py-2 px-3 rounded-lg transition-all"
                 >
-                  <Sliders className="h-4 w-4" />
-                  Configurações de Painéis
+                  <SlidersHorizontal className="h-4 w-4" />
+                  Cores de Painéis
                 </TabsTrigger>
 
                 <TabsTrigger
@@ -1962,7 +2029,118 @@ export function DevConfiguracaoContent({
           </Card>
         </TabsContent>
 
-        {/* ABA 2: RODAPÉ */}
+        {/* ABA 2: PARÂMETROS OPERACIONAIS */}
+        <TabsContent value="operacional" className="space-y-6 m-0 focus-visible:outline-none">
+          <DevOperationalRulesCard
+            platformForm={platformForm}
+            updatePlatformField={updatePlatformField}
+            savingPlatform={savingPlatform}
+          />
+        </TabsContent>
+
+        {/* ABA 3: ÁUDIO & NOTIFICAÇÕES */}
+        <TabsContent value="audio-notificacoes" className="space-y-6 m-0 focus-visible:outline-none">
+          <div className="space-y-6 animate-in fade-in-50 duration-300">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-card border border-border/60 shadow-xs">
+              <div>
+                <h3 className="text-sm font-extrabold text-foreground">Sons, Efeitos & Alertas Sonoros</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Gerencie o sistema de áudio gamer Web Audio API, alertas sonoros em tempo real do chat e exibição de avisos.
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-400 text-xs font-semibold shadow-xs shrink-0">
+                <Volume2 className="h-3.5 w-3.5" />
+                <span>Web Audio Ativo</span>
+              </div>
+            </div>
+
+            <DevChatSoundCard />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <DevWebAudioCard
+                platformForm={platformForm}
+                updatePlatformField={updatePlatformField}
+              />
+
+              <DevAnnouncementsConfigCard
+                platformForm={platformForm}
+                updatePlatformField={updatePlatformField}
+              />
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* ABA 4: MENU LATERAL & MÓDULOS */}
+        <TabsContent value="menu-lateral" className="space-y-6 m-0 focus-visible:outline-none">
+          <div className="space-y-6 animate-in fade-in-50 duration-300">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-card border border-border/60 shadow-xs">
+              <div>
+                <h3 className="text-sm font-extrabold text-foreground">Editor do Menu Lateral da Plataforma</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Personalize títulos, visibilidade, ícones e a ordenação de todos os itens do menu da organização em tempo real.
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold shadow-xs shrink-0">
+                <Menu className="h-3.5 w-3.5" />
+                <span>Sincronização Menu</span>
+              </div>
+            </div>
+
+            <PlatformMenuEditor canEdit={true} showDevNavigationLinks={true} />
+          </div>
+        </TabsContent>
+
+        {/* ABA 5: APARÊNCIA & PERFIS */}
+        <TabsContent value="aparencia" className="space-y-6 m-0 focus-visible:outline-none">
+          <div className="space-y-6 animate-in fade-in-50 duration-300">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-card border border-border/60 shadow-xs">
+              <div>
+                <h3 className="text-sm font-extrabold text-foreground">Personalização Visual & Perfis</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Personalize o estilo visual da interface, bordas, temas, cores e o formato dos perfis públicos dos membros.
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-pink-500/10 border border-pink-500/30 text-pink-400 text-xs font-semibold shadow-xs shrink-0">
+                <Palette className="h-3.5 w-3.5" />
+                <span>Aparência Ativa</span>
+              </div>
+            </div>
+
+            <Tabs defaultValue="visual" className="w-full space-y-4">
+              <TabsList className="bg-secondary/40 border border-border/60 p-1 rounded-xl h-auto flex flex-wrap gap-1">
+                <TabsTrigger
+                  value="visual"
+                  className="text-xs font-bold py-1.5 px-3 rounded-lg data-[state=active]:bg-pink-500/20 data-[state=active]:text-pink-400 gap-1.5"
+                >
+                  <Palette className="h-3.5 w-3.5" />
+                  Tema & Estilo Visual da Interface
+                </TabsTrigger>
+                <TabsTrigger
+                  value="perfis"
+                  className="text-xs font-bold py-1.5 px-3 rounded-lg data-[state=active]:bg-pink-500/20 data-[state=active]:text-pink-400 gap-1.5"
+                >
+                  <User className="h-3.5 w-3.5" />
+                  Customização de Perfis Públicos
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="visual" className="space-y-4 m-0">
+                <UserAppearanceSettings />
+              </TabsContent>
+
+              <TabsContent value="perfis" className="space-y-4 m-0">
+                <PublicProfileCustomizer />
+              </TabsContent>
+            </Tabs>
+          </div>
+        </TabsContent>
+
+        {/* ABA 6: PERMISSÕES & CARGOS DEV HUB */}
+        <TabsContent value="permissoes" className="space-y-6 m-0 focus-visible:outline-none">
+          <DevPermissionsHubTab />
+        </TabsContent>
+
+        {/* ABA 7: RODAPÉ */}
             <TabsContent value="rodape" className="space-y-6 m-0 focus-visible:outline-none">
               {/* CARD 2: CONFIGURAÇÕES E EDIÇÃO DO RODAPÉ DA PLATAFORMA */}
           <Card className="surface-card border transition-all duration-300">
@@ -2826,6 +3004,644 @@ export function DevConfiguracaoContent({
         open={maintenanceModalOpen}
         onOpenChange={setMaintenanceModalOpen}
       />
+    </div>
+  );
+}
+
+/**
+ * Subcomponente de Parâmetros Operacionais da Organização
+ */
+function DevOperationalRulesCard({
+  platformForm,
+  updatePlatformField,
+  savingPlatform,
+}: {
+  platformForm: PlatformSettings;
+  updatePlatformField: <K extends keyof PlatformSettings>(key: K, value: PlatformSettings[K]) => void;
+  savingPlatform: boolean;
+}) {
+  return (
+    <div className="space-y-6 animate-in fade-in-50 duration-300">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-card border border-border/60 shadow-xs">
+        <div>
+          <h3 className="text-sm font-extrabold text-foreground">Parâmetros Operacionais da Organização</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Defina regras de movimentação de baús, visibilidade financeira para operadores e temporizadores de presença.
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold shadow-xs shrink-0">
+          {savingPlatform ? (
+            <>
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <span>Sincronizando...</span>
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+              <span>Salvo automaticamente</span>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <Card className="surface-card">
+          <CardHeader className="pb-3 border-b border-border/60">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                <Boxes className="h-4 w-4" />
+              </div>
+              <div>
+                <CardTitle className="text-sm font-bold">Regras de Movimentação & Baús</CardTitle>
+                <CardDescription className="text-[0.7rem]">Comportamento do formulário de entradas e saídas</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between p-3.5 rounded-xl bg-secondary/30 border border-border/40 hover:border-emerald-500/30 transition-all">
+              <div className="space-y-0.5 pr-3">
+                <p className="text-xs font-bold text-foreground">Permitir movimentações sem baú vinculado</p>
+                <p className="text-[0.7rem] text-muted-foreground">
+                  Permite retirar/dar entrada em itens sem a obrigatoriedade de selecionar um baú específico no formulário
+                </p>
+              </div>
+              <Switch
+                checked={platformForm.allowMovementsWithoutBau}
+                onCheckedChange={(checked) => updatePlatformField("allowMovementsWithoutBau", checked)}
+                className="data-[state=checked]:bg-emerald-500"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="surface-card">
+          <CardHeader className="pb-3 border-b border-border/60">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 border border-sky-500/30 text-sky-400">
+                <Landmark className="h-4 w-4" />
+              </div>
+              <div>
+                <CardTitle className="text-sm font-bold">Visibilidade & Alertas</CardTitle>
+                <CardDescription className="text-[0.7rem]">Transparência e notificações gerenciais</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between p-3.5 rounded-xl bg-secondary/30 border border-border/40 hover:border-sky-500/30 transition-all">
+              <div className="space-y-0.5 pr-3">
+                <p className="text-xs font-bold text-foreground">Exibir valor do Fundo de Caixa para Operadores</p>
+                <p className="text-[0.7rem] text-muted-foreground">
+                  Exibe o total acumulado do caixa para membros de nível operador na interface
+                </p>
+              </div>
+              <Switch
+                checked={platformForm.showConsolidatedCashToOperators}
+                onCheckedChange={(checked) => updatePlatformField("showConsolidatedCashToOperators", checked)}
+                className="data-[state=checked]:bg-emerald-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-between p-3.5 rounded-xl bg-secondary/30 border border-border/40 hover:border-sky-500/30 transition-all">
+              <div className="space-y-0.5 pr-3">
+                <p className="text-xs font-bold text-foreground">Notificar cadastros pendentes no Dashboard</p>
+                <p className="text-[0.7rem] text-muted-foreground">
+                  Exibe alerta e badge no topo do painel inicial quando houver novos membros aguardando aprovação
+                </p>
+              </div>
+              <Switch
+                checked={platformForm.notifyPendingSignups}
+                onCheckedChange={(checked) => updatePlatformField("notifyPendingSignups", checked)}
+                className="data-[state=checked]:bg-emerald-500"
+              />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="surface-card">
+        <CardHeader className="pb-3 border-b border-border/60">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400">
+              <Clock className="h-4 w-4" />
+            </div>
+            <div>
+              <CardTitle className="text-sm font-bold">Temporizadores de Sessão & Presença dos Integrantes</CardTitle>
+              <CardDescription className="text-[0.7rem]">Parâmetros de detecção em tempo real de atividade e status online</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-1.5 p-3 rounded-xl bg-secondary/30 border border-border/40">
+              <Label className="text-xs font-semibold">Timeout de Inatividade (segundos)</Label>
+              <Input
+                type="number"
+                value={platformForm.idleTimeoutSeconds ?? 1800}
+                onChange={(e) => updatePlatformField("idleTimeoutSeconds", Number(e.target.value))}
+                className="h-9 text-xs rounded-xl bg-secondary/60 font-mono font-bold"
+              />
+              <p className="text-[10px] text-muted-foreground">Tempo máximo sem interação antes do timeout (padrão: 1800s).</p>
+            </div>
+            <div className="space-y-1.5 p-3 rounded-xl bg-secondary/30 border border-border/40">
+              <Label className="text-xs font-semibold">Heartbeat de Presença (segundos)</Label>
+              <Input
+                type="number"
+                value={platformForm.heartbeatSeconds ?? 60}
+                onChange={(e) => updatePlatformField("heartbeatSeconds", Number(e.target.value))}
+                className="h-9 text-xs rounded-xl bg-secondary/60 font-mono font-bold"
+              />
+              <p className="text-[10px] text-muted-foreground">Frequência de envio de sinal online para o servidor (padrão: 60s).</p>
+            </div>
+            <div className="space-y-1.5 p-3 rounded-xl bg-secondary/30 border border-border/40">
+              <Label className="text-xs font-semibold">Tempo para Auto-Offline (minutos)</Label>
+              <Input
+                type="number"
+                value={platformForm.autoOfflineMinutes ?? 5}
+                onChange={(e) => updatePlatformField("autoOfflineMinutes", Number(e.target.value))}
+                className="h-9 text-xs rounded-xl bg-secondary/60 font-mono font-bold"
+              />
+              <p className="text-[10px] text-muted-foreground">Tempo sem heartbeat para marcar membro como offline (padrão: 5 min).</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/**
+ * Subcomponente de Notificações Sonoras do Chat
+ */
+function DevChatSoundCard() {
+  const [chatSoundEnabled, setChatSoundEnabled] = useState(chatSound.isEnabled());
+
+  useEffect(() => {
+    const handleSoundChange = (e: any) => {
+      if (typeof e.detail?.enabled === "boolean") {
+        setChatSoundEnabled(e.detail.enabled);
+      }
+    };
+    window.addEventListener("tw_chat_sound_change", handleSoundChange);
+    return () => window.removeEventListener("tw_chat_sound_change", handleSoundChange);
+  }, []);
+
+  const handleToggle = (checked: boolean) => {
+    chatSound.setEnabled(checked);
+    setChatSoundEnabled(checked);
+    toast.success(
+      checked
+        ? "Notificações sonoras do chat ativadas com sucesso!"
+        : "Notificações sonoras do chat desativadas!"
+    );
+    if (checked) {
+      chatSound.playIncomingMessage();
+    }
+  };
+
+  const handleTestIncoming = () => {
+    chatSound.playIncomingMessage();
+    toast.info("Testando som de nova mensagem recebida");
+  };
+
+  const handleTestMention = () => {
+    chatSound.playMentionSound();
+    toast.info("Testando som de menção (@você) no chat");
+  };
+
+  const handleTestSent = () => {
+    chatSound.playSentMessage();
+    toast.info("Testando som de mensagem enviada");
+  };
+
+  return (
+    <Card className="surface-card">
+      <CardHeader className="pb-3 border-b border-border/60">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+              <MessageSquare className="h-4 w-4" />
+            </div>
+            <div>
+              <CardTitle className="text-sm font-bold">Notificações Sonoras do Chat</CardTitle>
+              <CardDescription className="text-[0.7rem]">
+                Alertas sonoros em tempo real para novas mensagens recebidas, menções e envio
+              </CardDescription>
+            </div>
+          </div>
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-[10px] font-mono",
+              chatSoundEnabled
+                ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
+                : "border-zinc-500/40 text-muted-foreground"
+            )}
+          >
+            {chatSoundEnabled ? "Áudio Ativo" : "Silenciado"}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="p-4 space-y-4">
+        <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/30 border border-border/40">
+          <div className="space-y-0.5 pr-3">
+            <p className="text-xs font-bold text-foreground">Sons de novas mensagens e menções</p>
+            <p className="text-[0.7rem] text-muted-foreground">
+              Reproduzir tom sonoro discreto e cristalino ao receber novas mensagens fora da conversa aberta
+            </p>
+          </div>
+          <Switch
+            checked={chatSoundEnabled}
+            onCheckedChange={handleToggle}
+            className="data-[state=checked]:bg-emerald-500"
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/40">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleTestIncoming}
+            disabled={!chatSoundEnabled}
+            className="h-8 text-xs gap-1.5 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50"
+          >
+            <Volume2 className="h-3.5 w-3.5" />
+            Testar Som de Mensagem Recebida
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleTestMention}
+            disabled={!chatSoundEnabled}
+            className="h-8 text-xs gap-1.5 border-amber-500/30 text-amber-400 hover:bg-amber-500/10 disabled:opacity-50"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Testar Som de Menção (@)
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleTestSent}
+            disabled={!chatSoundEnabled}
+            className="h-8 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10 disabled:opacity-50"
+          >
+            <Volume2 className="h-3.5 w-3.5" />
+            Testar Som de Envio
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Subcomponente de Efeitos Sonoros Web Audio API
+ */
+function DevWebAudioCard({
+  platformForm,
+  updatePlatformField,
+}: {
+  platformForm: PlatformSettings;
+  updatePlatformField: <K extends keyof PlatformSettings>(key: K, value: PlatformSettings[K]) => void;
+}) {
+  const handleTestOperationSound = () => {
+    playGamerSuccessSound(platformForm.soundVolume || 60);
+    toast.info("Testando efeito sonoro de operação (Web Audio API)", {
+      description: `Volume ajustado em ${platformForm.soundVolume || 60}%`,
+    });
+  };
+
+  const handleTestOnlineAlertSound = () => {
+    playGamerOnlineAlertSound(platformForm.soundVolume || 60);
+    toast.success("Testando alerta sonoro de membro online", {
+      description: `Volume ajustado em ${platformForm.soundVolume || 60}%`,
+    });
+  };
+
+  return (
+    <Card className="surface-card">
+      <CardHeader className="pb-3 border-b border-border/60">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-400">
+            <Volume2 className="h-4 w-4" />
+          </div>
+          <div>
+            <CardTitle className="text-sm font-bold">Efeitos Sonoros & Áudio Gamer</CardTitle>
+            <CardDescription className="text-[0.7rem]">
+              Sintetizador Web Audio API de alta fidelidade para lançamentos de vendas, saídas e presença
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-4 space-y-4">
+        <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/30 border border-border/40">
+          <div className="space-y-0.5 pr-3">
+            <p className="text-xs font-bold text-foreground">Efeitos sonoros ao registrar operações</p>
+            <p className="text-[0.7rem] text-muted-foreground">Bipe sci-fi ao efetuar vendas, saídas e movimentações</p>
+          </div>
+          <Switch
+            checked={platformForm.soundEffectsEnabled}
+            onCheckedChange={(checked) => updatePlatformField("soundEffectsEnabled", checked)}
+            className="data-[state=checked]:bg-emerald-500"
+          />
+        </div>
+
+        <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/30 border border-border/40">
+          <div className="space-y-0.5 pr-3">
+            <p className="text-xs font-bold text-foreground">Alerta sonoro tático de entrada online</p>
+            <p className="text-[0.7rem] text-muted-foreground">Tocar aviso de radar tático quando um membro entrar online</p>
+          </div>
+          <Switch
+            checked={platformForm.onlineAlertEnabled}
+            onCheckedChange={(checked) => updatePlatformField("onlineAlertEnabled", checked)}
+            className="data-[state=checked]:bg-emerald-500"
+          />
+        </div>
+
+        {/* Volume Control */}
+        <div className="p-3 rounded-xl bg-secondary/30 border border-border/40 space-y-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-bold">Volume Mestre do Efeito Sonoro ({platformForm.soundVolume || 60}%)</Label>
+            <Badge variant="outline" className="text-[10px] font-mono border-primary/30 text-primary">
+              Web Audio Synth
+            </Badge>
+          </div>
+          <Slider
+            value={[platformForm.soundVolume ?? 60]}
+            onValueChange={(val) => updatePlatformField("soundVolume", val[0] ?? 60)}
+            min={0}
+            max={100}
+            step={5}
+            className="py-1"
+          />
+        </div>
+
+        {/* Audio Test Buttons */}
+        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/40">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleTestOperationSound}
+            className="h-8 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+          >
+            <Volume2 className="h-3.5 w-3.5" />
+            Testar Som de Operação
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleTestOnlineAlertSound}
+            className="h-8 text-xs gap-1.5 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Testar Alerta de Membro Online
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Subcomponente de Avisos & Comunicados
+ */
+function DevAnnouncementsConfigCard({
+  platformForm,
+  updatePlatformField,
+}: {
+  platformForm: PlatformSettings;
+  updatePlatformField: <K extends keyof PlatformSettings>(key: K, value: PlatformSettings[K]) => void;
+}) {
+  return (
+    <Card className="surface-card">
+      <CardHeader className="pb-3 border-b border-border/60">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/10 border border-purple-500/30 text-purple-400">
+            <Megaphone className="h-4 w-4" />
+          </div>
+          <div>
+            <CardTitle className="text-sm font-bold">Avisos & Comunicados Oficiais</CardTitle>
+            <CardDescription className="text-[0.7rem]">Exibição de banners em destaque e retenção de avisos</CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-4 space-y-4">
+        <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/30 border border-border/40">
+          <div className="space-y-0.5 pr-3">
+            <p className="text-xs font-bold text-foreground">Exibir Banner de Avisos no topo do Dashboard</p>
+            <p className="text-[0.7rem] text-muted-foreground">Exibe comunicados em destaque no topo da tela inicial</p>
+          </div>
+          <Switch
+            checked={platformForm.showAnnouncementBanner}
+            onCheckedChange={(checked) => updatePlatformField("showAnnouncementBanner", checked)}
+            className="data-[state=checked]:bg-emerald-500"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold">Ocultar avisos mais antigos que</Label>
+          <Select
+            value={String(platformForm.hideOldAnnouncementsDays || 7)}
+            onValueChange={(val) => updatePlatformField("hideOldAnnouncementsDays", Number(val))}
+          >
+            <SelectTrigger className="h-9 text-xs bg-secondary/50 border-border/60 font-bold max-w-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="3" className="text-xs">3 dias</SelectItem>
+              <SelectItem value="7" className="text-xs">7 dias (Padrão)</SelectItem>
+              <SelectItem value="15" className="text-xs">15 dias</SelectItem>
+              <SelectItem value="30" className="text-xs">30 dias</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Subcomponente Central de Permissões & Cargos Dev Hub
+ */
+function DevPermissionsHubTab() {
+  const { data: members = [] } = useMembers();
+
+  const roleCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const m of members) {
+      const r = m.nivel || "novato";
+      counts[r] = (counts[r] || 0) + 1;
+    }
+    return counts;
+  }, [members]);
+
+  return (
+    <div className="space-y-6 animate-in fade-in-50 duration-300">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-card border border-border/60 shadow-xs">
+        <div>
+          <h3 className="text-sm font-extrabold text-foreground">Central de Permissões & Cargos Dev</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Gestão hierárquica, matriz de permissões granulares por cargo e tags especiais sincronizadas em tempo real.
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-xs font-semibold shadow-xs shrink-0">
+          <KeyRound className="h-3.5 w-3.5" />
+          <span>Matriz Dev Ativa</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="surface-card border-border/60">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Cargos Operacionais
+              </span>
+              <p className="text-2xl font-black text-amber-400">7 Patentes</p>
+              <span className="text-[10px] text-muted-foreground">Líder até Novato</span>
+            </div>
+            <div className="p-3 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="surface-card border-border/60">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Módulos de Permissões
+              </span>
+              <p className="text-2xl font-black text-sky-400">41 Cards</p>
+              <span className="text-[10px] text-muted-foreground">Centenas de ações granulares</span>
+            </div>
+            <div className="p-3 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20">
+              <KeyRound className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="surface-card border-border/60">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Sincronização Ativa
+              </span>
+              <p className="text-2xl font-black text-emerald-400">Tempo Real</p>
+              <span className="text-[10px] text-muted-foreground">Firebase RTDB + Supabase</span>
+            </div>
+            <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="surface-card border-amber-500/30 hover:border-amber-500/60 transition-all">
+          <CardHeader className="pb-3 border-b border-border/60">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  <KeyRound className="h-4 w-4" />
+                </div>
+                <div>
+                  <CardTitle className="text-sm font-bold">Matriz de Permissões de Cargos</CardTitle>
+                  <CardDescription className="text-[0.7rem]">
+                    Edição granular de permissões por cargo com gravação direta no banco
+                  </CardDescription>
+                </div>
+              </div>
+              <Badge variant="outline" className="text-[10px] font-mono border-amber-500/30 text-amber-400">
+                Página Oficial DEV
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 space-y-3">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Configure detalhadamente o que cada cargo pode visualizar, criar, editar ou excluir em todos os 41 módulos da organização, incluindo a separação estrita de Tickets do Membro vs Atendimento Desk, Escalas, Estoque, etc.
+            </p>
+            <Link to="/dev/permissoes">
+              <Button size="sm" className="w-full h-9 text-xs font-bold gap-2 bg-amber-500 text-black hover:bg-amber-400">
+                <KeyRound className="h-3.5 w-3.5" />
+                Abrir Matriz Completa de Permissões de Cargos (/dev/permissoes)
+                <ExternalLink className="h-3.5 w-3.5 ml-auto" />
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card className="surface-card border-purple-500/30 hover:border-purple-500/60 transition-all">
+          <CardHeader className="pb-3 border-b border-border/60">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                  <Tags className="h-4 w-4" />
+                </div>
+                <div>
+                  <CardTitle className="text-sm font-bold">Permissões de Tags Especiais</CardTitle>
+                  <CardDescription className="text-[0.7rem]">
+                    Tags com regras customizadas e sincronização com cargos do Discord
+                  </CardDescription>
+                </div>
+              </div>
+              <Badge variant="outline" className="text-[10px] font-mono border-purple-500/30 text-purple-400">
+                Integração Discord
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 space-y-3">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Atribua tags especiais com permissões adicionais a membros específicos, sem alterar o cargo principal deles na hierarquia da organização.
+            </p>
+            <Link to="/ceo/tags">
+              <Button size="sm" variant="outline" className="w-full h-9 text-xs font-bold gap-2 border-purple-500/40 text-purple-400 hover:bg-purple-500/10">
+                <Tags className="h-3.5 w-3.5" />
+                Abrir Gerenciador de Tags (/ceo/tags)
+                <ExternalLink className="h-3.5 w-3.5 ml-auto" />
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="surface-card">
+        <CardHeader className="pb-3 border-b border-border/60">
+          <CardTitle className="text-sm font-bold">Estrutura Hierárquica e Integrantes por Cargo</CardTitle>
+          <CardDescription className="text-[0.7rem]">
+            Distribuição dos membros cadastrados em cada nível operacional da facção
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {LEVELS.map((lvl) => {
+              const count = roleCounts[lvl] || 0;
+              return (
+                <div
+                  key={lvl}
+                  className="p-3.5 rounded-xl bg-secondary/30 border border-border/50 space-y-1.5 hover:border-border transition-all"
+                >
+                  <div className="flex items-center justify-between">
+                    <Badge variant="outline" className={cn("text-[11px] font-bold px-2 py-0.5", levelBadgeClass(lvl))}>
+                      {LEVEL_LABEL[lvl]}
+                    </Badge>
+                    <span className="text-xs font-mono font-bold text-foreground">
+                      {count} {count === 1 ? "membro" : "membros"}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground line-clamp-2">
+                    {LEVEL_DESCRIPTION[lvl]}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

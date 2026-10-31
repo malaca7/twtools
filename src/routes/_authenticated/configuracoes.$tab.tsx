@@ -2,9 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ConfiguracoesPage } from "./configuracoes";
 
 export const Route = createFileRoute("/_authenticated/configuracoes/$tab")({
-  component: ConfiguracoesTabRoute,
+  component: ConfiguracoesTabRedirect,
 });
 
-function ConfiguracoesTabRoute() {
+function ConfiguracoesTabRedirect() {
   return <ConfiguracoesPage />;
 }

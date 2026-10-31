@@ -71,13 +71,10 @@ export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
   { id: "metas", title: "Metas", url: "/metas", visible: true, category: "Gestão", order: 17 },
   { id: "avisos", title: "Enviar Avisos", url: "/avisos", visible: true, category: "Gestão", order: 18 },
   { id: "cargos", title: "Gerenciamento de Cargos", url: "/cargos", visible: true, category: "Administração", order: 19 },
-  { id: "permissoes", title: "Permissões", url: "/permissoes", visible: true, category: "Administração", order: 20 },
-  { id: "atualizacoes", title: "Atualizações", url: "/atualizacoes", visible: true, category: "Administração", order: 21 },
-  { id: "perfil", title: "Meu Perfil", url: "/perfil", visible: true, category: "Gestão", order: 22 },
-  { id: "configuracoes", title: "Configurações", url: "/configuracoes", visible: true, category: "Administração", order: 23 },
-  { id: "advertencias", title: "Advertências", url: "/advertencias", visible: true, category: "Administração", order: 24, iconName: "ShieldAlert" },
-  { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", visible: true, category: "Administração", order: 24.5, iconName: "Tags" },
-  { id: "ceo-selos", title: "Gerenciar Selos", url: "/ceo/selos", visible: true, category: "CEO", order: 25, iconName: "BadgeCheck" },
+  { id: "perfil", title: "Meu Perfil", url: "/perfil", visible: true, category: "Gestão", order: 20 },
+  { id: "advertencias", title: "Advertências", url: "/advertencias", visible: true, category: "Administração", order: 21, iconName: "ShieldAlert" },
+  { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", visible: true, category: "Administração", order: 22, iconName: "Tags" },
+  { id: "ceo-selos", title: "Gerenciar Selos", url: "/ceo/selos", visible: true, category: "CEO", order: 23, iconName: "BadgeCheck" },
 ];
 
 export type PlatformSystemModule = {
@@ -113,10 +110,7 @@ export const PLATFORM_SYSTEM_MODULES: PlatformSystemModule[] = [
   { id: "metas", title: "Metas", url: "/metas", defaultCat: "Gestão", iconName: "Target", description: "Metas semanais e mensais da facção" },
   { id: "avisos", title: "Enviar Avisos", url: "/avisos", defaultCat: "Gestão", iconName: "Megaphone", description: "Mural de avisos para os membros" },
   { id: "cargos", title: "Gerenciamento de Cargos", url: "/cargos", defaultCat: "Administração", iconName: "ShieldCheck", description: "Configuração de cargos e hierarquia" },
-  { id: "permissoes", title: "Permissões", url: "/permissoes", defaultCat: "Administração", iconName: "Settings", description: "Matriz de permissões e acessos" },
-  { id: "atualizacoes", title: "Atualizações", url: "/atualizacoes", defaultCat: "Administração", iconName: "Sparkles", description: "Notas de atualização e novidades" },
   { id: "perfil", title: "Meu Perfil", url: "/perfil", defaultCat: "Gestão", iconName: "User", description: "Perfil público e dados do membro" },
-  { id: "configuracoes", title: "Configurações", url: "/configuracoes", defaultCat: "Administração", iconName: "Wrench", description: "Configurações gerais do sistema" },
   { id: "advertencias", title: "Advertências", url: "/advertencias", defaultCat: "Administração", iconName: "ShieldAlert", description: "Sistema disciplinar de advertências e suspensões" },
   { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", defaultCat: "Administração", iconName: "Tags", description: "Gestão executiva de tags especiais e sincronização no Discord" },
   { id: "ceo-selos", title: "Gerenciar Selos", url: "/ceo/selos", defaultCat: "CEO", iconName: "BadgeCheck", description: "Painel executivo de gestão, análise de pedidos e aprovação de Selos de Verificação" },
@@ -183,10 +177,19 @@ export function syncMenuConfig(raw: Partial<MenuConfig> | null | undefined): Men
         saved.id === "logs" ||
         saved.id === "life" ||
         saved.id === "lives" ||
+        saved.id === "configuracoes" ||
+        saved.id === "permissoes" ||
+        saved.id === "atualizacoes" ||
         saved.url === "/chat" ||
         saved.url === "/logs" ||
         saved.url === "/life" ||
-        saved.url === "/lives"
+        saved.url === "/lives" ||
+        saved.url === "/configuracoes" ||
+        saved.url === "/permissoes" ||
+        saved.url === "/atualizacoes" ||
+        saved.url?.startsWith("/configuracoes/") ||
+        saved.url?.startsWith("/permissoes/") ||
+        saved.url?.startsWith("/atualizacoes/")
       ) return;
       processedIds.add(saved.id);
 

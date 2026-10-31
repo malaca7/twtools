@@ -1,7 +1,5 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { createFileRoute, Outlet, useChildMatches } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import {
   LifeBuoy,
   Plus,
@@ -12,15 +10,15 @@ import {
   MessageSquare,
   Paperclip,
   User,
-  Shield,
-  SlidersHorizontal,
   ChevronRight,
   ArrowLeft,
   X,
   AlertTriangle,
   FolderOpen,
   Calendar,
-  UserCheck,
+  Lock,
+  Headphones,
+  RotateCcw,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,7 +35,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PageHeader, NoAccess, EmptyState } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
-import { useUrlTab, useSyncedUrlParam } from "@/hooks/useUrlTab";
+import { useSyncedUrlParam } from "@/hooks/useUrlTab";
 import { useTickets } from "@/hooks/useTickets";
 import { NewTicketDialog } from "@/components/tickets/NewTicketDialog";
 import { TicketDetailView } from "@/components/tickets/TicketDetailView";
@@ -52,10 +50,10 @@ import {
   getStatusInfo,
   TICKET_CATEGORIES,
   TICKET_PRIORITIES,
-  TICKET_STATUSES,
 } from "@/types/tickets";
 import { dateTime, formatTimeOnly } from "@/lib/format";
-import { LEVEL_LABEL, levelBadgeClass } from "@/lib/permissions";
+import { LEVEL_LABEL } from "@/lib/permissions";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/tickets")({
@@ -83,7 +81,9 @@ export function TicketsPage() {
   }
 
   if (!canView) {
-    return <NoAccess message="Você não tem permissão para acessar a área de Tickets / Ouvidoria." />;
+    return (
+      <NoAccess message="Você não possui permissão para acessar a área de Tickets / Ouvidoria." />
+    );
   }
 
   return <TicketsContent />;
@@ -91,662 +91,533 @@ export function TicketsPage() {
 
 function TicketsContent() {
   const { user, profile, hasPermission } = useAuth();
-  const canView = hasPermission("view_tickets");
+  const canCreate = hasPermission("create_ticket");
+  const canReply = hasPermission("reply_tickets") || hasPermission("reply_ticket" as any);
 
-  if (!canView) {
-    return <NoAccess message="Você não tem permissão para acessar a área de Tickets / Ouvidoria." />;
-  }
+  const { data: tickets = [], isLoading, refetch } = useTickets();
 
-  const canManage = hasPermission("manage_tickets");
-  const canClaim = hasPermission("claim_tickets") || hasPermission("claim_ticket" as Permission);
-  const canViewAll = hasPermission("view_all_tickets") || canManage;
-  const canSeeAll = canViewAll;
-  const canCreate = hasPermission("create_ticket") || canManage;
+  // Filtrar estritamente apenas chamados pertencentes ao membro autenticado (ou onde ele é participante convidado)
+  const myTickets = useMemo(() => {
+    if (!user?.id) return [];
+    return tickets.filter(
+      (t) =>
+        t.user_id === user.id ||
+        (t.members || []).some((m) => m.user_id === user.id)
+    );
+  }, [tickets, user?.id]);
 
-  const { data: tickets = [], isLoading, isFetching } = useTickets();
-  const queryClient = useQueryClient();
-
-  const [hasManuallySelectedTab, setHasManuallySelectedTab] = useState(false);
-  // State sincronizado com a URL (?tab=my | all e ?ticket=id)
-  const [activeTab, setActiveTab] = useUrlTab<"my" | "all">(canSeeAll ? "all" : "my", {
-    paramName: "tab",
-    allowedTabs: ["my", "all"],
-    usePath: false,
-  });
+  // Sincronização do ticket selecionado na URL (?ticket=id)
   const [ticketParam, setTicketParam] = useSyncedUrlParam<string>("ticket", "");
   const selectedTicketId = ticketParam || null;
   const setSelectedTicketId = (id: string | null) => setTicketParam(id || "");
+
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState("");
 
-  // Auto ativar e sincronizar visualização na página automaticamente quando a permissão mudar em tempo real
-  const prevCanSeeAllRef = useRef(canSeeAll);
+  // Ticket atualmente selecionado para exibição detalhada
+  const selectedTicket = useMemo(() => {
+    if (!selectedTicketId) return null;
+    return myTickets.find((t) => t.id === selectedTicketId) || null;
+  }, [selectedTicketId, myTickets]);
+
+  // Se o ticket selecionado não existe mais nos chamados do membro, fecha a visualização
   useEffect(() => {
-    if (prevCanSeeAllRef.current !== canSeeAll) {
-      prevCanSeeAllRef.current = canSeeAll;
-      void queryClient.invalidateQueries({ queryKey: ["tickets"] });
-
-      if (canSeeAll) {
-        setHasManuallySelectedTab(false);
-        setActiveTab("all");
-        toast.success("Visualização de todos os chamados na fila geral auto-ativada! 🎫", {
-          id: "tickets-perm-sync",
-        });
-      } else {
-        setHasManuallySelectedTab(false);
-        setActiveTab("my");
-        toast.info("Visualização sincronizada: restrita aos seus chamados.", {
-          id: "tickets-perm-sync",
-        });
-      }
-    }
-  }, [canSeeAll, setActiveTab, queryClient]);
-
-  // Se o usuário não tem permissão para ver todos os chamados, força a aba "my"
-  // Caso tenha permissão e ainda não tenha selecionado manualmente, abre "all" automaticamente
-  useEffect(() => {
-    if (!canSeeAll && activeTab !== "my") {
-      setActiveTab("my");
-    } else if (canSeeAll && !hasManuallySelectedTab && activeTab !== "all") {
-      setActiveTab("all");
-    }
-  }, [canSeeAll, activeTab, setActiveTab, hasManuallySelectedTab]);
-
-  // Limpar seleção caso o ticket selecionado seja excluído em tempo real
-  useEffect(() => {
-    if (selectedTicketId && tickets.length > 0 && !tickets.some((t) => t.id === selectedTicketId)) {
+    if (selectedTicketId && !selectedTicket && !isLoading) {
       setSelectedTicketId(null);
     }
-  }, [tickets, selectedTicketId]);
+  }, [selectedTicketId, selectedTicket, isLoading]);
 
-  // Filters
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterCategory, setFilterCategory] = useState<string>("all");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [filterPriority, setFilterPriority] = useState<string>("all");
-  const [filterAssignee, setFilterAssignee] = useState<string>("all"); // all, my_assigned, unassigned
-
-  // Candidatos de identificação do usuário autenticado para conferência segura
-  const myCandidateIds = useMemo(() => {
-    return new Set(
-      [
-        user?.id,
-        user?.email,
-        profile?.id,
-        profile?.user_id,
-        profile?.game_id,
-        (profile as any)?.passaporte,
-        profile?.discord_id,
-        profile?.discord_email,
-      ]
-        .filter(Boolean)
-        .map((id) => String(id).trim().toLowerCase())
-    );
-  }, [user?.id, user?.email, profile?.id, profile?.user_id, profile?.game_id, (profile as any)?.passaporte, profile?.discord_id, profile?.discord_email]);
-
-  const checkIsMyTicket = useCallback(
-    (t: Ticket) => {
-      const uid = String(t.user_id || "").trim().toLowerCase();
-      const aid = String(t.assigned_to_id || "").trim().toLowerCase();
-      if (uid && myCandidateIds.has(uid)) return true;
-      if (aid && myCandidateIds.has(aid)) return true;
-      if (t.members && Array.isArray(t.members)) {
-        return t.members.some((m) => {
-          const mid = String(m.user_id || (m as any).id || "").trim().toLowerCase();
-          return mid && myCandidateIds.has(mid);
-        });
-      }
-      return false;
-    },
-    [myCandidateIds]
-  );
-
-  // Estatísticas globais (ou restritas ao membro caso não tenha permissão de ver todos)
+  // Métricas do membro
   const stats = useMemo(() => {
-    const list = canSeeAll ? tickets : tickets.filter(checkIsMyTicket);
-    const total = list.length;
-    const myCount = tickets.filter(checkIsMyTicket).length;
-    const openCount = list.filter((t) => t.status === "aberto").length;
-    const inProgressCount = list.filter(
-      (t) => t.status === "em_atendimento" || t.status === "aguardando"
-    ).length;
-    const closedCount = list.filter(
-      (t) => t.status === "resolvido" || t.status === "fechado"
-    ).length;
-    return { total, myCount, openCount, inProgressCount, closedCount };
-  }, [tickets, checkIsMyTicket, canSeeAll]);
+    let active = 0;
+    let waitingMember = 0;
+    let resolved = 0;
+    for (const t of myTickets) {
+      if (t.status === "aberto" || t.status === "em_atendimento") {
+        active++;
+      } else if (t.status === "aguardando_membro") {
+        waitingMember++;
+      } else if (t.status === "resolvido" || t.status === "fechado") {
+        resolved++;
+      }
+    }
+    return {
+      active,
+      waitingMember,
+      resolved,
+      total: myTickets.length,
+    };
+  }, [myTickets]);
 
-  // Filtragem dos tickets
+  // Filtros aplicados sobre os chamados do membro
   const filteredTickets = useMemo(() => {
-    return tickets.filter((t) => {
-      // Se não tem permissão para ver todos, restringe estritamente aos próprios ou onde participa
-      if (!canSeeAll && !checkIsMyTicket(t)) {
-        return false;
-      }
-
-      // Filtro por Aba
-      if (activeTab === "my" && !checkIsMyTicket(t)) {
-        return false;
-      }
-
-      // Filtro por termo de busca
-      if (searchTerm.trim()) {
-        const query = searchTerm.toLowerCase().trim();
-        const numFormatted = formatTicketNumber(t.ticket_number).toLowerCase();
-        const subjectMatch = t.subject.toLowerCase().includes(query);
-        const descMatch = t.description.toLowerCase().includes(query);
-        const authorMatch = (t.creator_nickname || t.creator_name).toLowerCase().includes(query);
-        const assignedMatch = (t.assigned_to_nickname || t.assigned_to_name || "")
-          .toLowerCase()
-          .includes(query);
-        const numMatch =
-          numFormatted.includes(query) || t.ticket_number.toString().includes(query);
-
-        if (!subjectMatch && !descMatch && !authorMatch && !assignedMatch && !numMatch) {
+    return myTickets.filter((t) => {
+      // Filtro de status
+      if (statusFilter !== "all") {
+        if (statusFilter === "active") {
+          if (t.status !== "aberto" && t.status !== "em_atendimento") return false;
+        } else if (statusFilter === "resolved") {
+          if (t.status !== "resolvido" && t.status !== "fechado") return false;
+        } else if (t.status !== statusFilter) {
           return false;
         }
       }
 
-      // Filtro por Categoria
-      if (filterCategory !== "all" && t.category !== filterCategory) {
+      // Filtro de categoria
+      if (categoryFilter !== "all" && t.category !== categoryFilter) {
         return false;
       }
 
-      // Filtro por Status
-      if (filterStatus !== "all" && t.status !== filterStatus) {
+      // Filtro de prioridade
+      if (priorityFilter !== "all" && t.priority !== priorityFilter) {
         return false;
       }
 
-      // Filtro por Prioridade
-      if (filterPriority !== "all" && t.priority !== filterPriority) {
-        return false;
-      }
-
-      // Filtro por Responsável
-      if (filterAssignee === "my_assigned" && !myCandidateIds.has(String(t.assigned_to_id || "").trim().toLowerCase())) {
-        return false;
-      }
-      if (filterAssignee === "unassigned" && t.assigned_to_id) {
-        return false;
+      // Filtro de texto de busca
+      if (searchTerm.trim()) {
+        const query = searchTerm.toLowerCase().trim();
+        const numStr = formatTicketNumber(t.ticket_number).toLowerCase();
+        const subj = (t.subject || "").toLowerCase();
+        const desc = (t.description || "").toLowerCase();
+        const cat = (t.category || "").toLowerCase();
+        if (
+          !numStr.includes(query) &&
+          !subj.includes(query) &&
+          !desc.includes(query) &&
+          !cat.includes(query)
+        ) {
+          return false;
+        }
       }
 
       return true;
     });
-  }, [tickets, activeTab, canSeeAll, checkIsMyTicket, myCandidateIds, searchTerm, filterCategory, filterStatus, filterPriority, filterAssignee]);
-
-  // Selected ticket
-  const selectedTicket = useMemo(() => {
-    if (!selectedTicketId) return null;
-    return tickets.find((t) => t.id === selectedTicketId) || null;
-  }, [tickets, selectedTicketId]);
-
-  const hasActiveFilters =
-    searchTerm ||
-    filterCategory !== "all" ||
-    filterStatus !== "all" ||
-    filterPriority !== "all" ||
-    filterAssignee !== "all";
-
-  const clearFilters = () => {
-    setSearchTerm("");
-    setFilterCategory("all");
-    setFilterStatus("all");
-    setFilterPriority("all");
-    setFilterAssignee("all");
-  };
+  }, [myTickets, statusFilter, categoryFilter, priorityFilter, searchTerm]);
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5">
-      {/* 1. Cabeçalho Principal */}
+    <div className="space-y-6 animate-in fade-in-50 duration-300">
+      {/* Header Principal da Página de Membro */}
       <PageHeader
-        title="Tickets / Ouvidoria"
-        description="Canal confidencial de solicitações, denúncias, reembolsos e ouvidoria direta com a gerência Twin Wheels."
+        icon={LifeBuoy}
+        title="Tickets & Ouvidoria"
+        description="Canal interno e exclusivo para membros abrirem solicitações, dúvidas, denúncias, reembolsos e acompanharem seus chamados."
+        badge={
+          <Badge
+            variant="outline"
+            className="text-xs font-mono border-amber-500/40 text-amber-400 bg-amber-500/10 gap-1.5"
+          >
+            <LifeBuoy className="h-3 w-3" />
+            Portal do Membro
+          </Badge>
+        }
         actions={
-          canCreate ? (
+          <div className="flex items-center gap-2">
             <Button
+              variant="outline"
               size="sm"
-              onClick={() => setIsNewDialogOpen(true)}
-              className="h-9 gap-1.5 text-xs bg-amber-500 hover:bg-amber-600 text-black font-semibold shadow-md shadow-amber-500/10"
+              onClick={() => refetch()}
+              disabled={isLoading}
+              className="h-9 gap-1.5 text-xs border-border/80 hover:bg-secondary/60"
+              title="Atualizar lista de chamados"
             >
-              <Plus className="h-4 w-4" />
-              Novo Chamado
+              <RotateCcw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />
+              <span className="hidden sm:inline">Atualizar</span>
             </Button>
-          ) : undefined
+
+            {canCreate ? (
+              <Button
+                size="sm"
+                onClick={() => setIsNewDialogOpen(true)}
+                className="h-9 gap-1.5 text-xs font-bold bg-amber-500 text-black hover:bg-amber-400 shadow-md shadow-amber-500/20"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Abrir Novo Chamado</span>
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                disabled
+                variant="outline"
+                className="h-9 gap-1.5 text-xs opacity-60 cursor-not-allowed border-dashed"
+                title="Você não tem permissão para abrir novos tickets"
+              >
+                <Lock className="h-3.5 w-3.5 text-amber-400" />
+                <span>Criação Bloqueada</span>
+              </Button>
+            )}
+          </div>
         }
       />
 
-      {/* 2. Cards de Métricas & Indicadores */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <Card className="bg-card/70 border-border/80">
-          <CardContent className="p-3.5 flex items-center justify-between">
-            <div className="space-y-0.5">
-              <span className="text-[11px] font-medium text-muted-foreground uppercase">
-                Total
+      {/* Cards de Métricas & Resumo Pessoal */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <Card className="surface-card border-border/60 hover:border-amber-500/40 transition-all">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Em Andamento
               </span>
-              <p className="text-xl font-bold font-mono text-foreground">{stats.total}</p>
+              <p className="text-2xl font-black text-amber-400">{stats.active}</p>
+              <span className="text-[10px] text-muted-foreground">
+                Sendo atendidos pela gerência
+              </span>
             </div>
-            <div className="p-2 rounded-lg bg-secondary/80 text-muted-foreground">
-              <LifeBuoy className="h-4 w-4" />
+            <div className="p-3 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              <Clock className="h-5 w-5" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-card/70 border-border/80">
-          <CardContent className="p-3.5 flex items-center justify-between">
-            <div className="space-y-0.5">
-              <span className="text-[11px] font-medium text-muted-foreground uppercase">
-                Meus Chamados
+        <Card className="surface-card border-border/60 hover:border-sky-500/40 transition-all">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Aguardando Você
               </span>
-              <p className="text-xl font-bold font-mono text-sky-400">{stats.myCount}</p>
+              <p className="text-2xl font-black text-sky-400">{stats.waitingMember}</p>
+              <span className="text-[10px] text-muted-foreground">
+                Aguardando sua réplica
+              </span>
             </div>
-            <div className="p-2 rounded-lg bg-sky-500/10 text-sky-400">
-              <User className="h-4 w-4" />
+            <div className="p-3 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20">
+              <MessageSquare className="h-5 w-5" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-card/70 border-border/80">
-          <CardContent className="p-3.5 flex items-center justify-between">
-            <div className="space-y-0.5">
-              <span className="text-[11px] font-medium text-muted-foreground uppercase">
-                Abertos
-              </span>
-              <p className="text-xl font-bold font-mono text-emerald-400">{stats.openCount}</p>
-            </div>
-            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
-              <Clock className="h-4 w-4" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card/70 border-border/80">
-          <CardContent className="p-3.5 flex items-center justify-between">
-            <div className="space-y-0.5">
-              <span className="text-[11px] font-medium text-muted-foreground uppercase">
-                Em Atendimento
-              </span>
-              <p className="text-xl font-bold font-mono text-amber-400">
-                {stats.inProgressCount}
-              </p>
-            </div>
-            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400">
-              <MessageSquare className="h-4 w-4" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card/70 border-border/80 col-span-2 sm:col-span-1">
-          <CardContent className="p-3.5 flex items-center justify-between">
-            <div className="space-y-0.5">
-              <span className="text-[11px] font-medium text-muted-foreground uppercase">
+        <Card className="surface-card border-border/60 hover:border-emerald-500/40 transition-all">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                 Concluídos
               </span>
-              <p className="text-xl font-bold font-mono text-zinc-400">{stats.closedCount}</p>
+              <p className="text-2xl font-black text-emerald-400">{stats.resolved}</p>
+              <span className="text-[10px] text-muted-foreground">
+                Resolvidos com sucesso
+              </span>
             </div>
-            <div className="p-2 rounded-lg bg-zinc-500/10 text-zinc-400">
-              <CheckCircle2 className="h-4 w-4" />
+            <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="surface-card border-border/60 hover:border-primary/40 transition-all">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Total de Chamados
+              </span>
+              <p className="text-2xl font-black text-foreground">{stats.total}</p>
+              <span className="text-[10px] text-muted-foreground">
+                Seu histórico registrado
+              </span>
+            </div>
+            <div className="p-3 rounded-xl bg-primary/10 text-primary border border-primary/20">
+              <FolderOpen className="h-5 w-5" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* 3. Barra de Abas e Filtros */}
-      <div className="space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          {/* Abas: Meus vs Todos */}
-          {canSeeAll ? (
-            <Tabs
-              value={activeTab}
-              onValueChange={(val) => {
-                setHasManuallySelectedTab(true);
-                setActiveTab(val as "my" | "all");
-              }}
-              className="w-full sm:w-auto"
+      {/* Conteúdo Principal: Modo Split / Detalhes do Chamado ou Lista */}
+      {selectedTicket ? (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3 bg-secondary/30 border border-border/60 p-3 rounded-xl">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedTicketId(null)}
+              className="h-8 gap-1.5 text-xs border-border/80 hover:bg-secondary"
             >
-              <TabsList className="bg-secondary/60 border border-border/80 p-0.5 h-9">
-                <TabsTrigger value="all" className="text-xs px-3 gap-1.5 font-medium">
-                  <Shield className="h-3.5 w-3.5 text-amber-400" />
-                  Todos os Chamados
-                  <Badge variant="outline" className="ml-1 text-[10px] py-0 px-1 border-border bg-background">
-                    {stats.total}
-                  </Badge>
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span>Voltar para Meus Chamados</span>
+            </Button>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Visualizando chamado</span>
+              <span className="font-mono font-bold text-amber-400">
+                {formatTicketNumber(selectedTicket.ticket_number)}
+              </span>
+            </div>
+          </div>
+
+          <div className="h-[750px] min-h-[600px]">
+            <TicketDetailView
+              ticket={selectedTicket}
+              onClose={() => setSelectedTicketId(null)}
+              canManage={false}
+              isMemberPortal={true}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {/* Barra de Filtros, Abas de Status e Busca */}
+          <div className="p-4 rounded-xl bg-card border border-border/60 shadow-xs space-y-3.5">
+            {/* Abas Rápidas de Status */}
+            <Tabs value={statusFilter} onValueChange={setStatusFilter} className="w-full">
+              <TabsList className="bg-secondary/40 border border-border/60 p-1 rounded-xl h-auto flex flex-wrap gap-1">
+                <TabsTrigger
+                  value="all"
+                  className="text-xs font-bold py-1.5 px-3 rounded-lg data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400"
+                >
+                  Todos ({myTickets.length})
                 </TabsTrigger>
-                <TabsTrigger value="my" className="text-xs px-3 gap-1.5 font-medium">
-                  <User className="h-3.5 w-3.5 text-sky-400" />
-                  Meus Chamados
-                  <Badge variant="outline" className="ml-1 text-[10px] py-0 px-1 border-border bg-background">
-                    {stats.myCount}
-                  </Badge>
+                <TabsTrigger
+                  value="active"
+                  className="text-xs font-bold py-1.5 px-3 rounded-lg data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400"
+                >
+                  Em Aberto ({stats.active})
+                </TabsTrigger>
+                <TabsTrigger
+                  value="aguardando_membro"
+                  className="text-xs font-bold py-1.5 px-3 rounded-lg data-[state=active]:bg-sky-500/20 data-[state=active]:text-sky-400"
+                >
+                  Aguardando Você ({stats.waitingMember})
+                </TabsTrigger>
+                <TabsTrigger
+                  value="resolved"
+                  className="text-xs font-bold py-1.5 px-3 rounded-lg data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400"
+                >
+                  Concluídos ({stats.resolved})
                 </TabsTrigger>
               </TabsList>
             </Tabs>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-xs px-2.5 py-1 gap-1.5 border-amber-500/30 bg-amber-500/10 text-amber-400">
-                <User className="h-3.5 w-3.5" />
-                Meus Chamados Abertos ({stats.myCount})
-              </Badge>
-            </div>
-          )}
 
-          {/* Busca Textual */}
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar #número, assunto, autor..."
-              className="pl-8 h-9 text-xs bg-secondary/30 border-border"
-            />
-            {searchTerm && (
-              <button
-                type="button"
-                onClick={() => setSearchTerm("")}
-                className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Linha de Dropdowns de Filtro */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2 pt-1">
-          {/* Categoria */}
-          <Select value={filterCategory} onValueChange={setFilterCategory}>
-            <SelectTrigger className="h-8 text-xs bg-secondary/30 border-border">
-              <SelectValue placeholder="Categoria" />
-            </SelectTrigger>
-            <SelectContent className="bg-popover border-border">
-              <SelectItem value="all" className="text-xs">
-                Todas as Categorias
-              </SelectItem>
-              {TICKET_CATEGORIES.map((cat) => (
-                <SelectItem key={cat.id} value={cat.id} className="text-xs">
-                  {cat.emoji} {cat.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Status */}
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="h-8 text-xs bg-secondary/30 border-border">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent className="bg-popover border-border">
-              <SelectItem value="all" className="text-xs">
-                Todos os Status
-              </SelectItem>
-              {TICKET_STATUSES.map((st) => (
-                <SelectItem key={st.id} value={st.id} className="text-xs">
-                  {st.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Prioridade */}
-          <Select value={filterPriority} onValueChange={setFilterPriority}>
-            <SelectTrigger className="h-8 text-xs bg-secondary/30 border-border">
-              <SelectValue placeholder="Prioridade" />
-            </SelectTrigger>
-            <SelectContent className="bg-popover border-border">
-              <SelectItem value="all" className="text-xs">
-                Todas as Prioridades
-              </SelectItem>
-              {TICKET_PRIORITIES.map((pri) => (
-                <SelectItem key={pri.id} value={pri.id} className="text-xs">
-                  {pri.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Responsável (quando visualizando todos) */}
-          {canViewAll && activeTab === "all" && (
-            <Select value={filterAssignee} onValueChange={setFilterAssignee}>
-              <SelectTrigger className="h-8 text-xs bg-secondary/30 border-border">
-                <SelectValue placeholder="Responsável" />
-              </SelectTrigger>
-              <SelectContent className="bg-popover border-border">
-                <SelectItem value="all" className="text-xs">
-                  Todos os Responsáveis
-                </SelectItem>
-                <SelectItem value="my_assigned" className="text-xs">
-                  Atribuídos a Mim
-                </SelectItem>
-                <SelectItem value="unassigned" className="text-xs">
-                  Sem Responsável
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          )}
-
-          {/* Botão Limpar Filtros */}
-          {hasActiveFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              className="h-8 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 gap-1"
-            >
-              <X className="h-3 w-3" />
-              Limpar Filtros
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* 4. Layout Principal: Lista de Tickets + Detalhes */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start min-h-[550px]">
-        {/* Coluna da Lista de Tickets */}
-        <div
-          className={cn(
-            "space-y-2.5 transition-all",
-            selectedTicket
-              ? "hidden lg:block lg:col-span-5 xl:col-span-4"
-              : "col-span-12"
-          )}
-        >
-          {filteredTickets.length === 0 ? (
-            <div className="p-8 text-center border border-border/80 rounded-xl bg-card/40 space-y-3">
-              <LifeBuoy className="h-10 w-10 text-muted-foreground/40 mx-auto" />
-              <div className="space-y-1">
-                <p className="text-sm font-semibold text-foreground">
-                  {hasActiveFilters
-                    ? "Nenhum chamado encontrado para os filtros selecionados."
-                    : "Nenhum chamado registrado no momento."}
-                </p>
-                <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                  {hasActiveFilters
-                    ? "Tente ajustar ou limpar os filtros para visualizar outros chamados."
-                    : "Precisa de ajuda, tem uma denúncia ou solicitação? Abra um chamado diretamente para a gerência."}
-                </p>
+            {/* Controles de Busca & Selects */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+              {/* Campo de Busca */}
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Buscar pelo assunto, descrição ou #número do chamado..."
+                  className="pl-9 h-9 text-xs rounded-xl bg-secondary/30 border-border/60"
+                />
+                {searchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
               </div>
-              {hasActiveFilters ? (
-                <Button variant="outline" size="sm" onClick={clearFilters} className="text-xs">
-                  Limpar Filtros
-                </Button>
-              ) : (
-                canCreate && (
+
+              {/* Select Categoria */}
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="h-9 text-xs rounded-xl bg-secondary/30 border-border/60 w-full sm:w-[170px]">
+                  <SelectValue placeholder="Categoria" />
+                </SelectTrigger>
+                <SelectContent className="text-xs">
+                  <SelectItem value="all">Todas Categorias</SelectItem>
+                  {TICKET_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      <span className="flex items-center gap-1.5">
+                        <span>{cat.emoji}</span>
+                        <span>{cat.label}</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Select Prioridade */}
+              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                <SelectTrigger className="h-9 text-xs rounded-xl bg-secondary/30 border-border/60 w-full sm:w-[150px]">
+                  <SelectValue placeholder="Prioridade" />
+                </SelectTrigger>
+                <SelectContent className="text-xs">
+                  <SelectItem value="all">Todas Prioridades</SelectItem>
+                  {TICKET_PRIORITIES.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      <span>{p.label}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Listagem de Chamados do Membro */}
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-16 space-y-3">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
+              <p className="text-xs text-muted-foreground">Carregando seus chamados...</p>
+            </div>
+          ) : filteredTickets.length === 0 ? (
+            <div className="p-8 text-center rounded-2xl bg-card border border-border/60 shadow-xs space-y-3">
+              <div className="flex justify-center">
+                <div className="h-12 w-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                  <LifeBuoy className="h-6 w-6" />
+                </div>
+              </div>
+              <h3 className="text-sm font-bold text-foreground">
+                {myTickets.length === 0
+                  ? "Você ainda não possui nenhum chamado aberto"
+                  : "Nenhum chamado encontrado com os filtros aplicados"}
+              </h3>
+              <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                {myTickets.length === 0
+                  ? "Precisa de ajuda, tem alguma dúvida, denúncia ou solicitação de reembolso? Abra um novo chamado para falar diretamente com a gerência."
+                  : "Tente redefinir a busca ou alternar os filtros de status e categoria para visualizar outros chamados."}
+              </p>
+              {myTickets.length === 0 && canCreate && (
+                <div className="pt-2">
                   <Button
                     size="sm"
                     onClick={() => setIsNewDialogOpen(true)}
-                    className="text-xs bg-amber-500 hover:bg-amber-600 text-black font-semibold"
+                    className="h-8 gap-1.5 text-xs font-bold bg-amber-500 text-black hover:bg-amber-400 shadow-sm"
                   >
-                    <Plus className="h-3.5 w-3.5 mr-1" />
-                    Abrir Chamado Agora
+                    <Plus className="h-3.5 w-3.5" />
+                    Abrir Primeiro Chamado
                   </Button>
-                )
+                </div>
               )}
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 gap-3">
               {filteredTickets.map((t) => {
-                const isSelected = selectedTicketId === t.id;
-                const cat = getCategoryInfo(t.category);
-                const pri = getPriorityInfo(t.priority);
-                const st = getStatusInfo(t.status);
-                const msgCount = (t.messages || []).length;
-                const hasAttachments = (t.attachments && t.attachments.length > 0) || false;
+                const catInfo = getCategoryInfo(t.category);
+                const priorityInfo = getPriorityInfo(t.priority);
+                const statusInfo = getStatusInfo(t.status);
+                const messageCount = (t.messages || []).filter((m) => !m.is_internal_note).length;
+                const attachmentCount = (t.attachments || []).length;
+                const isWaitingMember = t.status === "aguardando_membro";
 
                 return (
-                  <div
+                  <Card
                     key={t.id}
                     onClick={() => setSelectedTicketId(t.id)}
                     className={cn(
-                      "group relative p-3.5 rounded-xl border transition-all cursor-pointer select-none space-y-2.5",
-                      isSelected
-                        ? "bg-amber-500/10 border-amber-500/50 shadow-md shadow-amber-500/5 ring-1 ring-amber-500/30"
-                        : "bg-card/70 border-border/70 hover:bg-card hover:border-border hover:shadow-sm"
+                      "surface-card border-border/70 hover:border-amber-500/60 hover:shadow-md cursor-pointer transition-all duration-200 group overflow-hidden",
+                      isWaitingMember && "border-sky-500/50 bg-sky-500/[0.02]"
                     )}
                   >
-                    {/* Topo do card: Número, Categoria, Status, Prioridade */}
-                    <div className="flex items-center justify-between gap-1.5 flex-wrap">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-mono text-xs font-bold text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded border border-amber-500/20">
-                          {formatTicketNumber(t.ticket_number)}
-                        </span>
-                        <Badge
-                          variant="outline"
-                          className={cn("text-[10px] px-1.5 py-0 gap-1", cat.badgeClass)}
-                        >
-                          <span>{cat.emoji}</span>
-                          <span>{cat.label}</span>
-                        </Badge>
-                      </div>
-
-                      <div className="flex items-center gap-1.5">
-                        <Badge
-                          variant="outline"
-                          className={cn("text-[10px] px-1.5 py-0", st.badgeClass)}
-                        >
-                          {st.label}
-                        </Badge>
-                        <span
-                          className={cn("h-2 w-2 rounded-full shrink-0", pri.dotClass)}
-                          title={`Prioridade: ${pri.label}`}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Assunto e Snippet da Descrição */}
-                    <div className="space-y-1">
-                      <h4
-                        className={cn(
-                          "text-sm font-semibold leading-tight transition-colors line-clamp-1",
-                          isSelected ? "text-amber-300" : "text-foreground group-hover:text-amber-400"
-                        )}
-                      >
-                        {t.subject}
-                      </h4>
-                      <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                        {t.description}
-                      </p>
-                    </div>
-
-                    {/* Rodapé do Card: Autor, Responsável, Data, Mensagens */}
-                    <div className="flex items-center justify-between text-[11px] text-muted-foreground border-t border-border/40 pt-2">
-                      <div className="flex items-center gap-1.5 truncate max-w-[65%]">
-                        <Avatar className="h-4 w-4">
-                          <AvatarImage src={t.creator_avatar || undefined} />
-                          <AvatarFallback className="text-[8px]">
-                            {(t?.creator_name || t?.creator_nickname || "TC").slice(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-foreground truncate font-medium">
-                          {t.creator_nickname || t.creator_name}
-                        </span>
-                        {t.assigned_to_name && (
-                          <span className="text-[10px] text-sky-400/90 truncate">
-                            • Resp: {t.assigned_to_nickname || t.assigned_to_name}
+                    <CardContent className="p-4 sm:p-5 space-y-3">
+                      {/* Topo do Card: Número, Badges & Atendente */}
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-mono font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                            {formatTicketNumber(t.ticket_number)}
                           </span>
-                        )}
-                      </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
-                        {hasAttachments && (
-                          <span className="flex items-center gap-0.5 text-muted-foreground" title="Possui anexos">
-                            <Paperclip className="h-3 w-3" />
-                            <span className="text-[10px]">{t.attachments?.length}</span>
-                          </span>
-                        )}
-
-                        {msgCount > 0 && (
-                          <span className="flex items-center gap-0.5 text-muted-foreground" title="Mensagens">
-                            <MessageSquare className="h-3 w-3" />
-                            <span className="text-[10px]">{msgCount}</span>
-                          </span>
-                        )}
-
-                        {canClaim && !t.assigned_to_id && t.status !== "fechado" && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedTicketId(t.id);
-                            }}
-                            className="h-5 px-1.5 text-[10px] font-bold gap-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 rounded"
+                          <Badge
+                            variant="outline"
+                            className={cn("text-[11px] font-medium gap-1", catInfo.badgeClass)}
                           >
-                            <UserCheck className="h-3 w-3" />
-                            <span>Atender</span>
-                          </Button>
-                        )}
+                            <span>{catInfo.emoji}</span>
+                            <span>{catInfo.label}</span>
+                          </Badge>
 
-                        <span className="text-[10px] text-muted-foreground/80">
-                          {formatTimeOnly(t.updated_at || t.created_at)}
-                        </span>
+                          <Badge
+                            variant="outline"
+                            className={cn("text-[11px] font-medium", priorityInfo.badgeClass)}
+                          >
+                            <span
+                              className={cn("h-1.5 w-1.5 rounded-full mr-1", priorityInfo.dotClass)}
+                            />
+                            {priorityInfo.label}
+                          </Badge>
+
+                          <Badge
+                            variant="outline"
+                            className={cn("text-[11px] font-medium", statusInfo.badgeClass)}
+                          >
+                            {statusInfo.label}
+                          </Badge>
+                        </div>
+
+                        {/* Atendente Responsável (Apenas visualização para o membro) */}
+                        <div className="flex items-center gap-1.5 text-xs">
+                          {t.assigned_to_name ? (
+                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-secondary/60 border border-border/60">
+                              <Avatar className="h-4 w-4">
+                                <AvatarImage src={t.assigned_to_avatar || undefined} />
+                                <AvatarFallback className="text-[8px]">
+                                  {(t.assigned_to_nickname || t.assigned_to_name || "AT")
+                                    .slice(0, 2)
+                                    .toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-[11px] font-medium text-sky-400 inline-flex items-center gap-1">
+                                <span>{t.assigned_to_nickname || t.assigned_to_name}</span>
+                                <VerifiedBadge userId={t.assigned_to_id} size="xs" />
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground italic flex items-center gap-1">
+                              <Headphones className="h-3 w-3" />
+                              Aguardando atendente...
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </div>
+
+                      {/* Assunto & Descrição Resumida */}
+                      <div className="space-y-1">
+                        <h4 className="text-sm sm:text-base font-bold text-foreground group-hover:text-amber-400 transition-colors line-clamp-1">
+                          {t.subject}
+                        </h4>
+                        <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                          {t.description}
+                        </p>
+                      </div>
+
+                      {/* Rodapé do Card: Datas, Contadores & Ação */}
+                      <div className="flex items-center justify-between gap-3 pt-2 border-t border-border/40 text-[11px] text-muted-foreground flex-wrap">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            Aberto em {dateTime(t.created_at)}
+                          </span>
+
+                          <span>•</span>
+
+                          <span className="flex items-center gap-1 text-foreground/80 font-medium">
+                            <MessageSquare className="h-3 w-3 text-amber-400" />
+                            {messageCount} {messageCount === 1 ? "mensagem" : "mensagens"}
+                          </span>
+
+                          {attachmentCount > 0 && (
+                            <>
+                              <span>•</span>
+                              <span className="flex items-center gap-1 text-foreground/80 font-medium">
+                                <Paperclip className="h-3 w-3 text-sky-400" />
+                                {attachmentCount} {attachmentCount === 1 ? "anexo" : "anexos"}
+                              </span>
+                            </>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1 text-amber-400 font-semibold text-xs ml-auto group-hover:translate-x-0.5 transition-transform">
+                          <span>Acompanhar Chamado</span>
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 );
               })}
             </div>
           )}
         </div>
+      )}
 
-        {/* Coluna de Detalhes / Conversação do Ticket */}
-        {selectedTicket ? (
-          <div className="col-span-12 lg:col-span-7 xl:col-span-8 h-[750px]">
-            {/* Botão de voltar visível no mobile */}
-            <div className="lg:hidden pb-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSelectedTicketId(null)}
-                className="h-8 text-xs gap-1.5"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                Voltar para Lista
-              </Button>
-            </div>
-            <TicketDetailView
-              ticket={selectedTicket}
-              onClose={() => setSelectedTicketId(null)}
-              canManage={canManage}
-            />
-          </div>
-        ) : (
-          /* Estado vazio quando nenhum ticket está selecionado no desktop */
-          <div className="hidden lg:flex lg:col-span-7 xl:col-span-8 h-[600px] border border-border/60 rounded-xl bg-card/20 items-center justify-center p-8 text-center flex-col gap-3">
-            <div className="p-4 rounded-full bg-secondary/50 border border-border/80 text-muted-foreground">
-              <LifeBuoy className="h-8 w-8 text-amber-400/70" />
-            </div>
-            <div className="space-y-1">
-              <h3 className="text-base font-semibold text-foreground">
-                Nenhum chamado selecionado
-              </h3>
-              <p className="text-xs text-muted-foreground max-w-sm">
-                Selecione um chamado na lista ao lado para visualizar os detalhes, responder ou gerenciar o atendimento.
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* 5. Modal Novo Chamado */}
-      <NewTicketDialog open={isNewDialogOpen} onOpenChange={setIsNewDialogOpen} />
+      {/* Modal de Abertura de Novo Chamado */}
+      <NewTicketDialog
+        open={isNewDialogOpen}
+        onOpenChange={setIsNewDialogOpen}
+        onSuccess={(newId) => {
+          setSelectedTicketId(newId);
+          void refetch();
+        }}
+      />
     </div>
   );
 }
