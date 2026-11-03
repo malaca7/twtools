@@ -27,12 +27,10 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DevBadge, CeoBadge } from "@/components/ui-kit";
-import { usePanelTheme } from "@/lib/panelTheme";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -138,7 +136,6 @@ export const Route = createFileRoute("/_authenticated/membros")({
 export function MembrosPage() {
   const { hasPermission, level: currentUserLevel, profile: currentProfile, user, refresh, isDevMode, isDevUser } = useAuth();
   const isDev = Boolean(isDevUser || isDevMode);
-  const { devStyle, ceoStyle, DevIcon, CeoIcon } = usePanelTheme();
   const queryClient = useQueryClient();
 
   // Permissões granulares de gestão de membros
@@ -239,8 +236,6 @@ export function MembrosPage() {
   const [editNickname, setEditNickname] = useState("");
   const [editTelefone, setEditTelefone] = useState("");
   const [editGameId, setEditGameId] = useState("");
-  const [editIsDeveloper, setEditIsDeveloper] = useState(false);
-  const [editIsCeo, setEditIsCeo] = useState(false);
 
   const handleOpenEdit = (m: Member) => {
     setEditingMember(m);
@@ -248,8 +243,6 @@ export function MembrosPage() {
     setEditNickname(m.nickname || "");
     setEditTelefone(m.telefone || "");
     setEditGameId(m.game_id || "");
-    setEditIsDeveloper(Boolean(m.is_developer || m.nivel === "desenvolvedor"));
-    setEditIsCeo(Boolean(m.is_ceo || m.custom_theme?.is_ceo));
   };
 
   // Mutations
@@ -311,12 +304,10 @@ export function MembrosPage() {
       const isAuthToEditPhone = isUserAuthorizedForMember(editingMember.user_id);
       await updateMemberDetails({
         targetUserId: editingMember.user_id,
-        nome: editNome,
+        nome: editNome.trim(),
         nickname: editNickname.trim() || null,
         telefone: isAuthToEditPhone ? (editTelefone.trim() || null) : (editingMember.telefone || null),
         game_id: editGameId.trim() || null,
-        is_developer: isDev ? editIsDeveloper : undefined,
-        is_ceo: isDev ? editIsCeo : undefined,
       });
     },
     onSuccess: () => {
@@ -1094,34 +1085,89 @@ export function MembrosPage() {
       <Dialog open={Boolean(editingMember)} onOpenChange={(open) => !open && setEditingMember(null)}>
         <DialogContent className="sm:max-w-md surface-card border-border/80 shadow-2xl">
           <DialogHeader>
-            <DialogTitle>Editar Dados do Membro</DialogTitle>
-            <DialogDescription>
-              Atualize as informações do jogador no servidor de GTA RP.
-            </DialogDescription>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-2xl bg-primary/10 text-primary border border-primary/20 shrink-0">
+                <Edit className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <DialogTitle className="text-base font-extrabold text-foreground">
+                  Editar Dados do Membro
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                  Atualize as informações do jogador no servidor de GTA RP.
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
 
-          <div className="space-y-3 py-2">
+          {/* CARD DO MEMBRO EM EDIÇÃO */}
+          {editingMember && (
+            <div className="p-3 rounded-2xl bg-secondary/40 border border-border/70 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <Avatar className="h-10 w-10 border border-border shrink-0 shadow-sm">
+                  <AvatarImage src={editingMember.avatar_url || editingMember.discord_avatar_url || ""} />
+                  <AvatarFallback className="font-black text-xs bg-muted">
+                    {(editingMember.nickname || editingMember.nome || "MB").slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-foreground truncate">
+                    {editingMember.nickname || editingMember.nome}
+                  </p>
+                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-mono mt-0.5">
+                    {editingMember.game_id && <span>Passaporte #{editingMember.game_id}</span>}
+                    {editingMember.discord_username && <span>@{editingMember.discord_username}</span>}
+                  </div>
+                </div>
+              </div>
+              <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5 rounded-lg shrink-0", levelBadgeClass(editingMember.nivel || "novato"))}>
+                {LEVEL_LABEL[editingMember.nivel || "novato"] || editingMember.nivel}
+              </Badge>
+            </div>
+          )}
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              updateMemberMutation.mutate();
+            }}
+            className="space-y-3.5 py-1"
+          >
             <div>
-              <Label className="text-xs font-semibold">Nome do Jogador</Label>
+              <Label htmlFor="edit-nome" className="text-xs font-semibold flex items-center gap-1.5 text-foreground">
+                <User className="h-3.5 w-3.5 text-muted-foreground" />
+                Nome do Jogador
+              </Label>
               <Input
+                id="edit-nome"
+                placeholder="Ex.: Andrew Delucca Ferreira"
                 value={editNome}
                 onChange={(e) => setEditNome(e.target.value)}
-                className="mt-1 h-9 text-xs rounded-xl"
+                className="mt-1.5 h-9 text-xs rounded-xl bg-background/60"
+                required
               />
             </div>
 
             <div>
-              <Label className="text-xs font-semibold">Apelido</Label>
+              <Label htmlFor="edit-nickname" className="text-xs font-semibold flex items-center gap-1.5 text-foreground">
+                <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+                Apelido
+              </Label>
               <Input
+                id="edit-nickname"
+                placeholder="Ex.: 01 LC"
                 value={editNickname}
                 onChange={(e) => setEditNickname(e.target.value)}
-                className="mt-1 h-9 text-xs rounded-xl"
+                className="mt-1.5 h-9 text-xs rounded-xl bg-background/60"
               />
             </div>
 
             <div>
-              <Label className="text-xs font-semibold flex items-center justify-between">
-                <span>Telefone em Jogo (000-000)</span>
+              <Label htmlFor="edit-telefone" className="text-xs font-semibold flex items-center justify-between text-foreground">
+                <span className="flex items-center gap-1.5">
+                  <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                  Telefone em Jogo (000-000)
+                </span>
                 {!isUserAuthorizedForMember(editingMember?.user_id) && (
                   <span className="text-[10px] text-amber-400 flex items-center gap-1 font-normal">
                     <Lock className="h-2.5 w-2.5" /> Confidencial (Censurado)
@@ -1129,7 +1175,8 @@ export function MembrosPage() {
                 )}
               </Label>
               <Input
-                placeholder="Ex.: 555-019"
+                id="edit-telefone"
+                placeholder="Ex.: 762-762"
                 value={isUserAuthorizedForMember(editingMember?.user_id) ? editTelefone : "••••••••"}
                 onChange={(e) => {
                   if (isUserAuthorizedForMember(editingMember?.user_id)) {
@@ -1137,89 +1184,50 @@ export function MembrosPage() {
                   }
                 }}
                 disabled={!isUserAuthorizedForMember(editingMember?.user_id)}
-                className="mt-1 h-9 text-xs font-mono font-bold rounded-xl"
+                className="mt-1.5 h-9 text-xs font-mono font-bold rounded-xl bg-background/60"
                 maxLength={7}
               />
             </div>
 
             <div>
-              <Label className="text-xs font-semibold">ID do Personagem / Passaporte</Label>
+              <Label htmlFor="edit-game-id" className="text-xs font-semibold flex items-center gap-1.5 text-foreground">
+                <IdCard className="h-3.5 w-3.5 text-muted-foreground" />
+                ID do Personagem / Passaporte
+              </Label>
               <Input
+                id="edit-game-id"
+                placeholder="Ex.: 274"
                 value={editGameId}
                 onChange={(e) => setEditGameId(e.target.value)}
-                className="mt-1 h-9 text-xs font-mono font-bold rounded-xl"
+                className="mt-1.5 h-9 text-xs font-mono font-bold rounded-xl bg-background/60"
               />
             </div>
 
-            {isDev && (
-              <>
-                <div className={cn("p-3.5 rounded-xl border flex items-center justify-between gap-3 mt-3 shadow-sm", devStyle.bgSubtleClass, devStyle.borderSubtleClass)}>
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                    <div className={cn("p-2 rounded-lg shrink-0", devStyle.bgSubtleClass, devStyle.iconClass || devStyle.textClass)}>
-                      <DevIcon className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <Label htmlFor="edit-is-dev" className="text-xs font-extrabold text-foreground cursor-pointer flex items-center gap-1.5 flex-wrap">
-                        Desenvolvedor da Plataforma
-                        <DevBadge size="xs" label="Dev System" />
-                      </Label>
-                      <p className="text-[0.7rem] text-muted-foreground mt-0.5">
-                        Concede acesso pleno a todas as ferramentas do sistema e configurações.
-                      </p>
-                    </div>
-                  </div>
-                  <Switch
-                    id="edit-is-dev"
-                    checked={editIsDeveloper}
-                    onCheckedChange={setEditIsDeveloper}
-                    className="shrink-0"
-                  />
-                </div>
-
-                <div className={cn("p-3.5 rounded-xl border flex items-center justify-between gap-3 mt-2.5 shadow-sm", ceoStyle.bgSubtleClass, ceoStyle.borderSubtleClass)}>
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                    <div className={cn("p-2 rounded-lg shrink-0", ceoStyle.bgSubtleClass, ceoStyle.iconClass || ceoStyle.textClass)}>
-                      <CeoIcon className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <Label htmlFor="edit-is-ceo" className="text-xs font-extrabold text-foreground cursor-pointer flex items-center gap-1.5 flex-wrap">
-                        Tag CEO (Diretoria Executiva)
-                        <CeoBadge size="xs" />
-                      </Label>
-                      <p className="text-[0.7rem] text-muted-foreground mt-0.5">
-                        Concede a Tag CEO e toda a matriz de permissões executivas definida no painel Dev.
-                      </p>
-                    </div>
-                  </div>
-                  <Switch
-                    id="edit-is-ceo"
-                    checked={editIsCeo}
-                    onCheckedChange={setEditIsCeo}
-                    className="shrink-0"
-                  />
-                </div>
-              </>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setEditingMember(null)} className="rounded-xl">
-              Cancelar
-            </Button>
-            <Button
-              size="sm"
-              className="bg-gradient-brand text-primary-foreground font-semibold rounded-xl"
-              onClick={() => updateMemberMutation.mutate()}
-              disabled={updateMemberMutation.isPending}
-            >
-              {updateMemberMutation.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="mr-2 h-4 w-4" />
-              )}
-              Salvar Alterações
-            </Button>
-          </DialogFooter>
+            <DialogFooter className="pt-2 gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setEditingMember(null)}
+                className="rounded-xl text-xs"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                className="bg-gradient-brand text-primary-foreground font-semibold rounded-xl text-xs"
+                disabled={updateMemberMutation.isPending}
+              >
+                {updateMemberMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                Salvar Alterações
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
