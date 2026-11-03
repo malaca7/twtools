@@ -1100,8 +1100,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (rules.can_manage_members) {
         permsSet.add("view_members");
         permsSet.add("approve_requests");
-        permsSet.add("promote_members");
-        permsSet.add("edit_members");
       }
       if (rules.can_view_sensitive_data) {
         permsSet.add("view_sensitive_data");
@@ -1163,6 +1161,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     for (const tag of memberTags) {
       if (tag.is_active === false) continue;
       if (!isCeoTagItem(tag)) continue;
+      // Para a tag do sistema CEO, sua matriz canônica já foi lida de ceoPerms
+      // (evita que o fallback mock em memória reinjete permissões desmarcadas)
+      if (tag.id === "ceo" || tag.is_system) continue;
       const tagPerms = Array.isArray(tag.permissions)
         ? tag.permissions
         : (tag.permissions && typeof tag.permissions === "object" ? Object.values(tag.permissions) : []);
@@ -1181,8 +1182,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (rules.can_manage_members) {
         permsSet.add("view_members");
         permsSet.add("approve_requests");
-        permsSet.add("promote_members");
-        permsSet.add("edit_members");
       }
       if (rules.can_access_ceo || rules.is_ceo) {
         permsSet.add("view_ceo");
@@ -1545,10 +1544,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else if (typeof window !== "undefined") {
         const path = (window.location.pathname || "").toLowerCase();
         const hash = (window.location.hash || "").toLowerCase();
-        if (isDevUser && (path.startsWith("/dev") || hash.includes("/dev"))) {
+        if (path.startsWith("/dev") || hash.includes("/dev")) {
           activePanel = "dev";
-        } else if (isCeoUser && (path.startsWith("/ceo") || hash.includes("/ceo"))) {
+        } else if (path.startsWith("/ceo") || hash.includes("/ceo")) {
           activePanel = "ceo";
+        } else if (panelMode === "dev" || panelMode === "ceo") {
+          activePanel = panelMode;
         } else {
           activePanel = "member";
         }
@@ -1773,7 +1774,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (systemTagRules.can_view_financial_reports && (perm === "view_consolidated_financials" || perm === "view_ceo_financials")) {
           return true;
         }
-        if (systemTagRules.can_manage_members && (perm === "view_members" || perm === "approve_requests" || perm === "promote_members" || perm === "edit_members")) {
+        if (systemTagRules.can_manage_members && (perm === "view_members" || perm === "approve_requests")) {
           return true;
         }
         if (systemTagRules.can_manage_escalas && (perm.startsWith("escalas.") || perm === "escalas.view" || perm === "escalas.details")) {
@@ -1794,7 +1795,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (ceoTagRules.can_view_all_tickets && (perm === "view_all_tickets" || (perm as string) === "can_view_all_tickets")) return true;
         if (ceoTagRules.can_view_financial_reports && (perm === "view_consolidated_financials" || perm === "view_ceo_financials")) return true;
-        if (ceoTagRules.can_manage_members && (perm === "view_members" || perm === "approve_requests" || perm === "promote_members" || perm === "edit_members")) return true;
+        if (ceoTagRules.can_manage_members && (perm === "view_members" || perm === "approve_requests")) return true;
         if (ceoTagRules.can_create_announcements && (perm === "manage_announcements" || (perm as string) === "create_announcements")) return true;
         if ((ceoTagRules.can_deposit_cash_fund || ceoTagRules.can_withdraw_cash_fund) && (perm === "view_cash_fund" || perm === "manage_cash_fund")) return true;
         if ((ceoTagRules.can_access_ceo || ceoTagRules.is_ceo) && (perm === "view_ceo" || perm === "view_ceo_dashboard")) return true;
@@ -1890,10 +1891,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return false;
         }
 
-        const hasCargo = checkCargoHasPermission(permission);
+        const isMemberManagementAction =
+          permission === "promote_members" ||
+          permission === "change_roles" ||
+          permission === "edit_members" ||
+          permission === "delete_members" ||
+          permission === "approve_requests" ||
+          permission === "view_sensitive_data";
+
         const hasSystemTag = checkSystemTagHasPermission(permission);
         const hasCeoTag = isCeoUser ? checkCeoTagHasPermission(permission) : false;
 
+        // No painel CEO, as ações de gestão de membros configuradas na matriz executiva
+        // da Tag CEO são estritamente governadas pela Tag CEO (e tags do sistema).
+        // O cargo operacional comum (ex: 01, 02) não sobrepõe uma permissão desativada na Tag CEO.
+        if (isMemberManagementAction) {
+          return hasCeoTag || hasSystemTag;
+        }
+
+        const hasCargo = checkCargoHasPermission(permission);
         return hasCargo || hasSystemTag || hasCeoTag;
       }
 

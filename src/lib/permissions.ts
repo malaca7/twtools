@@ -1982,12 +1982,6 @@ export function satisfiesPermission(
   ) {
     return true;
   }
-  if (
-    (permission === "change_roles" || permission === "promote_members") &&
-    (list.includes("change_roles") || list.includes("promote_members") || list.includes("edit_members") || list.includes("manage_members") || list.includes("manage_roles"))
-  ) {
-    return true;
-  }
   if (permission === "view_chat" && (list.includes("view_chat") || list.includes("create_chat_group") || list.includes("manage_chat_groups"))) return true;
   if (permission === "approve_requests" && (list.includes("approve_requests") || list.includes("manage_members"))) return true;
 
