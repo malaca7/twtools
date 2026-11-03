@@ -55,7 +55,6 @@ import { UserAppearanceSettings } from "@/components/profile/UserAppearanceSetti
 import { UniversalImageAdjusterModal } from "@/components/ui/UniversalImageAdjusterModal";
 import { SocialNetworksConfigCard } from "@/components/profile/SocialNetworksConfigCard";
 import { getProxiedImageUrl } from "@/services/postimagesService";
-import { MemberGamificationCard } from "@/components/gamification/MemberGamificationCard";
 import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
 import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { VerificationRequestModal } from "@/components/verification/VerificationRequestModal";
@@ -607,14 +606,6 @@ function PerfilContent({ initialTab }: { initialTab?: "perfil" | "dados" | "publ
                   </Button>
                 </div>
               </div>
-
-              {/* GAMIFICAÇÃO, XP, NÍVEL E INSÍGNIAS DO MEMBRO */}
-              <MemberGamificationCard
-                userId={user?.id || ""}
-                totalXp={profile?.xp || 0}
-                starsRating={profile?.stars_rating}
-                starsCount={profile?.stars_count}
-              />
 
               <div className="grid gap-6 md:grid-cols-3">
             {/* COLUNA ESQUERDA: RESUMO DO USUÁRIO & FOTO COM STUDIO */}

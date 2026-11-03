@@ -1,16 +1,9 @@
-import React from "react";
-import { createFileRoute } from "@tanstack/react-router";
-import { DeveloperGuard } from "@/dev/guards/DeveloperGuard";
-import { ShopPage } from "@/components/shop/ShopPage";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated/dev/loja")({
   component: DevShopStoreRoute,
 });
 
 function DevShopStoreRoute() {
-  return (
-    <DeveloperGuard>
-      <ShopPage />
-    </DeveloperGuard>
-  );
+  return <Navigate to="/dashboard" replace />;
 }

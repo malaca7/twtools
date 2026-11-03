@@ -80,11 +80,8 @@ export type Profile = {
     public_profile_enabled?: boolean;
   }) | null;
   custom_url?: string | null;
-  xp?: number;
-  gamification_level?: number;
   stars_rating?: number;
   stars_count?: number;
-  tw_coins?: number;
   is_verified?: boolean;
 };
 
@@ -383,11 +380,8 @@ export type Member = {
   is_ceo?: boolean;
   custom_theme?: (UserThemeSettings & { custom_url?: string | null; is_ceo?: boolean }) | null;
   custom_url?: string | null;
-  xp?: number;
-  gamification_level?: number;
   stars_rating?: number;
   stars_count?: number;
-  tw_coins?: number;
 };
 
 export type Announcement = {

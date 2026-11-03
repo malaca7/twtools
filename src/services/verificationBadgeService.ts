@@ -14,7 +14,6 @@ export interface VerificationRequirementsConfig {
   require_game_id: boolean;
   require_phone?: boolean;
   min_days_in_faction?: number;
-  min_gamification_level?: number;
   allowed_roles?: string[];
   allowed_tags?: string[];
   custom_instructions?: string;
@@ -129,7 +128,6 @@ export const DEFAULT_VERIFICATION_CONFIG: VerificationBadgeConfig = {
     require_game_id: true,
     require_phone: false,
     min_days_in_faction: 0,
-    min_gamification_level: 0,
     allowed_roles: [],
     allowed_tags: [],
     custom_instructions: "Preencha a justificativa detalhada para análise da liderança.",
@@ -1054,27 +1052,21 @@ export interface VerificationRequirementsEvaluation {
   allowSelfRequest: boolean;
   customInstructions?: string;
   // Propriedades retrocompatíveis
-  levelOk: boolean;
   roleOk: boolean;
   discordOk: boolean;
   gameIdOk: boolean;
   phoneOk: boolean;
   daysOk: boolean;
-  insigniasOk: boolean;
   evaluationsOk: boolean;
-  currentLevel: number;
   currentRole: string;
   daysInFaction: number;
-  insigniasCount: number;
   evaluationsCount: number;
   details: {
-    levelMessage: string;
     roleMessage: string;
     discordMessage?: string | undefined;
     gameIdMessage?: string | undefined;
     phoneMessage?: string | undefined;
     daysMessage?: string | undefined;
-    insigniasMessage: string;
     evaluationsMessage: string;
     [key: string]: string | undefined;
   };
@@ -1107,7 +1099,6 @@ export async function getMemberVerificationRequirementsStatus(
   const customInstructions = reqConfig.custom_instructions?.trim() || "";
 
   // 1. Dados Básicos do Membro
-  const currentLevel = Number(profile?.gamification_level ?? profile?.level ?? 1);
   const currentRole = String(roleLevel || profile?.nivel || "novato").toLowerCase().trim();
 
   // Cálculo de permanência na facção (dias)
@@ -1183,26 +1174,7 @@ export async function getMemberVerificationRequirementsStatus(
     });
   }
 
-  // D) Requisito: Nível Mínimo de Gamificação
-  const minLevel = Number(reqConfig.min_gamification_level || 0);
-  if (minLevel > 0) {
-    const levelOk = currentLevel >= minLevel;
-    items.push({
-      id: "level",
-      title: `Nível Mínimo de Experiência (${minLevel}+)`,
-      description: `Patente faccional de nível ${minLevel} ou superior necessária`,
-      isRequired: true,
-      isMet: levelOk,
-      currentValue: currentLevel,
-      requiredValue: minLevel,
-      message: levelOk
-        ? `Nível ${currentLevel} atingido (Exigido: Nível ${minLevel}+)`
-        : `Nível atual ${currentLevel} insuficiente (Exigido: Nível ${minLevel}+)`,
-      category: "level",
-    });
-  }
-
-  // E) Requisito: Dias Mínimos de Permanência
+  // D) Requisito: Dias Mínimos de Permanência
   const minDays = Number(reqConfig.min_days_in_faction || 0);
   if (minDays > 0) {
     const daysOk = daysInFaction >= minDays;
@@ -1279,7 +1251,6 @@ export async function getMemberVerificationRequirementsStatus(
   const meetsAll = requiredItems.length === 0 || passedRequired === requiredItems.length;
 
   // Retrocompatibilidade
-  const levelItem = items.find((i) => i.id === "level");
   const roleItem = items.find((i) => i.id === "role");
   const discordItem = items.find((i) => i.id === "discord");
   const gameIdItem = items.find((i) => i.id === "game_id");
@@ -1295,27 +1266,21 @@ export async function getMemberVerificationRequirementsStatus(
     items,
     allowSelfRequest,
     customInstructions,
-    levelOk: levelItem ? levelItem.isMet : true,
     roleOk: roleItem ? roleItem.isMet : true,
     discordOk: discordItem ? discordItem.isMet : true,
     gameIdOk: gameIdItem ? gameIdItem.isMet : true,
     phoneOk: phoneItem ? phoneItem.isMet : true,
     daysOk: daysItem ? daysItem.isMet : true,
-    insigniasOk: true,
     evaluationsOk: true,
-    currentLevel,
     currentRole,
     daysInFaction,
-    insigniasCount: 0,
     evaluationsCount: 0,
     details: {
-      levelMessage: levelItem?.message || `Nível ${currentLevel}`,
       roleMessage: roleItem?.message || `Cargo ${currentRole.toUpperCase()}`,
       discordMessage: discordItem?.message,
       gameIdMessage: gameIdItem?.message,
       phoneMessage: phoneItem?.message,
       daysMessage: daysItem?.message,
-      insigniasMessage: "Condecorações faccionais registradas",
       evaluationsMessage: "Avaliações registradas na plataforma",
     },
   };

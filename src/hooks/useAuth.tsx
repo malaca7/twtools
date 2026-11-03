@@ -94,9 +94,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         prev.is_developer === next.profile.is_developer &&
         prev.is_ceo === next.profile.is_ceo &&
         prev.custom_url === next.profile.custom_url &&
-        prev.xp === next.profile.xp &&
-        prev.tw_coins === next.profile.tw_coins &&
-        prev.gamification_level === next.profile.gamification_level &&
         prev.stars_rating === next.profile.stars_rating &&
         prev.stars_count === next.profile.stars_count &&
         prev.is_verified === next.profile.is_verified &&
@@ -1596,8 +1593,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         permission === "manage_baus" ||
         permission === "manage_products" ||
         permission === "manage_categories" ||
-        permission === "buy_shop_items" ||
-        permission === "manage_shop" ||
         permission === "adjust_stock_balance" ||
         permission === "manage_stock_balance" ||
         permission === "request_absence" ||

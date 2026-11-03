@@ -30,8 +30,6 @@ import { dateTime, errorMessage } from "@/lib/format";
 import { LEVEL_LABEL, levelBadgeClass, type AppLevel } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import type { Member } from "@/lib/app-types";
-import { MemberGamificationCard } from "@/components/gamification/MemberGamificationCard";
-import { MemberInsigniasCardsSection } from "@/components/gamification/MemberInsigniasCardsSection";
 import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -99,27 +97,6 @@ function DashboardContent() {
           </span>
         }
         description="Painel geral do grupo com comunicados e membros ativos sincronizados em tempo real."
-      />
-
-      {/* GAMIFICAÇÃO & DESEMPENHO DO MEMBRO */}
-      <MemberGamificationCard
-        userId={user?.id || ""}
-        totalXp={profile?.xp || 0}
-        starsRating={profile?.stars_rating}
-        starsCount={profile?.stars_count}
-        showInsignias={false}
-      />
-
-      {/* QUADRO DE INSÍGNIAS E CONDECORAÇÕES CONQUISTADAS */}
-      <MemberInsigniasCardsSection
-        userId={user?.id || ""}
-        member={{
-          user_id: user?.id || "",
-          nome: memberName,
-          nickname: memberName,
-          avatar_url: profile?.discord_avatar_url || profile?.avatar_url || undefined,
-        }}
-        isSelf={true}
       />
 
       {/* ANNOUNCEMENTS SECTION */}

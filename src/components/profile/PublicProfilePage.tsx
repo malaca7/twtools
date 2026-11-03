@@ -45,8 +45,6 @@ import {
   SocialPlatformsCardsGrid,
 } from "@/components/profile/SocialPlatformIcons";
 import { getProxiedImageUrl } from "@/services/postimagesService";
-import { MemberGamificationCard } from "@/components/gamification/MemberGamificationCard";
-import { MemberInsigniasCardsSection } from "@/components/gamification/MemberInsigniasCardsSection";
 import { useMemberTagsMap } from "@/hooks/useMemberTags";
 import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
 import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
@@ -673,16 +671,6 @@ function PublicProfileContent({
         </div>
       </div>
 
-      {/* GAMIFICAÇÃO, XP & INSÍGNIAS DO MEMBRO */}
-      <MemberGamificationCard
-        userId={userId}
-        totalXp={memberData.xp || 0}
-        starsRating={memberData.stars_rating}
-        starsCount={memberData.stars_count}
-        isPublic={true}
-        showInsignias={false}
-      />
-
       {/* SEÇÃO PRINCIPAL DE INFORMAÇÕES DA FICHA TÉCNICA */}
       <div className="grid gap-6 md:grid-cols-3">
         {/* CARD 1: SOBRE MIM / BIOGRAFIA */}
@@ -749,13 +737,6 @@ function PublicProfileContent({
           </CardContent>
         </Card>
       </div>
-
-      {/* SEÇÃO DEDICADA: QUADRO DE CONDECORAÇÕES & INSÍGNIAS OFICIAIS */}
-      <MemberInsigniasCardsSection
-        userId={userId}
-        member={{ user_id: userId, nome: displayName, nickname: displayName, avatar_url: avatarUrl }}
-        isSelf={isSelf}
-      />
 
       {/* SEÇÃO DE REDES SOCIAIS & TRANSMISSÕES AO VIVO EM DESTAQUE */}
       <div className="space-y-4">

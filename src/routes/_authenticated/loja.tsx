@@ -1,6 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { ShopPage } from "@/components/shop/ShopPage";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated/loja")({
-  component: ShopPage,
+  component: ShopRoute,
 });
+
+function ShopRoute() {
+  return <Navigate to="/dashboard" replace />;
+}

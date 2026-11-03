@@ -21,12 +21,7 @@ export const REALTIME_EVENTS = {
   USER_UNBLOCKED: "USER_UNBLOCKED",
   AUTH_SESSION_CHANGED: "AUTH_SESSION_CHANGED",
 
-  // Gamificação e Perfil
-  XP_UPDATED: "XP_UPDATED",
-  BADGE_ADDED: "BADGE_ADDED",
-  BADGE_REMOVED: "BADGE_REMOVED",
-  COINS_UPDATED: "COINS_UPDATED",
-  SHOP_UPDATED: "SHOP_UPDATED",
+  // Ranking e Avaliações
   RANKING_UPDATED: "RANKING_UPDATED",
   EVALUATION_UPDATED: "EVALUATION_UPDATED",
 
@@ -155,16 +150,8 @@ export const TABLE_QUERY_KEYS: Record<string, string[]> = {
   warehouse_movements: ["warehouse_movements", "warehouse_stock", "productions"],
   product_recipes: ["product_recipes", "products", "raw_materials"],
 
-  // Gamificação, Ranking e Loja
-  profiles: ["members", "auth", "auth_session", "gamification_ranking", "profile", "public_profile", "user_insignias"],
-  xp_transactions: ["xp_transactions", "members", "gamification_ranking", "profile", "auth", "auth_session"],
-  xp_rules_config: ["xp_rules_config", "xp_transactions"],
-  insignias: ["insignias", "member_insignias", "members", "shop_items", "profile"],
-  member_insignias: ["member_insignias", "insignias", "members", "profile", "shop_items"],
-  shop_items: ["shop_items", "shop_purchases", "member_insignias"],
-  shop_purchases: ["shop_purchases", "shop_items", "tw_coins_transactions", "profile"],
-  tw_coins_config: ["tw_coins_config", "tw_coins_transactions", "shop_items"],
-  tw_coins_transactions: ["tw_coins_transactions", "members", "profile", "shop_items", "auth"],
+  // Ranking e Avaliações
+  profiles: ["members", "auth", "auth_session", "profile", "public_profile"],
   member_evaluations: ["member_evaluations", "members", "profile"],
 
   // Usuários, Cargos, Permissões e Tags

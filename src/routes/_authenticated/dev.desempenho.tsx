@@ -27,8 +27,6 @@ import {
   Boxes,
   User,
 } from "lucide-react";
-import { InsigniaGrid } from "@/components/performance/InsigniaGrid";
-import { calculateMemberInsignias } from "@/lib/insignias";
 import { goalProgress } from "@/lib/metrics";
 import { PageHeader, NoAccess, TableSkeleton, EmptyState } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
@@ -261,20 +259,6 @@ function GestaoDesempenhoContent() {
     if (!inspectMemberId) return null;
     return memberStats.find((m) => m.user_id === inspectMemberId) || null;
   }, [inspectMemberId, memberStats]);
-
-  const inspectedInsignias = useMemo(() => {
-    if (!inspectedMember) return [];
-    return calculateMemberInsignias({
-      revenue: inspectedMember.revenue,
-      salesCount: inspectedMember.salesCount,
-      movementsCount: inspectedMember.movementsCount,
-      score: inspectedMember.score,
-      ticketMédio: inspectedMember.ticketMédio,
-      isMVP: topPerformer?.user_id === inspectedMember.user_id && inspectedMember.revenue > 0,
-      totalSecondsOnline: inspectedMember.total_seconds_online || 0,
-      hasGoal100Pct: inspectedMember.completedGoals > 0 && inspectedMember.completedGoals >= inspectedMember.goalsCount,
-    });
-  }, [inspectedMember, topPerformer]);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 animate-in fade-in-50 duration-300">
@@ -582,7 +566,6 @@ function GestaoDesempenhoContent() {
                           <TableHead className="w-12 text-center">Pos</TableHead>
                           <TableHead>Membro / Identificação</TableHead>
                           <TableHead>Cargo / Nível</TableHead>
-                          <TableHead>Insígnias</TableHead>
                           <TableHead className="text-center">Score Produtividade</TableHead>
                           <TableHead className="text-right">Faturamento</TableHead>
                           <TableHead className="text-right">Ticket Médio</TableHead>
@@ -646,23 +629,6 @@ function GestaoDesempenhoContent() {
                                 ) : (
                                   <span className="text-muted-foreground text-xs">—</span>
                                 )}
-                              </TableCell>
-
-                              {/* Member Insígnias / Badges */}
-                              <TableCell onClick={(e) => e.stopPropagation()}>
-                                <InsigniaGrid
-                                  compact
-                                  insignias={calculateMemberInsignias({
-                                    revenue: m.revenue,
-                                    salesCount: m.salesCount,
-                                    movementsCount: m.movementsCount,
-                                    score: m.score,
-                                    ticketMédio: m.ticketMédio,
-                                    isMVP: topPerformer?.user_id === m.user_id && m.revenue > 0,
-                                    totalSecondsOnline: m.total_seconds_online || 0,
-                                    hasGoal100Pct: m.completedGoals > 0 && m.completedGoals >= m.goalsCount,
-                                  })}
-                                />
                               </TableCell>
 
                               {/* Performance Score */}
@@ -778,9 +744,6 @@ function GestaoDesempenhoContent() {
                   <p className="text-sm font-extrabold text-amber-400 font-mono">{inspectedMember.score} / 100 pts</p>
                 </div>
               </div>
-
-              {/* Insígnias & Conquistas do Membro Inspecionado */}
-              <InsigniaGrid insignias={inspectedInsignias} />
 
               {/* Progress & Goals Breakdown */}
               <div className="p-4 rounded-xl bg-secondary/30 border border-border/50 space-y-2">

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Star, Loader2, Sparkles, UserCheck } from "lucide-react";
+import { Star, Loader2, Sparkles } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -14,31 +14,22 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { evaluateMember, type RankedGamificationMember } from "@/services/gamificationService";
+import { evaluateMember, type EvaluatableMember } from "@/services/memberEvaluationService";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
-
-export interface EvaluatableMember {
-  user_id: string;
-  nome: string;
-  nickname?: string | null;
-  avatar_url?: string | null;
-  game_id?: string | number | null;
-  stars_rating?: number | null;
-}
 
 interface MemberEvaluationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  targetMember: EvaluatableMember | RankedGamificationMember | null;
+  targetMember: EvaluatableMember | null;
 }
 
 const STAR_LABELS: Record<number, { title: string; desc: string; color: string }> = {
   1: { title: "1 Estrela - Crítico", desc: "Desempenho muito abaixo do padrão da facção ou conduta inadequada.", color: "text-rose-400" },
   2: { title: "2 Estrelas - Regular / Precisa Melhorar", desc: "Abaixo da média esperada, necessita de instrução e acompanhamento.", color: "text-amber-400" },
   3: { title: "3 Estrelas - Bom / Satisfatório", desc: "Cumpre as obrigações básicas operacionais do grupo.", color: "text-yellow-400" },
-  4: { title: "4 Estrelas - Muito Bom / Destaque", desc: "Atuação acima da média com iniciativa e pontualidade (+0.50 XP Bônus).", color: "text-emerald-400" },
-  5: { title: "5 Estrelas - Excelência Suprema", desc: "Performance impecável, liderança nata e dedicação extrema (+0.50 XP Bônus).", color: "text-amber-300" },
+  4: { title: "4 Estrelas - Muito Bom / Destaque", desc: "Atuação acima da média com iniciativa e pontualidade.", color: "text-emerald-400" },
+  5: { title: "5 Estrelas - Excelência Suprema", desc: "Performance impecável, liderança nata e dedicação extrema.", color: "text-amber-300" },
 };
 
 export function MemberEvaluationModal({
@@ -73,7 +64,6 @@ export function MemberEvaluationModal({
     },
     onSuccess: (data) => {
       toast.success(data.message || "Avaliação registrada com sucesso!");
-      void queryClient.invalidateQueries({ queryKey: ["gamification_ranking"] });
       void queryClient.invalidateQueries({ queryKey: ["members"] });
       void queryClient.invalidateQueries({ queryKey: ["profile"] });
       onOpenChange(false);

@@ -42,12 +42,6 @@ export const num = (value: number | null | undefined, digits = 0) =>
     maximumFractionDigits: digits,
   }).format(Number(value ?? 0));
 
-export const formatXp = (value: number | null | undefined, minDigits = 1, maxDigits = 2) =>
-  new Intl.NumberFormat("pt-BR", {
-    minimumFractionDigits: minDigits,
-    maximumFractionDigits: maxDigits,
-  }).format(Number(value ?? 0));
-
 /**
  * Converte de forma segura qualquer entrada (string, Date, timestamp, formato brasileiro DD/MM/AAAA) em Date válido,
  * ou retorna null se não for uma data finita e válida.

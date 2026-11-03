@@ -118,11 +118,8 @@ export async function getCurrentAuth(): Promise<AuthState> {
             social_links: dev.social_links || null,
             custom_theme: dev.custom_theme || null,
             custom_url: dev.custom_url || null,
-            xp: Number(dev.xp || 0),
-            gamification_level: Number(dev.gamification_level || 1),
             stars_rating: Number(dev.stars_rating || 5.0),
             stars_count: Number(dev.stars_count || 0),
-            tw_coins: Number(dev.tw_coins || 0),
             is_verified: dev.is_verified === true,
           };
           const level = dev.nivel || (profile.is_developer || profile.is_ceo ? "01" : "novato");
@@ -216,7 +213,7 @@ export async function getCurrentAuth(): Promise<AuthState> {
     let profileRow: any = null;
     try {
       const { data: pByUid } = await (supabase.from("profiles" as any))
-        .select("id, user_id, nome, nickname, telefone, game_id, avatar_url, banner_url, status, data_entrada, discord_id, discord_username, discord_avatar_url, discord_email, is_developer, is_ceo, custom_theme, bio, custom_status, custom_url, xp, gamification_level, stars_rating, stars_count, tw_coins, is_verified")
+        .select("id, user_id, nome, nickname, telefone, game_id, avatar_url, banner_url, status, data_entrada, discord_id, discord_username, discord_avatar_url, discord_email, is_developer, is_ceo, custom_theme, bio, custom_status, custom_url, stars_rating, stars_count, is_verified")
         .eq("user_id", session.user.id)
         .maybeSingle();
 
@@ -228,7 +225,7 @@ export async function getCurrentAuth(): Promise<AuthState> {
         if (discordEmail) filters.push(`discord_email.eq.${discordEmail}`);
 
         const { data: pFallback } = await (supabase.from("profiles" as any))
-          .select("id, user_id, nome, nickname, telefone, game_id, avatar_url, banner_url, status, data_entrada, discord_id, discord_username, discord_avatar_url, discord_email, is_developer, is_ceo, custom_theme, bio, custom_status, custom_url, xp, gamification_level, stars_rating, stars_count, tw_coins, is_verified")
+          .select("id, user_id, nome, nickname, telefone, game_id, avatar_url, banner_url, status, data_entrada, discord_id, discord_username, discord_avatar_url, discord_email, is_developer, is_ceo, custom_theme, bio, custom_status, custom_url, stars_rating, stars_count, is_verified")
           .or(filters.join(","))
           .maybeSingle();
 
@@ -338,11 +335,8 @@ export async function getCurrentAuth(): Promise<AuthState> {
       social_links: pAny.social_links ?? pAny.custom_theme?.social_links ?? null,
       custom_theme: pAny.custom_theme || null,
       custom_url: pAny.custom_url ?? pAny.custom_theme?.custom_url ?? null,
-      xp: Number(pAny.xp || 0),
-      gamification_level: Number(pAny.gamification_level || 1),
       stars_rating: Number(pAny.stars_rating || 5.0),
       stars_count: Number(pAny.stars_count || 0),
-      tw_coins: Number(pAny.tw_coins || 0),
       is_verified: pAny.is_verified === true,
     } : null;
 
@@ -979,7 +973,7 @@ export async function getMembers(): Promise<Member[]> {
     try {
       const [profilesRes, rolesRes, signupReqsRes, tagAssignsRes] = await Promise.all([
         (supabase.from("profiles" as any))
-          .select("id, user_id, nome, nickname, telefone, game_id, status, data_entrada, created_at, discord_id, discord_username, discord_avatar_url, avatar_url, discord_email, is_developer, is_ceo, custom_theme, xp, gamification_level, stars_rating, stars_count, tw_coins, is_verified")
+          .select("id, user_id, nome, nickname, telefone, game_id, status, data_entrada, created_at, discord_id, discord_username, discord_avatar_url, avatar_url, discord_email, is_developer, is_ceo, custom_theme, stars_rating, stars_count, is_verified")
           .order("created_at", { ascending: true }),
         supabase
           .from("user_roles")
@@ -1112,11 +1106,8 @@ export async function getMembers(): Promise<Member[]> {
         is_ceo: Boolean(d.is_ceo === true || d.custom_theme?.is_ceo === true || hasCeoTag),
         custom_theme: d.custom_theme || null,
         custom_url: d.custom_url ?? d.custom_theme?.custom_url ?? null,
-        xp: Number(d.xp || 0),
-        gamification_level: Number(d.gamification_level || 1),
         stars_rating: Number(d.stars_rating || 5.0),
         stars_count: Number(d.stars_count || 0),
-        tw_coins: Number(d.tw_coins || 0),
         is_verified: d.is_verified === true,
       };
     });

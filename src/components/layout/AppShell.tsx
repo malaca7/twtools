@@ -49,9 +49,7 @@ import {
   PackageCheck,
   Award,
   ShoppingBag,
-  Coins,
   AlertTriangle,
-  Store,
   Factory,
   Warehouse,
   Zap,
@@ -127,7 +125,6 @@ import {
   DEFAULT_CEO_MENU_ITEMS,
 } from "@/hooks/useCeoMenuConfig";
 import { LEVEL_LABEL, levelBadgeClass, type Permission } from "@/lib/permissions";
-import { formatXp } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ScrollToTopButton } from "./ScrollToTopButton";
 import { ForceCachePurgeListener } from "@/components/dev/ForceCachePurgeListener";
@@ -169,7 +166,6 @@ const MASTER_NAV_ITEMS: BaseNavItem[] = [
   { id: "movimentacoes", title: "Movimentações", url: "/movimentacoes", icon: ArrowLeftRight, perm: "view_movements", defaultCat: "Gestão", defaultOrder: 6 },
   { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", icon: LifeBuoy, perm: "view_tickets", defaultCat: "Gestão", defaultOrder: 7 },
   { id: "atendimento-tickets", title: "Atendimento Ticket", url: "/atendimento-tickets", icon: Headphones, perm: "atendimento_tickets.view" as Permission, defaultCat: "Administração", defaultOrder: 7.5 },
-  { id: "loja", title: "Loja Twin Wheels", url: "/loja", icon: ShoppingBag, perm: "view_shop", defaultCat: "Gestão", defaultOrder: 8 },
   { id: "estoque", title: "Controle de Estoque", url: "/controledeestoque", icon: Boxes, perm: "view_stock", defaultCat: "Gestão", defaultOrder: 9 },
   { id: "gestao-estoque", title: "Gestão de Estoque", url: "/gestao-estoque", icon: PackageCheck, perm: "view_stock_management", defaultCat: "Gestão", defaultOrder: 10 },
   { id: "membros", title: "Membros", url: "/membros", icon: Users, perm: "view_members", defaultCat: "Gestão", defaultOrder: 11 },
@@ -203,7 +199,6 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/producoes": "productions.view",
   "/tickets": "view_tickets",
   "/atendimento-tickets": "atendimento_tickets.view" as Permission,
-  "/loja": "view_shop",
   "/controledeestoque": "view_stock",
   "/estoque": "view_stock",
   "/gestao-estoque": "view_stock_management",
@@ -231,10 +226,6 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/perfil/disciplinar": "view_profile",
   "/configuracoes": "manage_platform_settings",
   "/dev/notificacoes": "view_dev_notifications",
-  "/dev/xp-insignias": "manage_dev_gamification",
-  "/dev/gestaoloja": "view_dev_shop",
-  "/dev/loja": "view_dev_shop",
-  "/dev/coins": "view_dev_coins",
   "/dev/gestao-estoque": "view_stock_management",
   "/dev/producoes/produzir": "productions.view",
   "/dev/producoes/materias-primas": "raw_materials.view",
@@ -300,10 +291,6 @@ const DEV_MODULE_NAV_ITEMS: BaseNavItem[] = [
   { id: "dev-estoque", title: "Estoque", url: "/dev/estoque", icon: Boxes, defaultCat: "DEV", defaultOrder: 2 },
   { id: "dev-patch-notes", title: "Patch Notes & Releases", url: "/dev/patch-notes", icon: Sparkles, defaultCat: "DEV", defaultOrder: 3 },
   { id: "dev-desempenho", title: "Gestão Desempenho", url: "/dev/desempenho", icon: TrendingUp, defaultCat: "DEV", defaultOrder: 4 },
-  { id: "dev-xp-insignias", title: "Xp e insígnias", url: "/dev/xp-insignias", icon: Award, defaultCat: "DEV", defaultOrder: 5 },
-  { id: "dev-loja", title: "Gestão da Loja", url: "/dev/gestaoloja", icon: ShoppingBag, defaultCat: "DEV", defaultOrder: 6 },
-  { id: "dev-loja-oficial", title: "Loja", url: "/dev/loja", icon: Store, defaultCat: "DEV", defaultOrder: 6.5 },
-  { id: "dev-coins", title: "Gestão de Coins", url: "/dev/coins", icon: Coins, defaultCat: "DEV", defaultOrder: 7 },
   { id: "dev-permissoes", title: "Permissões Tag Dev", url: "/dev/permissoes", icon: KeyRound, defaultCat: "DEV", defaultOrder: 8 },
   { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", icon: Code2, defaultCat: "DEV", defaultOrder: 9 },
   { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", icon: Sliders, defaultCat: "DEV", defaultOrder: 10 },
@@ -377,7 +364,6 @@ function resolveRequiredPermission(id?: string, url?: string): Permission | unde
     if (withoutPrefix.startsWith("/atualizacoes")) return "view_patch_notes";
     if (withoutPrefix.startsWith("/atendimento-tickets")) return "atendimento_tickets.view" as Permission;
     if (withoutPrefix.startsWith("/tickets")) return "view_tickets";
-    if (withoutPrefix.startsWith("/loja")) return "view_shop";
     if (withoutPrefix.startsWith("/dashboard")) return "view_dashboard";
     if (withoutPrefix.startsWith("/perfil")) return "view_profile";
   }
@@ -1501,71 +1487,8 @@ export function AppShell({ children }: { children: ReactNode }) {
               )}
             </div>
 
-            {/* TOP HEADER: GAMIFICATION BADGES + NOTIFICATION CENTER + USER AVATAR */}
+            {/* TOP HEADER: NOTIFICATION CENTER + USER AVATAR */}
             <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-              {/* BADGES DE GAMIFICAÇÃO: XP & TW COINS */}
-              {user && (
-                <div className="flex items-center gap-1 sm:gap-1.5 mr-0.5 sm:mr-1">
-                  {/* BADGE DE XP */}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Link
-                        to="/desempenho"
-                        className="flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-2.5 sm:py-1 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-violet-300 font-mono text-xs font-bold transition-all shadow-xs hover:scale-105 active:scale-95 cursor-pointer"
-                      >
-                        <Zap className="h-3.5 w-3.5 text-violet-400 fill-violet-400/20 shrink-0" />
-                        <span className="hidden xs:inline text-[11px] font-bold text-violet-200">
-                          {formatXp(profile?.xp || 0)}{" "}
-                          <span className="text-[10px] text-violet-400/80 font-normal">XP</span>
-                        </span>
-                        <span className="xs:hidden text-[10px] font-bold text-violet-200">
-                          {Number(profile?.xp || 0) >= 1000
-                            ? `${(Number(profile?.xp || 0) / 1000).toFixed(1)}k`
-                            : formatXp(profile?.xp || 0)}
-                        </span>
-                      </Link>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="text-xs space-y-0.5 bg-card/95 border-violet-500/30">
-                      <p className="font-bold text-violet-300 flex items-center gap-1">
-                        <Zap className="h-3 w-3" /> Pontos de Experiência (XP)
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        Nível {Number(profile?.gamification_level || 1)} · {formatXp(profile?.xp || 0)} XP acumulados. Clique para abrir Meu Desempenho.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-
-                  {/* BADGE DE TW COINS */}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Link
-                        to="/loja"
-                        className="flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-2.5 sm:py-1 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 font-mono text-xs font-bold transition-all shadow-xs hover:scale-105 active:scale-95 cursor-pointer"
-                      >
-                        <Coins className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                        <span className="hidden xs:inline text-[11px] font-bold text-amber-200">
-                          {Number(profile?.tw_coins || 0).toLocaleString("pt-BR")}{" "}
-                          <span className="text-[10px] text-amber-400/80 font-normal">Coins</span>
-                        </span>
-                        <span className="xs:hidden text-[10px] font-bold text-amber-200">
-                          {Number(profile?.tw_coins || 0) >= 1000
-                            ? `${(Number(profile?.tw_coins || 0) / 1000).toFixed(1)}k`
-                            : Number(profile?.tw_coins || 0)}
-                        </span>
-                      </Link>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="text-xs space-y-0.5 bg-card/95 border-amber-500/30">
-                      <p className="font-bold text-amber-300 flex items-center gap-1">
-                        <Coins className="h-3 w-3" /> Saldo de TW Coins
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {Number(profile?.tw_coins || 0).toLocaleString("pt-BR")} moedas disponíveis. Clique para abrir a Loja Oficial.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              )}
-
               {/* TAGS DO INTEGRANTE NA BARRA DE TOPO */}
               {user && Array.isArray(myTags) && myTags.length > 0 && (
                 <div className="hidden lg:flex items-center gap-1 mr-1 max-w-[260px] xl:max-w-[360px] overflow-x-auto scrollbar-none py-0.5">

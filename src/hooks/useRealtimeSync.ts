@@ -315,15 +315,6 @@ export function useRealtimeSync() {
           break;
         }
 
-        case "xp_transactions":
-        case "tw_coins_transactions":
-        case "member_insignias": {
-          if (typeof window !== "undefined") {
-            window.dispatchEvent(new CustomEvent("tw_gamification_updated", { detail: payload }));
-          }
-          break;
-        }
-
         case "action_scales":
         case "action_scale_members": {
           if (typeof window !== "undefined") {

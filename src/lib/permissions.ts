@@ -151,20 +151,10 @@ export type Permission =
   | "delete_members"
   | "view_consolidated_financials"
   | "view_rankings"
-  // Permissões Detalhadas de Ranking, Insígnias e XP
-  | "view_rankings_xp"
+  // Permissões Detalhadas de Ranking e Avaliações
   | "view_rankings_financial"
   | "view_rankings_movements"
-  | "view_insignias"
-  | "grant_insignia"
-  | "manage_insignias_catalog"
-  | "view_shop"
-  | "buy_shop_items"
-  | "manage_shop"
   | "evaluate_member"
-  | "manage_xp_rules"
-  | "adjust_member_xp"
-  | "view_member_xp"
   | "view_performance"
   | "manage_performance"
   | "inspect_member_performance"
@@ -279,24 +269,6 @@ export type Permission =
   | "manage_dev_permissions"
   | "manage_dev_config"
   | "manage_dev_menu"
-  | "manage_dev_gamification"
-  // Permissões Detalhadas de Gestão da Loja Dev (/dev/gestaoloja)
-  | "view_dev_shop"
-  | "create_dev_shop_item"
-  | "edit_dev_shop_item"
-  | "delete_dev_shop_item"
-  | "manage_dev_shop_prices"
-  | "manage_dev_shop_stock"
-  | "manage_dev_shop_orders"
-  | "deliver_dev_shop_order"
-  | "refund_dev_shop_order"
-  // Permissões Detalhadas de Gestão de TW Coins Dev (/dev/coins)
-  | "view_dev_coins"
-  | "grant_dev_coins"
-  | "deduct_dev_coins"
-  | "view_dev_coins_transactions"
-  | "manage_dev_coins_rates"
-  | "manage_dev_coins_batch"
   // Permissões do Painel Executivo CEO & Gerenciamento de Bot
   | "view_ceo"
   | "manage_ceo_bot"
@@ -396,8 +368,7 @@ export type Permission =
   | "manage_announcements"
   | "permission.ceo_selos"
   | "view_ceo_dashboard"
-  | "view_dev"
-  | "manage_dev_coins_config";
+  | "view_dev";
 
 export const ALL_PERMISSIONS: Permission[] = [
   // Permissões de Selos de Verificação
@@ -525,19 +496,9 @@ export const ALL_PERMISSIONS: Permission[] = [
   "manage_roles",
   "manage_announcements",
   "view_rankings",
-  "view_rankings_xp",
   "view_rankings_financial",
   "view_rankings_movements",
-  "view_insignias",
-  "grant_insignia",
-  "manage_insignias_catalog",
-  "view_shop",
-  "buy_shop_items",
-  "manage_shop",
   "evaluate_member",
-  "manage_xp_rules",
-  "adjust_member_xp",
-  "view_member_xp",
   "view_performance",
   "manage_performance",
   "inspect_member_performance",
@@ -640,22 +601,6 @@ export const ALL_PERMISSIONS: Permission[] = [
   "manage_dev_permissions",
   "manage_dev_config",
   "manage_dev_menu",
-  "manage_dev_gamification",
-  "view_dev_shop",
-  "create_dev_shop_item",
-  "edit_dev_shop_item",
-  "delete_dev_shop_item",
-  "manage_dev_shop_prices",
-  "manage_dev_shop_stock",
-  "manage_dev_shop_orders",
-  "deliver_dev_shop_order",
-  "refund_dev_shop_order",
-  "view_dev_coins",
-  "grant_dev_coins",
-  "deduct_dev_coins",
-  "view_dev_coins_transactions",
-  "manage_dev_coins_rates",
-  "manage_dev_coins_batch",
   // CEO Panel Permissions
   "view_ceo",
   "manage_ceo_bot",
@@ -713,22 +658,6 @@ export const DEV_PANEL_PERMISSIONS: Permission[] = [
   "manage_dev_permissions",
   "manage_dev_config",
   "manage_dev_menu",
-  "manage_dev_gamification",
-  "view_dev_shop",
-  "create_dev_shop_item",
-  "edit_dev_shop_item",
-  "delete_dev_shop_item",
-  "manage_dev_shop_prices",
-  "manage_dev_shop_stock",
-  "manage_dev_shop_orders",
-  "deliver_dev_shop_order",
-  "refund_dev_shop_order",
-  "view_dev_coins",
-  "grant_dev_coins",
-  "deduct_dev_coins",
-  "view_dev_coins_transactions",
-  "manage_dev_coins_rates",
-  "manage_dev_coins_batch",
   "view_dev_notifications",
   "manage_dev_notification_rules",
   "create_dev_notification",
@@ -850,9 +779,7 @@ export const CEO_PERMISSIONS: Permission[] = [
 ];
 
 const ADMIN: Permission[] = ALL_PERMISSIONS.filter(
-  (p) =>
-    ((!CEO_PERMISSIONS.includes(p) && !DEV_PANEL_PERMISSIONS.includes(p)) || p.startsWith("verification.")) &&
-    p !== "grant_insignia"
+  (p) => (!CEO_PERMISSIONS.includes(p) && !DEV_PANEL_PERMISSIONS.includes(p)) || p.startsWith("verification.")
 );
 
 const OFFICER: Permission[] = [
@@ -934,18 +861,9 @@ const OFFICER: Permission[] = [
   "edit_members",
   "manage_announcements",
   "view_rankings",
-  "view_rankings_xp",
   "view_rankings_financial",
   "view_rankings_movements",
-  "view_insignias",
-  "manage_insignias_catalog",
-  "view_shop",
-  "buy_shop_items",
-  "manage_shop",
   "evaluate_member",
-  "manage_xp_rules",
-  "adjust_member_xp",
-  "view_member_xp",
   "view_performance",
   "manage_performance",
   "inspect_member_performance",
@@ -1154,14 +1072,9 @@ const MANAGER: Permission[] = [
   "edit_members",
   "manage_announcements",
   "view_rankings",
-  "view_rankings_xp",
   "view_rankings_financial",
   "view_rankings_movements",
-  "view_insignias",
-  "view_shop",
-  "buy_shop_items",
   "evaluate_member",
-  "view_member_xp",
   "view_performance",
   "manage_performance",
   "inspect_member_performance",
@@ -1244,11 +1157,6 @@ const MEMBER: Permission[] = [
   "view_categories",
   "view_members",
   "view_rankings",
-  "view_rankings_xp",
-  "view_insignias",
-  "view_shop",
-  "buy_shop_items",
-  "view_member_xp",
   "view_performance",
   "view_goals",
   "view_hierarchy",
@@ -1300,10 +1208,6 @@ const NOVATO: Permission[] = [
   "view_categories",
   "view_members",
   "view_rankings",
-  "view_rankings_xp",
-  "view_insignias",
-  "view_shop",
-  "buy_shop_items",
   "view_performance",
   "view_goals",
   "view_hierarchy",
@@ -2244,109 +2148,20 @@ export function satisfiesPermission(
     return true;
   }
 
-  // 20. Rankings, Insígnias, XP e Loja
+  // 20. Rankings & Desempenho
   if (
     permission === "view_rankings" &&
     (list.includes("view_rankings") ||
-      list.includes("view_rankings_xp") ||
       list.includes("view_rankings_financial") ||
       list.includes("view_rankings_movements") ||
       list.includes("evaluate_member") ||
-      list.includes("grant_insignia") ||
-      list.includes("manage_insignias_catalog") ||
-      list.includes("manage_performance") ||
-      list.includes("adjust_member_xp"))
+      list.includes("manage_performance"))
   ) {
     return true;
   }
   if (
-    permission === "view_insignias" &&
-    (list.includes("view_insignias") || list.includes("grant_insignia") || list.includes("manage_insignias_catalog"))
-  ) {
-    return true;
-  }
-  if (
-    permission === "view_member_xp" &&
-    (list.includes("view_member_xp") || list.includes("view_rankings_xp") || list.includes("manage_xp_rules") || list.includes("adjust_member_xp") || list.includes("evaluate_member"))
-  ) {
-    return true;
-  }
-  if (
-    (permission === "evaluate_member" || permission === "adjust_member_xp" || permission === "manage_performance") &&
-    (list.includes("evaluate_member") || list.includes("adjust_member_xp") || list.includes("manage_performance"))
-  ) {
-    return true;
-  }
-  if (
-    permission === "view_shop" &&
-    (list.includes("view_shop") ||
-      list.includes("buy_shop_items") ||
-      list.includes("manage_shop") ||
-      list.includes("view_dev_shop") ||
-      list.includes("manage_dev_shop_prices") ||
-      list.includes("manage_dev_shop_stock") ||
-      list.includes("manage_dev_shop_orders"))
-  ) {
-    return true;
-  }
-  if (
-    permission === "buy_shop_items" &&
-    (list.includes("buy_shop_items") || list.includes("manage_shop") || list.includes("view_dev_shop") || list.includes("manage_dev_shop_orders"))
-  ) {
-    return true;
-  }
-  if (
-    permission === "manage_shop" &&
-    (list.includes("manage_shop") ||
-      list.includes("view_dev_shop") ||
-      list.includes("manage_dev_shop_prices") ||
-      list.includes("manage_dev_shop_stock") ||
-      list.includes("manage_dev_shop_orders"))
-  ) {
-    return true;
-  }
-  if (
-    permission === "view_dev_shop" &&
-    (list.includes("view_dev_shop") ||
-      list.includes("manage_shop") ||
-      list.includes("create_dev_shop_item") ||
-      list.includes("edit_dev_shop_item") ||
-      list.includes("delete_dev_shop_item") ||
-      list.includes("manage_dev_shop_prices") ||
-      list.includes("manage_dev_shop_stock") ||
-      list.includes("manage_dev_shop_orders") ||
-      list.includes("deliver_dev_shop_order") ||
-      list.includes("refund_dev_shop_order"))
-  ) {
-    return true;
-  }
-  if (
-    permission === "edit_dev_shop_item" &&
-    (list.includes("edit_dev_shop_item") || list.includes("manage_dev_shop_prices") || list.includes("manage_dev_shop_stock") || list.includes("manage_shop"))
-  ) {
-    return true;
-  }
-  if (
-    (permission === "deliver_dev_shop_order" || permission === "refund_dev_shop_order") &&
-    (list.includes("deliver_dev_shop_order") || list.includes("refund_dev_shop_order") || list.includes("manage_dev_shop_orders") || list.includes("manage_shop"))
-  ) {
-    return true;
-  }
-  if (
-    permission === "view_dev_coins" &&
-    (list.includes("view_dev_coins") ||
-      list.includes("grant_dev_coins") ||
-      list.includes("deduct_dev_coins") ||
-      list.includes("view_dev_coins_transactions") ||
-      list.includes("manage_dev_coins_rates") ||
-      list.includes("manage_dev_coins_batch") ||
-      list.includes("manage_dev_coins_config"))
-  ) {
-    return true;
-  }
-  if (
-    (permission === "manage_dev_coins_rates" || permission === "manage_dev_coins_config") &&
-    (list.includes("manage_dev_coins_rates") || list.includes("manage_dev_coins_config"))
+    (permission === "evaluate_member" || permission === "manage_performance") &&
+    (list.includes("evaluate_member") || list.includes("manage_performance"))
   ) {
     return true;
   }
@@ -2360,9 +2175,6 @@ export function satisfiesPermission(
       list.includes("manage_dev_permissions") ||
       list.includes("manage_dev_config") ||
       list.includes("manage_dev_menu") ||
-      list.includes("manage_dev_gamification") ||
-      list.includes("view_dev_shop") ||
-      list.includes("view_dev_coins") ||
       list.includes("view_dev_notifications") ||
       list.includes("view_dev_tags") ||
       list.includes("manage_dev_tags"))
@@ -2859,14 +2671,9 @@ export function can(
     if (permission === "view_ceo_stock_adjustments" && (list.includes("manage_ceo_stock_adjustments") || list.includes("ceo_adjust_stock_balance") || list.includes("ceo_stock_add") || list.includes("ceo_stock_remove"))) return true;
     if (list.includes("manage_ceo_stock_adjustments") && (permission === "ceo_adjust_stock_balance" || permission === "ceo_stock_add" || permission === "ceo_stock_remove" || permission === "view_ceo_stock_adjustments")) return true;
 
-    // Rankings, Insígnias e Gamificação (XP)
-    if (list.includes("manage_insignias_catalog") && permission === "view_insignias") return true;
-    if (list.includes("grant_insignia") && permission === "view_insignias") return true;
-    if (list.includes("manage_xp_rules") && (permission === "view_rankings_xp" || permission === "view_member_xp")) return true;
-    if (list.includes("adjust_member_xp") && permission === "view_member_xp") return true;
+    // Rankings & Avaliações
     if (
-      (list.includes("view_rankings_xp") ||
-        list.includes("view_rankings_financial") ||
+      (list.includes("view_rankings_financial") ||
         list.includes("view_rankings_movements") ||
         list.includes("evaluate_member")) &&
       permission === "view_rankings"
@@ -2874,7 +2681,6 @@ export function can(
       return true;
     }
 
-    // Rankings/XP/Insígnias são configuráveis na matriz de cargos: somente permissões marcadas são concedidas.
     return false;
   }
 
@@ -3198,14 +3004,9 @@ export function can(
     return true;
   }
 
-  // Rankings, Insígnias e Gamificação (XP)
-  if (rolePerms.includes("manage_insignias_catalog") && permission === "view_insignias") return true;
-  if (rolePerms.includes("grant_insignia") && permission === "view_insignias") return true;
-  if (rolePerms.includes("manage_xp_rules") && (permission === "view_rankings_xp" || permission === "view_member_xp")) return true;
-  if (rolePerms.includes("adjust_member_xp") && permission === "view_member_xp") return true;
+  // Rankings & Avaliações
   if (
-    (rolePerms.includes("view_rankings_xp") ||
-      rolePerms.includes("view_rankings_financial") ||
+    (rolePerms.includes("view_rankings_financial") ||
       rolePerms.includes("view_rankings_movements") ||
       rolePerms.includes("evaluate_member")) &&
     permission === "view_rankings"

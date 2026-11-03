@@ -41,8 +41,6 @@ import { useMembers, nameOf } from "@/hooks/useData";
 import { useMemberTagsMap } from "@/hooks/useMemberTags";
 import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
 import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
-import { InsigniaEmblem } from "@/components/gamification/InsigniaIcon";
-import { getAllMemberInsignias, type MemberInsigniaGrant, RARITY_CONFIG } from "@/services/gamificationService";
 import {
   LEVELS,
   LEVEL_LABEL,
@@ -188,27 +186,6 @@ export function HierarquiaPage() {
   const { data: members = [] } = useMembers();
   const memberTagsMap = useMemberTagsMap();
 
-  // Busca todas as condecorações e insígnias dos membros em tempo real
-  const { data: allInsignias = [] } = useQuery({
-    queryKey: ["all_member_insignias"],
-    queryFn: getAllMemberInsignias,
-    staleTime: 60 * 1000,
-  });
-
-  // Mapeia insígnias por identificadores do membro
-  const memberInsigniasMap = useMemo(() => {
-    const map: Record<string, MemberInsigniaGrant[]> = {};
-    allInsignias.forEach((grant) => {
-      if (!grant.member_id) return;
-      const key = String(grant.member_id).toLowerCase().trim();
-      if (!map[key]) {
-        map[key] = [];
-      }
-      map[key].push(grant);
-    });
-    return map;
-  }, [allInsignias]);
-
   const [search, setSearch] = useState("");
   // Sincronização do modo de visualização com a URL (?modo=pyramid | cards)
   const [viewMode, setViewMode] = useUrlTab<ViewMode>("pyramid", {
@@ -285,20 +262,6 @@ export function HierarquiaPage() {
 
     return { totalCount, leadershipCount, managementCount, membersCount, novicesCount };
   }, [members]);
-
-  // Helper para obter insígnias do membro
-  const getInsigniasForMember = (member: (typeof members)[0]) => {
-    const id1 = member.user_id ? String(member.user_id).toLowerCase().trim() : "";
-    const id2 = member.id ? String(member.id).toLowerCase().trim() : "";
-    const id3 = member.game_id ? String(member.game_id).toLowerCase().trim() : "";
-
-    return (
-      (id1 && memberInsigniasMap[id1]) ||
-      (id2 && memberInsigniasMap[id2]) ||
-      (id3 && memberInsigniasMap[id3]) ||
-      []
-    );
-  };
 
   if (!canView) {
     return <NoAccess />;
@@ -551,9 +514,6 @@ export function HierarquiaPage() {
                           (member.id ? memberTagsMap[member.id] : undefined) ||
                           [];
 
-                        // Recupera as insígnias que o membro possui
-                        const memberInsignias = getInsigniasForMember(member);
-
                         return (
                           <div
                             key={member.user_id || member.id}
@@ -626,80 +586,13 @@ export function HierarquiaPage() {
                               )}
                             </div>
 
-                            {/* SEÇÃO DE INSÍGNIAS E DATA DE ENTRADA */}
-                            <div className="space-y-2 pt-2 border-t border-border/50">
-                              {memberInsignias.length > 0 ? (
-                                <div className="space-y-1.5">
-                                  <div className="flex items-center justify-between text-[10px]">
-                                    <span className="flex items-center gap-1 text-amber-400 font-bold">
-                                      <Award className="h-3 w-3" />
-                                      <span>Insígnias ({memberInsignias.length})</span>
-                                    </span>
-                                    <span className="text-[9px] text-muted-foreground font-mono">
-                                      Admissão: {dateOnly(member.data_entrada)}
-                                    </span>
-                                  </div>
-
-                                  <TooltipProvider delayDuration={50}>
-                                    <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                                      {memberInsignias.map((grant) => {
-                                        const badge = grant.insignia;
-                                        if (!badge) return null;
-                                        return (
-                                          <Tooltip key={grant.id}>
-                                            <TooltipTrigger asChild>
-                                              <div className="cursor-pointer transition-transform hover:scale-115 active:scale-95">
-                                                <InsigniaEmblem
-                                                  icon={badge.icon}
-                                                  name={badge.name}
-                                                  rarity={badge.rarity}
-                                                  shape_3d={badge.shape_3d}
-                                                  material_3d={badge.material_3d}
-                                                  border_style_3d={badge.border_style_3d}
-                                                  gloss_effect={badge.gloss_effect}
-                                                  size="xs"
-                                                  color={badge.color}
-                                                  bgColor={badge.bg_color}
-                                                  borderColor={badge.border_color}
-                                                  showStar={false}
-                                                />
-                                              </div>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="top" className="text-xs p-2.5 max-w-xs space-y-1 bg-popover/95 backdrop-blur-md border border-border shadow-xl">
-                                              <div className="font-bold flex items-center gap-1.5 text-foreground">
-                                                <Award className="h-3.5 w-3.5 text-amber-400" />
-                                                <span>{badge.name}</span>
-                                                <Badge variant="outline" className="text-[9px] uppercase font-bold py-0">
-                                                  {badge.rarity}
-                                                </Badge>
-                                              </div>
-                                              {badge.description && (
-                                                <p className="text-[11px] text-muted-foreground">{badge.description}</p>
-                                              )}
-                                              {grant.reason && (
-                                                <p className="text-[10px] text-amber-300/80 italic">"{grant.reason}"</p>
-                                              )}
-                                              <span className="text-[9px] text-muted-foreground block pt-0.5 font-mono">
-                                                Concedida em {new Date(grant.granted_at).toLocaleDateString("pt-BR")}
-                                              </span>
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        );
-                                      })}
-                                    </div>
-                                  </TooltipProvider>
-                                </div>
-                              ) : (
-                                <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                                  <span className="flex items-center gap-1 text-muted-foreground/50">
-                                    <Award className="h-3 w-3" />
-                                    <span>Sem insígnias</span>
-                                  </span>
-                                  <span className="font-mono text-[9px] text-muted-foreground">
-                                    Admissão: {dateOnly(member.data_entrada)}
-                                  </span>
-                                </div>
-                              )}
+                            {/* DATA DE ENTRADA */}
+                            <div className="pt-2 border-t border-border/50">
+                              <div className="flex items-center justify-end text-[10px] text-muted-foreground">
+                                <span className="font-mono text-[9px] text-muted-foreground">
+                                  Admissão: {dateOnly(member.data_entrada)}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         );
@@ -777,8 +670,6 @@ export function HierarquiaPage() {
                             (m.id ? memberTagsMap[m.id] : undefined) ||
                             [];
 
-                          const memberInsignias = getInsigniasForMember(m);
-
                           return (
                             <div
                               key={m.user_id || m.id}
@@ -818,50 +709,6 @@ export function HierarquiaPage() {
                                       showIcon
                                     />
                                   ))}
-                                </div>
-                              )}
-
-                              {/* Insígnias do Membro */}
-                              {memberInsignias.length > 0 && (
-                                <div className="pt-1 border-t border-border/30">
-                                  <TooltipProvider delayDuration={50}>
-                                    <div className="flex flex-wrap items-center gap-1">
-                                      {memberInsignias.map((grant) => {
-                                        const badge = grant.insignia;
-                                        if (!badge) return null;
-                                        return (
-                                          <Tooltip key={grant.id}>
-                                            <TooltipTrigger asChild>
-                                              <div className="cursor-pointer transition-transform hover:scale-110 active:scale-95">
-                                                <InsigniaEmblem
-                                                  icon={badge.icon}
-                                                  name={badge.name}
-                                                  rarity={badge.rarity}
-                                                  size="xs"
-                                                  color={badge.color}
-                                                  bgColor={badge.bg_color}
-                                                  borderColor={badge.border_color}
-                                                  showStar={false}
-                                                />
-                                              </div>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="top" className="text-xs p-2 max-w-xs space-y-0.5">
-                                              <div className="font-bold flex items-center gap-1 text-foreground">
-                                                <Award className="h-3 w-3 text-amber-400" />
-                                                <span>{badge.name}</span>
-                                                <Badge variant="outline" className="text-[8px] uppercase font-bold py-0">
-                                                  {badge.rarity}
-                                                </Badge>
-                                              </div>
-                                              {badge.description && (
-                                                <p className="text-[10px] text-muted-foreground">{badge.description}</p>
-                                              )}
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        );
-                                      })}
-                                    </div>
-                                  </TooltipProvider>
                                 </div>
                               )}
                             </div>

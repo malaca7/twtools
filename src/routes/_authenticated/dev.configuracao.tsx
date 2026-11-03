@@ -73,8 +73,6 @@ import {
   Webhook,
   Landmark,
   BellRing,
-  Coins,
-  Award,
   KeyRound,
   Volume2,
   MessageSquare,
@@ -2584,7 +2582,6 @@ export function DevConfiguracaoContent({
                             "/membros",
                             "/hierarquia",
                             "/desempenho",
-                            "/loja",
                             "/fundo-caixa",
                             "/rankings",
                             "/metas",
@@ -2612,8 +2609,7 @@ export function DevConfiguracaoContent({
                           <SelectItem value="/controledeestoque">🗄️ Controle de Estoque (/controledeestoque)</SelectItem>
                           <SelectItem value="/membros">👥 Lista de Membros (/membros)</SelectItem>
                           <SelectItem value="/hierarquia">👑 Hierarquia da Organização (/hierarquia)</SelectItem>
-                          <SelectItem value="/desempenho">⚡ Meu Desempenho & XP (/desempenho)</SelectItem>
-                          <SelectItem value="/loja">🛍️ Loja Twin Wheels (/loja)</SelectItem>
+                          <SelectItem value="/desempenho">⚡ Meu Desempenho (/desempenho)</SelectItem>
                           <SelectItem value="/fundo-caixa">🏦 Fundo de Caixa (/fundo-caixa)</SelectItem>
                           <SelectItem value="/rankings">🏆 Rankings (/rankings)</SelectItem>
                           <SelectItem value="/metas">🎯 Metas (/metas)</SelectItem>
@@ -2768,9 +2764,6 @@ export function DevConfiguracaoContent({
                             "/dev/menu-lateral",
                             "/dev/patch-notes",
                             "/dev/desempenho",
-                            "/dev/xp-insignias",
-                            "/dev/gestaoloja",
-                            "/dev/coins",
                             "/dev/notificacoes",
                             "/dev",
                           ].includes(platformForm.startPageDev || "/dev/configuracao")
@@ -2795,9 +2788,6 @@ export function DevConfiguracaoContent({
                           <SelectItem value="/dev/menu-lateral">📑 Menu Lateral Dev (/dev/menu-lateral)</SelectItem>
                           <SelectItem value="/dev/patch-notes">✨ Patch Notes & Releases (/dev/patch-notes)</SelectItem>
                           <SelectItem value="/dev/desempenho">📈 Gestão de Desempenho (/dev/desempenho)</SelectItem>
-                          <SelectItem value="/dev/xp-insignias">🏅 XP e Insígnias (/dev/xp-insignias)</SelectItem>
-                          <SelectItem value="/dev/gestaoloja">🛍️ Gestão da Loja (/dev/gestaoloja)</SelectItem>
-                          <SelectItem value="/dev/coins">🪙 Gestão de Coins (/dev/coins)</SelectItem>
                           <SelectItem value="/dev/notificacoes">🔔 Central de Notificações Dev (/dev/notificacoes)</SelectItem>
                           <SelectItem value="/dev">⚡ Hub Desenvolvedor (/dev)</SelectItem>
                           <SelectItem value="custom">✏️ Outra rota personalizada...</SelectItem>

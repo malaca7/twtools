@@ -22,10 +22,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { InsigniaGrid } from "@/components/performance/InsigniaGrid";
-import { MemberInsigniasCardsSection } from "@/components/gamification/MemberInsigniasCardsSection";
 import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
-import { calculateMemberInsignias } from "@/lib/insignias";
 import { goalProgress, GOAL_STATUS_LABEL, GOAL_TYPE_LABEL } from "@/lib/metrics";
 import { PageHeader, TableSkeleton, EmptyState, NoAccess } from "@/components/ui-kit";
 import { useAuth } from "@/hooks/useAuth";
@@ -62,7 +59,6 @@ export function MeuDesempenhoPage() {
 
 function MeuDesempenhoContent() {
   const { user, profile, level, hasPermission } = useAuth();
-  const canViewInsignias = hasPermission("view_insignias");
 
   const { data: sales = [], isLoading: loadingSales } = useSales();
   const { data: movements = [], isLoading: loadingMovements } = useMovements();
@@ -190,20 +186,6 @@ function MeuDesempenhoContent() {
     return (completedGoals / myGoals.length) * 100;
   }, [myGoals, activeSales]);
 
-  // Operational Insígnias / Badges System
-  const myInsignias = useMemo(() => {
-    return calculateMemberInsignias({
-      revenue: myRevenue,
-      salesCount: mySales.length,
-      movementsCount: myMovements.length,
-      score: myScore,
-      ticketMédio: myTicketMédio,
-      isMVP: myRankPosition === 1 && myRevenue > 0,
-      totalSecondsOnline: (profile as any)?.total_seconds_online || 0,
-      hasGoal100Pct: myGoalProgress >= 100,
-    });
-  }, [myRevenue, mySales.length, myMovements.length, myScore, myTicketMédio, myRankPosition, (profile as any)?.total_seconds_online, myGoalProgress]);
-
   const memberName = profile?.nickname || profile?.nome || "Membro";
 
   return (
@@ -326,23 +308,6 @@ function MeuDesempenhoContent() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Insígnias & Conquistas Reais do Membro */}
-          {canViewInsignias && currentUserId && (
-            <Card className="surface-card border-border/70 p-5 rounded-2xl shadow-md">
-              <MemberInsigniasCardsSection
-                userId={currentUserId}
-                member={{
-                  user_id: currentUserId,
-                  nome: profile?.nome || "Membro",
-                  nickname: profile?.nickname || undefined,
-                  avatar_url: profile?.avatar_url || undefined,
-                }}
-                title="Galeria de Insígnias & Conquistas Operacionais"
-                description="Emblemas 3D oficiais e condecorações de honra conquistadas na plataforma e concedidas pela liderança."
-              />
-            </Card>
-          )}
 
           {/* Member's Sales & Movements History Grid */}
           <div className="grid gap-6 md:grid-cols-2">

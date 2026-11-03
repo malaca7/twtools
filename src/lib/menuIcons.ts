@@ -168,8 +168,6 @@ export const CANONICAL_URL_ICONS: Record<string, LucideIcon> = {
   "/dev/menu-lateral": Sliders,
   "/dev/patch-notes": Sparkles,
   "/dev/notificacoes": BellRing,
-  "/dev/xp-insignias": Award,
-  "/dev.xp-insignias": Award,
   "/dev/tags": Tag,
   "/dev/gerenciar-tags": Tag,
   "/dev/advertencias": ShieldAlert,

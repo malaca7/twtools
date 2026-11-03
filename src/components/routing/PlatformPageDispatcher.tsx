@@ -36,12 +36,8 @@ import { CeoAjustesEstoqueContent } from "@/routes/_authenticated/ceo.ajustes-es
 import { DevNotificationsPage } from "@/routes/_authenticated/dev.notificacoes";
 import { DevBotPageContent } from "@/routes/_authenticated/dev.bot";
 import { DevEstoquePageContent } from "@/routes/_authenticated/dev.estoque";
-import { DevXpInsigniasPage } from "@/routes/_authenticated/dev.xp-insignias";
-import { DevShopPage } from "@/routes/_authenticated/dev.gestaoloja";
-import { DevCoinsPage } from "@/routes/_authenticated/dev.coins";
 import { GestaoEstoquePage } from "@/routes/_authenticated/gestao-estoque";
 import { LifePage } from "@/routes/_authenticated/life";
-import { ShopPage } from "@/components/shop/ShopPage";
 import { ProduzirPage } from "@/routes/_authenticated/producoes.produzir";
 import { ArmazemPage } from "@/routes/_authenticated/producoes.armazem";
 import { AdvertenciasPage } from "@/routes/_authenticated/advertencias";
@@ -128,12 +124,6 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
 
   // Módulos DEV
   "dev-notificacoes": "view_dev_notifications",
-  "dev-xp-insignias": "manage_dev_gamification",
-  "xp-insignias": "manage_dev_gamification",
-  "dev-loja": "view_dev_shop",
-  "loja-dev": "view_dev_shop",
-  "dev-coins": "view_dev_coins",
-  "coins-dev": "view_dev_coins",
   "dev-tags": "view_dev_tags",
   "dev-gerenciar-tags": "view_dev_tags",
 };
@@ -276,17 +266,18 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     if (normalizedPage === "notificacoes" || normalizedPage === "dev-notificacoes") {
       return <DevNotificationsPage />;
     }
-    if (normalizedPage === "xp-insignias" || normalizedPage === "dev-xp-insignias" || normalizedPage === "gamificacao") {
-      return <DevXpInsigniasPage initialTab={effectiveTab} />;
-    }
-    if (normalizedPage === "gestaoloja" || normalizedPage === "dev-gestaoloja") {
-      return <DevShopPage />;
-    }
-    if (normalizedPage === "loja" || normalizedPage === "dev-loja") {
-      return <ShopPage />;
-    }
-    if (normalizedPage === "coins" || normalizedPage === "dev-coins") {
-      return <DevCoinsPage />;
+    if (
+      normalizedPage === "xp-insignias" ||
+      normalizedPage === "dev-xp-insignias" ||
+      normalizedPage === "gamificacao" ||
+      normalizedPage === "gestaoloja" ||
+      normalizedPage === "dev-gestaoloja" ||
+      normalizedPage === "loja" ||
+      normalizedPage === "dev-loja" ||
+      normalizedPage === "coins" ||
+      normalizedPage === "dev-coins"
+    ) {
+      return <Navigate to="/dashboard" replace />;
     }
     if (normalizedPage === "tags" || normalizedPage === "dev-tags" || normalizedPage === "gerenciar-tags") {
       if (!hasPermission("view_ceo_tag_permissions", mode) && !hasPermission("view_dev_tags", mode)) {
@@ -498,7 +489,7 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     case "loja":
     case "shop":
     case "store":
-      return <ShopPage />;
+      return <Navigate to="/dashboard" replace />;
     case "desempenho":
     case "meu-desempenho":
       return <MeuDesempenhoPage />;
