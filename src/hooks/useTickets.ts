@@ -8,6 +8,9 @@ import {
   claimTicket,
   transferTicket,
   updateTicketStatus,
+  updateTicketPriority,
+  updateTicketCategory,
+  unassignTicket,
   closeTicket,
   reopenTicket,
   deleteTicket,
@@ -25,8 +28,10 @@ import type {
   CloseTicketPayload,
   AddTicketMemberPayload,
   TicketStatus,
+  TicketPriority,
+  TicketCategory,
 } from "@/types/tickets";
-import { formatTicketNumber, getStatusInfo } from "@/types/tickets";
+import { formatTicketNumber, getStatusInfo, getPriorityInfo, getCategoryInfo } from "@/types/tickets";
 
 export function useTickets() {
   const queryClient = useQueryClient();
@@ -268,6 +273,83 @@ export function useUpdateTicketStatus() {
     },
     onError: (err: any) => {
       toast.error(err?.message || "Erro ao atualizar status.");
+    },
+  });
+}
+
+export function useUpdateTicketPriority() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      ticketId,
+      priority,
+    }: {
+      ticketId: string;
+      priority: TicketPriority;
+    }) => updateTicketPriority(ticketId, priority),
+    onSuccess: (updatedTicket, vars) => {
+      queryClient.setQueryData<Ticket[]>(["tickets"], (old = []) => {
+        return old.map((t) => (t.id === updatedTicket.id ? updatedTicket : t));
+      });
+      void queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      broadcastTicketsRealtimeUpdate();
+      const prInfo = getPriorityInfo(vars.priority);
+      toast.success(
+        `Prioridade do chamado ${formatTicketNumber(updatedTicket.ticket_number)} alterada para "${prInfo.label}".`
+      );
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Erro ao atualizar prioridade.");
+    },
+  });
+}
+
+export function useUpdateTicketCategory() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      ticketId,
+      category,
+    }: {
+      ticketId: string;
+      category: TicketCategory;
+    }) => updateTicketCategory(ticketId, category),
+    onSuccess: (updatedTicket, vars) => {
+      queryClient.setQueryData<Ticket[]>(["tickets"], (old = []) => {
+        return old.map((t) => (t.id === updatedTicket.id ? updatedTicket : t));
+      });
+      void queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      broadcastTicketsRealtimeUpdate();
+      const catInfo = getCategoryInfo(vars.category);
+      toast.success(
+        `Categoria do chamado ${formatTicketNumber(updatedTicket.ticket_number)} alterada para "${catInfo.label}".`
+      );
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Erro ao reclassificar categoria.");
+    },
+  });
+}
+
+export function useUnassignTicket() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (ticketId: string) => unassignTicket(ticketId),
+    onSuccess: (updatedTicket) => {
+      queryClient.setQueryData<Ticket[]>(["tickets"], (old = []) => {
+        return old.map((t) => (t.id === updatedTicket.id ? updatedTicket : t));
+      });
+      void queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      broadcastTicketsRealtimeUpdate();
+      toast.success(
+        `Chamado ${formatTicketNumber(updatedTicket.ticket_number)} devolvido para a fila aberta sem responsável.`
+      );
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Erro ao devolver chamado.");
     },
   });
 }

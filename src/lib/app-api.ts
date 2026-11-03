@@ -5838,6 +5838,156 @@ export async function updateTicketStatus(
   return updatedTicket;
 }
 
+export async function updateTicketPriority(
+  ticketId: string,
+  newPriority: TicketPriority
+): Promise<Ticket> {
+  const auth = await getEffectiveTicketAuth();
+  if (!auth) throw new Error("Usuário não autenticado");
+
+  const allRawTickets = await fetchAllRawTickets();
+  const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
+  if (targetIndex === -1) throw new Error("Ticket não encontrado");
+
+  const ticket = allRawTickets[targetIndex];
+  const isAssigned = ticket.assigned_to_id === auth.user.id;
+
+  if (!auth.canChangeStatus && !auth.canManage && !isAssigned && !auth.isSuperUser) {
+    throw new Error("Permissão insuficiente para alterar a prioridade de tickets");
+  }
+
+  const now = new Date().toISOString();
+  const updatedTicket: Ticket = {
+    ...ticket,
+    priority: newPriority,
+    updated_at: now,
+  };
+
+  allRawTickets[targetIndex] = updatedTicket;
+  setLocalTickets(allRawTickets, false);
+  await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: allRawTickets });
+
+  broadcastTicketsRealtimeUpdate();
+
+  const prInfo = getPriorityInfo(newPriority);
+  void logAuditAction(
+    "update_ticket_priority",
+    "tickets",
+    {
+      ticket_id: ticket.id,
+      ticket_number: ticket.ticket_number,
+      subject: ticket.subject,
+      old_priority: ticket.priority,
+      new_priority: newPriority,
+      new_priority_label: prInfo?.label,
+    },
+    undefined,
+    ticket.id
+  );
+
+  return updatedTicket;
+}
+
+export async function updateTicketCategory(
+  ticketId: string,
+  newCategory: TicketCategory
+): Promise<Ticket> {
+  const auth = await getEffectiveTicketAuth();
+  if (!auth) throw new Error("Usuário não autenticado");
+
+  const allRawTickets = await fetchAllRawTickets();
+  const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
+  if (targetIndex === -1) throw new Error("Ticket não encontrado");
+
+  const ticket = allRawTickets[targetIndex];
+  const isAssigned = ticket.assigned_to_id === auth.user.id;
+
+  if (!auth.canChangeStatus && !auth.canManage && !isAssigned && !auth.isSuperUser) {
+    throw new Error("Permissão insuficiente para alterar a categoria de tickets");
+  }
+
+  const now = new Date().toISOString();
+  const updatedTicket: Ticket = {
+    ...ticket,
+    category: newCategory,
+    updated_at: now,
+  };
+
+  allRawTickets[targetIndex] = updatedTicket;
+  setLocalTickets(allRawTickets, false);
+  await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: allRawTickets });
+
+  broadcastTicketsRealtimeUpdate();
+
+  const catInfo = getCategoryInfo(newCategory);
+  void logAuditAction(
+    "update_ticket_category",
+    "tickets",
+    {
+      ticket_id: ticket.id,
+      ticket_number: ticket.ticket_number,
+      subject: ticket.subject,
+      old_category: ticket.category,
+      new_category: newCategory,
+      new_category_label: catInfo?.label,
+    },
+    undefined,
+    ticket.id
+  );
+
+  return updatedTicket;
+}
+
+export async function unassignTicket(ticketId: string): Promise<Ticket> {
+  const auth = await getEffectiveTicketAuth();
+  if (!auth) throw new Error("Usuário não autenticado");
+
+  const allRawTickets = await fetchAllRawTickets();
+  const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
+  if (targetIndex === -1) throw new Error("Ticket não encontrado");
+
+  const ticket = allRawTickets[targetIndex];
+  const isAssigned = ticket.assigned_to_id === auth.user.id;
+
+  if (!auth.canTransfer && !auth.canManage && !isAssigned && !auth.isSuperUser) {
+    throw new Error("Permissão insuficiente para devolver o chamado");
+  }
+
+  const now = new Date().toISOString();
+  const previousAssigneeName = ticket.assigned_to_name || "Atendente";
+  const updatedTicket: Ticket = {
+    ...ticket,
+    assigned_to_id: null,
+    assigned_to_name: null,
+    assigned_to_nickname: null,
+    assigned_to_role: null,
+    assigned_to_avatar: null,
+    status: ticket.status === "em_atendimento" ? "aberto" : ticket.status,
+    updated_at: now,
+  };
+
+  allRawTickets[targetIndex] = updatedTicket;
+  setLocalTickets(allRawTickets, false);
+  await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: allRawTickets });
+
+  broadcastTicketsRealtimeUpdate();
+
+  void logAuditAction(
+    "unassign_ticket",
+    "tickets",
+    {
+      ticket_id: ticket.id,
+      ticket_number: ticket.ticket_number,
+      subject: ticket.subject,
+      previous_assignee: previousAssigneeName,
+    },
+    undefined,
+    ticket.id
+  );
+
+  return updatedTicket;
+}
+
 export async function closeTicket(
   ticketId: string,
   payload?: CloseTicketPayload

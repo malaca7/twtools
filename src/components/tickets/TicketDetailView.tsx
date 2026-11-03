@@ -26,6 +26,12 @@ import {
   Info,
   SlidersHorizontal,
   Trash2,
+  FileText,
+  RotateCcw,
+  ChevronDown,
+  Check,
+  IdCard,
+  Headphones,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -57,11 +63,15 @@ import {
   type TicketMessage,
   type TicketStatus,
   type TicketAttachment,
+  type TicketPriority,
+  type TicketCategory,
   formatTicketNumber,
   getCategoryInfo,
   getPriorityInfo,
   getStatusInfo,
   TICKET_STATUSES,
+  TICKET_PRIORITIES,
+  TICKET_CATEGORIES,
 } from "@/types/tickets";
 import {
   useAddTicketMessage,
@@ -73,13 +83,20 @@ import {
   useDeleteTicket,
   useAddTicketMember,
   useRemoveTicketMember,
+  useUpdateTicketPriority,
+  useUpdateTicketCategory,
+  useUnassignTicket,
+  useTickets,
 } from "@/hooks/useTickets";
 import { useAuth } from "@/hooks/useAuth";
 import { useMembers } from "@/hooks/useData";
 import { dateTime, formatTimeOnly } from "@/lib/format";
-import { LEVEL_LABEL, levelBadgeClass, type AppLevel } from "@/lib/permissions";
+import { LEVEL_LABEL, levelBadgeClass, type AppLevel, type Permission } from "@/lib/permissions";
 import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { uploadTicketAttachment } from "@/lib/app-api";
+import { CannedResponsesMenu } from "./CannedResponsesMenu";
+import { TicketMemberDossier } from "./TicketMemberDossier";
+import { generateTicketDiscordTranscript } from "./ticketTranscript";
 
 interface TicketDetailViewProps {
   ticket: Ticket;
@@ -108,6 +125,17 @@ export function TicketDetailView({
   const deleteMutation = useDeleteTicket();
   const addMemberMutation = useAddTicketMember();
   const removeMemberMutation = useRemoveTicketMember();
+  const updatePriorityMutation = useUpdateTicketPriority();
+  const updateCategoryMutation = useUpdateTicketCategory();
+  const unassignMutation = useUnassignTicket();
+  const { data: allTickets = [] } = useTickets();
+
+  // Dossier state & creator lookup
+  const [showDossier, setShowDossier] = useState(false);
+  const creatorMember = useMemo(
+    () => members.find((m) => m.user_id === ticket.user_id),
+    [members, ticket.user_id]
+  );
 
   // Local state for sending reply
   const [replyContent, setReplyContent] = useState("");
@@ -551,9 +579,47 @@ export function TicketDetailView({
           )}
         </div>
 
-        {/* Linha 4: Barra de Ações */}
-        {(canClaim || canTransfer || canChangeStatus || canClose || canReopen || canDelete) && (
+        {/* Linha 4: Barra de Ações Operacionais */}
+        {(canClaim || canTransfer || canChangeStatus || canClose || canReopen || canDelete || !isMemberPortal) && (
           <div className="flex items-center gap-2 pt-2 border-t border-border/50 flex-wrap">
+            {/* Dossiê do Jogador Toggle */}
+            {!isMemberPortal && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDossier((prev) => !prev)}
+                className={cn(
+                  "h-7 text-xs gap-1.5 transition-all",
+                  showDossier
+                    ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-xs"
+                    : "border-border/70 text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                )}
+                title="Visualizar dossiê do jogador com ID, telefone, Discord e histórico de chamados"
+              >
+                <IdCard className="h-3.5 w-3.5 text-cyan-400" />
+                <span>{showDossier ? "Ocultar Dossiê" : "Dossiê do Membro"}</span>
+              </Button>
+            )}
+
+            {/* Copiar Transcrição do Discord */}
+            {!isMemberPortal && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const transcript = generateTicketDiscordTranscript(ticket, canInternalNotes);
+                  navigator.clipboard.writeText(transcript);
+                  toast.success("Transcrição completa copiada para colar no Discord!");
+                }}
+                className="h-7 text-xs gap-1.5 border-border/70 text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                title="Copiar histórico de atendimento formatado para o Discord"
+              >
+                <FileText className="h-3.5 w-3.5 text-indigo-400" />
+                <span className="hidden sm:inline">Copiar Transcrição</span>
+                <span className="sm:hidden">Transcrição</span>
+              </Button>
+            )}
+
             {/* Atender / Assumir (Apenas quem tem permissão para assumir atendimento) */}
             {canClaim && ticket.assigned_to_id !== user?.id && !isClosed && (
               <Button
@@ -565,6 +631,21 @@ export function TicketDetailView({
               >
                 <UserCheck className="h-3.5 w-3.5" />
                 Atender Chamado
+              </Button>
+            )}
+
+            {/* Devolver para Fila (Desatribuir) */}
+            {isAssigned && !isClosed && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => unassignMutation.mutate(ticket.id)}
+                disabled={unassignMutation.isPending}
+                className="h-7 text-xs gap-1.5 border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+                title="Devolver chamado para a fila sem atendente"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Devolver p/ Fila
               </Button>
             )}
 
@@ -581,7 +662,90 @@ export function TicketDetailView({
               </Button>
             )}
 
-            {/* Alterar Status */}
+            {/* Alterar Prioridade */}
+            {canChangeStatus && !isClosed && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={updatePriorityMutation.isPending}
+                    className="h-7 text-xs gap-1.5 border-border/70"
+                  >
+                    <span className={cn("h-1.5 w-1.5 rounded-full", priorityInfo.dotClass)} />
+                    <span className="font-semibold">{priorityInfo.label}</span>
+                    <ChevronDown className="h-3 w-3 opacity-60" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="bg-popover border-border">
+                  <DropdownMenuLabel className="text-xs">Definir Prioridade</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {TICKET_PRIORITIES.map((p) => {
+                    const pInfo = getPriorityInfo(p.id);
+                    return (
+                      <DropdownMenuItem
+                        key={p.id}
+                        onClick={() =>
+                          updatePriorityMutation.mutate({ ticketId: ticket.id, priority: p.id })
+                        }
+                        className={cn(
+                          "text-xs cursor-pointer flex items-center justify-between gap-3",
+                          p.id === ticket.priority && "font-bold text-amber-400"
+                        )}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className={cn("h-2 w-2 rounded-full", pInfo.dotClass)} />
+                          {pInfo.label}
+                        </span>
+                        {p.id === ticket.priority && <Check className="h-3.5 w-3.5 text-amber-400" />}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {/* Reclassificar Categoria */}
+            {canChangeStatus && !isClosed && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={updateCategoryMutation.isPending}
+                    className="h-7 text-xs gap-1.5 border-border/70"
+                  >
+                    <span>{catInfo.emoji}</span>
+                    <span className="font-semibold">{catInfo.label}</span>
+                    <ChevronDown className="h-3 w-3 opacity-60" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="bg-popover border-border">
+                  <DropdownMenuLabel className="text-xs">Reclassificar Categoria</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {TICKET_CATEGORIES.map((c) => (
+                    <DropdownMenuItem
+                      key={c.id}
+                      onClick={() =>
+                        updateCategoryMutation.mutate({ ticketId: ticket.id, category: c.id })
+                      }
+                      className={cn(
+                        "text-xs cursor-pointer flex items-center justify-between gap-3",
+                        c.id === ticket.category && "font-bold text-cyan-400"
+                      )}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span>{c.emoji}</span>
+                        {c.label}
+                      </span>
+                      {c.id === ticket.category && <Check className="h-3.5 w-3.5 text-cyan-400" />}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {/* Alterar Status (Dropdown Completo) */}
             {canChangeStatus && !isClosed && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -606,6 +770,59 @@ export function TicketDetailView({
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
+            )}
+
+            {/* Ações Rápidas de Status em 1 Clique */}
+            {canChangeStatus && !isClosed && (
+              <div className="flex items-center gap-1 flex-wrap">
+                {ticket.status !== "aguardando" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      updateStatusMutation.mutate({ ticketId: ticket.id, status: "aguardando" })
+                    }
+                    disabled={updateStatusMutation.isPending}
+                    className="h-7 text-[11px] px-2 gap-1 border-amber-500/30 text-amber-400 bg-amber-500/5 hover:bg-amber-500/15"
+                    title="Definir status como 'Aguardando Membro'"
+                  >
+                    <Clock className="h-3 w-3" />
+                    <span className="hidden md:inline">Aguardar Membro</span>
+                  </Button>
+                )}
+
+                {ticket.status !== "em_atendimento" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      updateStatusMutation.mutate({ ticketId: ticket.id, status: "em_atendimento" })
+                    }
+                    disabled={updateStatusMutation.isPending}
+                    className="h-7 text-[11px] px-2 gap-1 border-blue-500/30 text-blue-400 bg-blue-500/5 hover:bg-blue-500/15"
+                    title="Definir status como 'Em Atendimento'"
+                  >
+                    <Headphones className="h-3 w-3" />
+                    <span className="hidden md:inline">Atendendo</span>
+                  </Button>
+                )}
+
+                {ticket.status !== "resolvido" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      updateStatusMutation.mutate({ ticketId: ticket.id, status: "resolvido" })
+                    }
+                    disabled={updateStatusMutation.isPending}
+                    className="h-7 text-[11px] px-2 gap-1 border-emerald-500/30 text-emerald-400 bg-emerald-500/5 hover:bg-emerald-500/15"
+                    title="Definir chamado como 'Resolvido'"
+                  >
+                    <CheckCircle2 className="h-3 w-3" />
+                    <span className="hidden md:inline">Resolver</span>
+                  </Button>
+                )}
+              </div>
             )}
 
             {/* Fechar Ticket */}
@@ -661,6 +878,17 @@ export function TicketDetailView({
           </div>
         )}
       </div>
+
+      {/* Dossiê do Jogador (Expandido) */}
+      {showDossier && !isMemberPortal && (
+        <div className="border-b border-border/80 bg-secondary/15 p-3 sm:p-4 shrink-0 max-h-72 overflow-y-auto">
+          <TicketMemberDossier
+            ticket={ticket}
+            allTickets={allTickets}
+            memberProfile={creatorMember}
+          />
+        </div>
+      )}
 
       {/* 2. Área de Mensagens / Conversação */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -882,9 +1110,22 @@ export function TicketDetailView({
       {!isClosed ? (
         canReply ? (
           <div className="border-t border-border/80 bg-secondary/20 p-3 sm:p-4 space-y-2 shrink-0">
-            {/* Controles de Anexos e Nota Interna */}
+            {/* Controles de Anexos, Respostas Rápidas e Nota Interna */}
             <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Respostas Rápidas / Macros para Atendentes */}
+                {effectiveCanManage && (
+                  <CannedResponsesMenu
+                    onSelect={(text, isInternal) => {
+                      setReplyContent((prev) => (prev ? `${prev}\n\n${text}` : text));
+                      if (isInternal !== undefined && canInternalNotes) {
+                        setIsInternalNote(isInternal);
+                      }
+                    }}
+                    disabled={addMessageMutation.isPending}
+                  />
+                )}
+
                 <Button
                   type="button"
                   variant="outline"

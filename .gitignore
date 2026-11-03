@@ -40,3 +40,4 @@ dist-ssr
 !.env.example
 *.zip
 *.backup.gz
+scratch/

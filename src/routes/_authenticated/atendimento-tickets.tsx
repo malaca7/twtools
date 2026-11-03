@@ -27,6 +27,10 @@ import {
   Zap,
   Sparkles,
   Eye,
+  ArrowUpDown,
+  RotateCcw,
+  IdCard,
+  Copy,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -65,6 +69,28 @@ import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { dateTime, formatTimeOnly } from "@/lib/format";
 import { LEVEL_LABEL, levelBadgeClass, type Permission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
+
+const PRIORITY_RANK: Record<string, number> = {
+  urgente: 4,
+  alta: 3,
+  media: 2,
+  baixa: 1,
+};
+
+function formatRelativeTime(dateStr: string): string {
+  try {
+    const diff = Math.max(0, Date.now() - new Date(dateStr).getTime());
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "Agora";
+    if (mins < 60) return `Há ${mins}m`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `Há ${hours}h`;
+    const days = Math.floor(hours / 24);
+    return `Há ${days}d`;
+  } catch {
+    return "";
+  }
+}
 
 export const Route = createFileRoute("/_authenticated/atendimento-tickets")({
   component: AtendimentoTicketsWrapper,
@@ -154,10 +180,30 @@ export function AtendimentoTicketsContent() {
   const setSelectedTicketId = (id: string | null) => setTicketParam(id || "");
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
 
-  // Filtros locais
+  // Filtros locais avançados
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterPriority, setFilterPriority] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterAssignee, setFilterAssignee] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "priority" | "messages">("newest");
+
+  const isAnyFilterActive =
+    Boolean(searchTerm.trim()) ||
+    filterCategory !== "all" ||
+    filterPriority !== "all" ||
+    filterStatus !== "all" ||
+    filterAssignee !== "all" ||
+    sortBy !== "newest";
+
+  const handleResetFilters = () => {
+    setSearchTerm("");
+    setFilterCategory("all");
+    setFilterPriority("all");
+    setFilterStatus("all");
+    setFilterAssignee("all");
+    setSortBy("newest");
+  };
 
   // Limpar seleção caso o ticket selecionado seja excluído em tempo real
   useEffect(() => {
@@ -216,7 +262,7 @@ export function AtendimentoTicketsContent() {
 
   // Filtragem dos tickets para a lista de atendimento
   const filteredTickets = useMemo(() => {
-    return tickets.filter((t) => {
+    const list = tickets.filter((t) => {
       // Se não possui view_all_tickets nem canManage, só vê chamados atribuídos a si, onde participa ou onde é criador
       if (!canViewAll && !checkIsMyTicket(t)) {
         return false;
@@ -235,17 +281,31 @@ export function AtendimentoTicketsContent() {
         // Exibe todos os tickets em 'all'
       }
 
-      // 2. Categoria
+      // 2. Filtro de Status Específico
+      if (filterStatus !== "all" && t.status !== filterStatus) {
+        return false;
+      }
+
+      // 3. Filtro por Atendente
+      if (filterAssignee === "unassigned") {
+        if (Boolean(t.assigned_to_id)) return false;
+      } else if (filterAssignee === "me") {
+        if (!myCandidateIds.has(String(t.assigned_to_id || "").trim().toLowerCase())) return false;
+      } else if (filterAssignee !== "all" && t.assigned_to_id !== filterAssignee) {
+        return false;
+      }
+
+      // 4. Categoria
       if (filterCategory !== "all" && t.category !== filterCategory) {
         return false;
       }
 
-      // 3. Prioridade
+      // 5. Prioridade
       if (filterPriority !== "all" && t.priority !== filterPriority) {
         return false;
       }
 
-      // 4. Busca por texto
+      // 6. Busca por texto
       if (searchTerm.trim()) {
         const query = searchTerm.toLowerCase().trim();
         const numFormatted = formatTicketNumber(t.ticket_number).toLowerCase();
@@ -266,7 +326,36 @@ export function AtendimentoTicketsContent() {
 
       return true;
     });
-  }, [tickets, activeTab, canViewAll, checkIsMyTicket, myCandidateIds, searchTerm, filterCategory, filterPriority]);
+
+    return list.sort((a, b) => {
+      if (sortBy === "oldest") {
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      }
+      if (sortBy === "priority") {
+        const diff = (PRIORITY_RANK[b.priority] || 0) - (PRIORITY_RANK[a.priority] || 0);
+        if (diff !== 0) return diff;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+      if (sortBy === "messages") {
+        const diff = (b.messages?.length || 0) - (a.messages?.length || 0);
+        if (diff !== 0) return diff;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }, [
+    tickets,
+    activeTab,
+    canViewAll,
+    checkIsMyTicket,
+    myCandidateIds,
+    filterStatus,
+    filterAssignee,
+    filterCategory,
+    filterPriority,
+    searchTerm,
+    sortBy,
+  ]);
 
   const selectedTicket = useMemo(() => {
     if (!selectedTicketId) return null;
@@ -476,39 +565,120 @@ export function AtendimentoTicketsContent() {
             </TabsList>
           </Tabs>
 
-          {/* BARRA DE PESQUISA E SELEÇÃO DE CATEGORIA */}
-          <div className="flex items-center gap-2 flex-1 md:max-w-md">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por #, assunto, autor ou atendente..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 bg-secondary/40 border-border/60 rounded-xl text-xs h-10"
-              />
-              {searchTerm && (
-                <button
-                  onClick={() => setSearchTerm("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
+          {/* BARRA DE PESQUISA RÁPIDA */}
+          <div className="relative flex-1 md:max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por #, assunto, autor ou atendente..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 bg-secondary/40 border-border/60 rounded-xl text-xs h-10"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
 
-            <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className="w-36 bg-secondary/40 border-border/60 rounded-xl text-xs h-10">
-                <SelectValue placeholder="Categoria" />
+        {/* Linha 2: Barra de Filtros Refinados e Ordenação Operacional */}
+        <div className="flex flex-wrap items-center gap-2 p-2.5 bg-secondary/30 border border-border/50 rounded-xl text-xs">
+          <div className="flex items-center gap-1.5 text-muted-foreground font-semibold shrink-0 mr-1">
+            <Filter className="h-3.5 w-3.5 text-primary" />
+            <span>Filtros:</span>
+          </div>
+
+          {/* Categoria */}
+          <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <SelectTrigger className="w-36 bg-secondary/60 border-border/60 rounded-lg text-xs h-8">
+              <SelectValue placeholder="Categoria" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas Categorias</SelectItem>
+              {TICKET_CATEGORIES.map((cat) => (
+                <SelectItem key={cat.id} value={cat.id}>
+                  {cat.emoji} {cat.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Prioridade */}
+          <Select value={filterPriority} onValueChange={setFilterPriority}>
+            <SelectTrigger className="w-32 bg-secondary/60 border-border/60 rounded-lg text-xs h-8">
+              <SelectValue placeholder="Prioridade" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas Prioridades</SelectItem>
+              {TICKET_PRIORITIES.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Status */}
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-36 bg-secondary/60 border-border/60 rounded-lg text-xs h-8">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Status</SelectItem>
+              {TICKET_STATUSES.map((st) => (
+                <SelectItem key={st.id} value={st.id}>
+                  {st.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Atendente */}
+          <Select value={filterAssignee} onValueChange={setFilterAssignee}>
+            <SelectTrigger className="w-36 bg-secondary/60 border-border/60 rounded-lg text-xs h-8">
+              <SelectValue placeholder="Atendente" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos Atendentes</SelectItem>
+              <SelectItem value="me">Meus Atendimentos</SelectItem>
+              <SelectItem value="unassigned">Sem Atendente</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Ordenação da Fila */}
+          <div className="flex items-center gap-1.5 ml-auto">
+            <span className="text-[11px] text-muted-foreground hidden sm:inline-flex items-center gap-1">
+              <ArrowUpDown className="h-3 w-3" />
+              Ordenar:
+            </span>
+            <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
+              <SelectTrigger className="w-44 bg-secondary/60 border-border/60 rounded-lg text-xs h-8 font-medium">
+                <SelectValue placeholder="Ordenação" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas Categorias</SelectItem>
-                {TICKET_CATEGORIES.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.id}>
-                    {cat.label}
-                  </SelectItem>
-                ))}
+                <SelectItem value="newest">🕒 Mais Recentes</SelectItem>
+                <SelectItem value="oldest">⏳ Fila FIFO (Mais Antigos)</SelectItem>
+                <SelectItem value="priority">🔥 Maior Prioridade</SelectItem>
+                <SelectItem value="messages">💬 Mais Mensagens</SelectItem>
               </SelectContent>
             </Select>
+
+            {isAnyFilterActive && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleResetFilters}
+                className="h-8 px-2 text-[11px] text-muted-foreground hover:text-foreground gap-1"
+                title="Limpar todos os filtros selecionados"
+              >
+                <RotateCcw className="h-3 w-3" />
+                <span className="hidden md:inline">Limpar</span>
+              </Button>
+            )}
           </div>
         </div>
 
@@ -569,12 +739,18 @@ export function AtendimentoTicketsContent() {
                           </span>
 
                           <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5", catInfo?.badgeClass)}>
-                            {catInfo?.label || ticket.category}
+                            {catInfo?.emoji} {catInfo?.label || ticket.category}
                           </Badge>
 
                           <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5", priorityInfo?.badgeClass)}>
+                            <span className={cn("h-1.5 w-1.5 rounded-full mr-1", priorityInfo?.dotClass)} />
                             {priorityInfo?.label || ticket.priority}
                           </Badge>
+
+                          {/* Tempo Relativo */}
+                          <span className="text-[10px] font-mono text-muted-foreground/80 bg-secondary/50 px-1.5 py-0.5 rounded border border-border/40">
+                            {formatRelativeTime(ticket.created_at)}
+                          </span>
                         </div>
 
                         <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5", statusInfo?.badgeClass)}>
