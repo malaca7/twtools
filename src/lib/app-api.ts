@@ -5920,11 +5920,10 @@ export async function reopenTicket(ticketId: string): Promise<Ticket> {
   if (targetIndex === -1) throw new Error("Ticket não encontrado");
 
   const ticket = allRawTickets[targetIndex];
-  const isCreator = ticket.user_id === auth.user.id;
-  const isAssigned = ticket.assigned_to_id === auth.user.id;
 
-  if (!auth.canReopen && !auth.canManage && !isCreator && !isAssigned && !auth.isSuperUser) {
-    throw new Error("Permissão insuficiente para reabrir tickets");
+  // Reabertura de tickets requer estritamente permissão explícita de reabrir ou gerenciar tickets
+  if (!auth.canReopen && !auth.canManage && !auth.isSuperUser) {
+    throw new Error("Você não possui a permissão 'Reabrir Chamados Fechados' para reabrir este chamado.");
   }
 
   const now = new Date().toISOString();

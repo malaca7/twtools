@@ -172,8 +172,7 @@ export function TicketDetailView({
     !isMemberPortal &&
     (hasPermission("reopen_tickets") ||
       hasPermission("reopen_ticket") ||
-      effectiveCanManage ||
-      isCreator);
+      effectiveCanManage);
   const canDelete =
     !isMemberPortal &&
     (hasPermission("delete_tickets") ||
@@ -623,17 +622,27 @@ export function TicketDetailView({
             )}
 
             {/* Reabrir Ticket */}
-            {isClosed && canReopen && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => reopenMutation.mutate(ticket.id)}
-                disabled={reopenMutation.isPending}
-                className="h-7 text-xs gap-1.5 border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 ml-auto"
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-                Reabrir Chamado
-              </Button>
+            {isClosed && (
+              canReopen ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => reopenMutation.mutate(ticket.id)}
+                  disabled={reopenMutation.isPending}
+                  className="h-7 text-xs gap-1.5 border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 ml-auto cursor-pointer"
+                >
+                  <RefreshCw className={cn("h-3.5 w-3.5", reopenMutation.isPending && "animate-spin")} />
+                  Reabrir Chamado
+                </Button>
+              ) : (
+                <div
+                  className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground/70 px-2.5 py-1 rounded-md bg-secondary/30 border border-border/40 ml-auto cursor-help"
+                  title="Apenas integrantes com a permissão 'Reabrir Chamados Fechados' atribuída ao seu cargo ou tag podem reabrir chamados."
+                >
+                  <Lock className="h-3 w-3 text-amber-400/70" />
+                  <span>Reabertura restrita</span>
+                </div>
+              )
             )}
 
             {/* Excluir Chamado */}
@@ -998,8 +1007,14 @@ export function TicketDetailView({
           </div>
         )
       ) : (
-        <div className="border-t border-border/80 bg-secondary/10 p-3 text-center text-xs text-muted-foreground">
-          Este chamado está fechado. Para interagir novamente, a gerência deve reabri-lo.
+        <div className="border-t border-border/80 bg-secondary/15 p-3 text-center text-xs text-muted-foreground flex items-center justify-center gap-2 shrink-0">
+          <Lock className="h-3.5 w-3.5 text-amber-400/80 shrink-0" />
+          <span>
+            Este chamado está encerrado.{" "}
+            {canReopen
+              ? "Você possui autorização para reabri-lo no botão superior se necessário."
+              : "Apenas membros autorizados com a permissão 'Reabrir Chamados Fechados' podem reabri-lo."}
+          </span>
         </div>
       )}
 
