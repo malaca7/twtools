@@ -2666,10 +2666,10 @@ export function can(
     if (permission === "bot_invite" && list.includes("bot_add_app")) return true;
 
     // Sub-ações legítimas: Ações de gestão/modificação implicam acesso de visualização ao respectivo módulo
-    if (permission === "view_stock" && (list.includes("manage_products") || list.includes("manage_categories") || list.includes("manage_baus"))) return true;
-    if (permission === "view_products" && list.includes("manage_products")) return true;
-    if (permission === "view_categories" && list.includes("manage_categories")) return true;
-    if (permission === "view_baus" && list.includes("manage_baus")) return true;
+    if (permission === "view_stock" && (list.includes("manage_products") || list.includes("manage_categories") || list.includes("manage_baus") || list.includes("view_stock_management"))) return true;
+    if (permission === "view_products" && (list.includes("manage_products") || list.includes("manage_stock_products") || list.includes("view_stock_management"))) return true;
+    if (permission === "view_categories" && (list.includes("manage_categories") || list.includes("manage_stock_categories") || list.includes("view_stock_management"))) return true;
+    if (permission === "view_baus" && (list.includes("manage_baus") || list.includes("manage_stock_baus") || list.includes("view_stock_management"))) return true;
     if (permission === "view_movements" && (list.includes("create_movement") || list.includes("reverse_movement") || list.includes("delete_movement"))) return true;
     if (permission === "view_sales" && (list.includes("create_sale") || list.includes("reverse_sale") || list.includes("delete_sale"))) return true;
     if (permission === "view_cash_fund" && (list.includes("manage_cash_fund") || list.includes("reverse_cash_fund") || list.includes("delete_cash_movement"))) return true;
@@ -2842,7 +2842,13 @@ export function can(
         list.includes("manage_stock_categories") ||
         list.includes("manage_stock_baus") ||
         list.includes("adjust_stock_balance") ||
-        list.includes("manage_stock_balance"))
+        list.includes("manage_stock_balance") ||
+        list.includes("view_products") ||
+        list.includes("manage_products") ||
+        list.includes("view_categories") ||
+        list.includes("manage_categories") ||
+        list.includes("view_baus") ||
+        list.includes("manage_baus"))
     ) {
       return true;
     }
@@ -3030,10 +3036,10 @@ export function can(
   // Fallback alias checks
   if (permission === "bot_add_app" && rolePerms.includes("bot_invite")) return true;
   if (permission === "bot_invite" && rolePerms.includes("bot_add_app")) return true;
-  if (permission === "view_stock" && (rolePerms.includes("manage_products") || rolePerms.includes("manage_categories") || rolePerms.includes("manage_baus"))) return true;
-  if (permission === "view_products" && rolePerms.includes("manage_products")) return true;
-  if (permission === "view_categories" && rolePerms.includes("manage_categories")) return true;
-  if (permission === "view_baus" && rolePerms.includes("manage_baus")) return true;
+  if (permission === "view_stock" && (rolePerms.includes("manage_products") || rolePerms.includes("manage_categories") || rolePerms.includes("manage_baus") || rolePerms.includes("view_stock_management"))) return true;
+  if (permission === "view_products" && (rolePerms.includes("manage_products") || rolePerms.includes("manage_stock_products") || rolePerms.includes("view_stock_management"))) return true;
+  if (permission === "view_categories" && (rolePerms.includes("manage_categories") || rolePerms.includes("manage_stock_categories") || rolePerms.includes("view_stock_management"))) return true;
+  if (permission === "view_baus" && (rolePerms.includes("manage_baus") || rolePerms.includes("manage_stock_baus") || rolePerms.includes("view_stock_management"))) return true;
   if (permission === "view_movements" && (rolePerms.includes("create_movement") || rolePerms.includes("reverse_movement") || rolePerms.includes("delete_movement"))) return true;
   if (permission === "view_sales" && (rolePerms.includes("create_sale") || rolePerms.includes("reverse_sale") || rolePerms.includes("delete_sale") || rolePerms.includes("sales.view") || rolePerms.includes("sales.create"))) return true;
   if (permission === "sales.view" && (rolePerms.includes("view_sales") || rolePerms.includes("create_sale") || rolePerms.includes("sales.create") || rolePerms.includes("sales.history"))) return true;
@@ -3126,7 +3132,13 @@ export function can(
       rolePerms.includes("manage_stock_categories") ||
       rolePerms.includes("manage_stock_baus") ||
       rolePerms.includes("adjust_stock_balance") ||
-      rolePerms.includes("manage_stock_balance"))
+      rolePerms.includes("manage_stock_balance") ||
+      rolePerms.includes("view_products") ||
+      rolePerms.includes("manage_products") ||
+      rolePerms.includes("view_categories") ||
+      rolePerms.includes("manage_categories") ||
+      rolePerms.includes("view_baus") ||
+      rolePerms.includes("manage_baus"))
   ) {
     return true;
   }

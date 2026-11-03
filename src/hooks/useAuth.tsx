@@ -986,6 +986,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             permsSet.add("view_movements");
             permsSet.add("view_stock");
           }
+          if (p === "manage_products" || p === "manage_categories" || p === "manage_baus") {
+            permsSet.add("view_stock");
+            permsSet.add("view_products");
+            permsSet.add("view_categories");
+            permsSet.add("view_baus");
+          }
+          if (p === "atendimento_tickets.view" || p === "view_atendimento_tickets") {
+            permsSet.add("atendimento_tickets.view" as Permission);
+            permsSet.add("view_atendimento_tickets" as Permission);
+          }
+          if (p.startsWith("productions.") || p === "create_production" || p === "view_productions") {
+            permsSet.add("productions.view");
+            permsSet.add("view_productions");
+          }
+          if (p.startsWith("raw_materials.")) {
+            permsSet.add("raw_materials.view");
+          }
+          if (p.startsWith("warehouse.")) {
+            permsSet.add("warehouse.view");
+          }
+          if (p.startsWith("production_management.")) {
+            permsSet.add("production_management.view");
+          }
+          if (p.startsWith("escalas.")) {
+            permsSet.add("escalas.view");
+            permsSet.add("escalas.details");
+          }
+          if (p.startsWith("sales.") || p === "create_sale" || p === "reverse_sale" || p === "view_sales") {
+            permsSet.add("view_sales");
+            permsSet.add("sales.view");
+            permsSet.add("sales.history");
+          }
+          if (p === "manage_cash_fund" || p === "reverse_cash_fund" || p === "delete_cash_movement") {
+            permsSet.add("view_cash_fund");
+          }
+          if (p === "manage_roles" || p === "change_roles" || p === "promote_members") {
+            permsSet.add("view_hierarchy");
+            permsSet.add("view_members");
+          }
+          if (p === "manage_goals") {
+            permsSet.add("view_goals");
+          }
         }
       }
 
@@ -1339,8 +1381,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }, [memberTags, activeSuspension, isPlatformLocked, isDevUser, devConfigTick]);
 
-  const memberTagRules = useMemo<MemberTagRules>(() => {
-    const activeTags = memberTags.filter((t) => t.is_active !== false);
+  const extractConsolidatedRules = useCallback((tags: MemberTag[]): MemberTagRules => {
+    const activeTags = tags.filter((t) => t.is_active !== false);
     if (activeTags.length === 0) return {};
 
     const consolidated: MemberTagRules = {
@@ -1420,7 +1462,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     return consolidated;
-  }, [memberTags]);
+  }, []);
+
+  const systemTags = useMemo(
+    () => memberTags.filter((t) => t.is_active !== false && !isDevTagItem(t) && !isCeoTagItem(t)),
+    [memberTags, isDevTagItem, isCeoTagItem]
+  );
+  const ceoTags = useMemo(
+    () => memberTags.filter((t) => t.is_active !== false && isCeoTagItem(t)),
+    [memberTags, isCeoTagItem]
+  );
+  const devTags = useMemo(
+    () => memberTags.filter((t) => t.is_active !== false && isDevTagItem(t)),
+    [memberTags, isDevTagItem]
+  );
+
+  const systemTagRules = useMemo(() => extractConsolidatedRules(systemTags), [systemTags, extractConsolidatedRules]);
+  const ceoTagRules = useMemo(() => extractConsolidatedRules(ceoTags), [ceoTags, extractConsolidatedRules]);
+  const devTagRules = useMemo(() => extractConsolidatedRules(devTags), [devTags, extractConsolidatedRules]);
+
+  const memberTagRules = useMemo<MemberTagRules>(() => {
+    return extractConsolidatedRules(memberTags);
+  }, [memberTags, extractConsolidatedRules]);
 
   // Garante que membros comuns sem Tag Dev ou Tag CEO nunca fiquem travados em rotas ou modos de painel desautorizados
   useEffect(() => {
@@ -1651,9 +1714,116 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return false;
       }
 
-      // Avaliação base de membro: soma permissões do CARGO do membro + permissões das tags comuns do membro
-      // NÃO inclui permissões de Tag Dev nem de Tag CEO!
-      const evaluateAsMember = () => {
+      // =========================================================================
+      // COMPONENTES MODULARES DE PERMISSÕES
+      // =========================================================================
+
+      // 1. CARGO OPERACIONAL DO MEMBRO:
+      const effectiveRole: AppLevel = (() => {
+        const cand = (level === "desenvolvedor" || level === "ceo")
+          ? ((profile as any)?.cargo || (profile as any)?.role || (profile as any)?.nivel || "membro")
+          : (level || "membro");
+        const clean = String(cand || "").toLowerCase().trim();
+        if (clean === "desenvolvedor" || clean === "dev" || clean === "ceo") {
+          return "membro";
+        }
+        return (clean as AppLevel) || "membro";
+      })();
+
+      const checkCargoHasPermission = (perm: Permission): boolean => {
+        return can(effectiveRole, perm, customRolePermissions);
+      };
+
+      // 2. TAGS DO SISTEMA (GERENCIAR TAGS):
+      const checkSystemTagHasPermission = (perm: Permission): boolean => {
+        if (satisfiesPermission(memberTagsPermissions, perm)) return true;
+
+        // Concessões diretas por regras operacionais ativas nas tags do sistema
+        if (systemTagRules.can_sell && (perm === "sales.view" || perm === "sales.create" || perm === "sales.history" || perm === "create_sale" || perm === "view_sales" || perm === "view_products" || perm === "view_baus" || perm === "view_stock")) {
+          return true;
+        }
+        if (systemTagRules.can_reverse_sales && (perm === "reverse_sale" || perm === "sales.cancel")) {
+          return true;
+        }
+        if (systemTagRules.can_view_all_sales && perm === "view_all_sales") {
+          return true;
+        }
+        if (systemTagRules.can_view_all_tickets && (perm === "view_all_tickets" || (perm as string) === "can_view_all_tickets")) {
+          return true;
+        }
+        if (systemTagRules.can_view_sensitive_data && perm === "view_sensitive_data") {
+          return true;
+        }
+        if (systemTagRules.can_create_announcements && (perm === "manage_announcements" || (perm as string) === "create_announcements")) {
+          return true;
+        }
+        if (systemTagRules.can_manage_productions && (perm === "productions.view" || perm === "productions.create" || perm === "create_production" || perm === "view_productions" || perm === "productions.edit" || perm === "warehouse.view")) {
+          return true;
+        }
+        if (systemTagRules.can_manage_raw_materials && (perm === "raw_materials.view" || perm === "raw_materials.create" || perm === "raw_materials.edit" || perm === "raw_materials.transfer_bau" || perm === "raw_materials.history")) {
+          return true;
+        }
+        if (systemTagRules.can_transfer_warehouse && (perm === "warehouse.view" || perm === "warehouse.transfer" || perm === "warehouse.transfer_storage" || perm === "warehouse.transfer_sale")) {
+          return true;
+        }
+        if (systemTagRules.can_adjust_warehouse_stock && (perm === "warehouse.view" || perm === "warehouse.adjust")) {
+          return true;
+        }
+        if (systemTagRules.can_manage_production_recipes && (perm.startsWith("production_management.") || perm === "production_management.view")) {
+          return true;
+        }
+        if ((systemTagRules.can_deposit_cash_fund || systemTagRules.can_withdraw_cash_fund) && (perm === "view_cash_fund" || perm === "manage_cash_fund")) {
+          return true;
+        }
+        if (systemTagRules.can_view_financial_reports && (perm === "view_consolidated_financials" || perm === "view_ceo_financials")) {
+          return true;
+        }
+        if (systemTagRules.can_manage_members && (perm === "view_members" || perm === "approve_requests" || perm === "promote_members" || perm === "edit_members")) {
+          return true;
+        }
+        if (systemTagRules.can_manage_escalas && (perm.startsWith("escalas.") || perm === "escalas.view" || perm === "escalas.details")) {
+          return true;
+        }
+        if ((systemTagRules.can_view_escalas || systemTagRules.can_participate_escalas) && (perm === "escalas.view" || perm === "escalas.details" || perm === "escalas.confirm_presence" || perm === "escalas.history")) {
+          return true;
+        }
+
+        return false;
+      };
+
+      // 3. TAG CEO (SE ELE POSSUIR):
+      const checkCeoTagHasPermission = (perm: Permission): boolean => {
+        if (!isCeoUser) return false;
+        if (perm === "view_ceo" || perm === "view_ceo_dashboard") return true;
+        if (satisfiesPermission(ceoTagPermissions, perm)) return true;
+
+        if (ceoTagRules.can_view_all_tickets && (perm === "view_all_tickets" || (perm as string) === "can_view_all_tickets")) return true;
+        if (ceoTagRules.can_view_financial_reports && (perm === "view_consolidated_financials" || perm === "view_ceo_financials")) return true;
+        if (ceoTagRules.can_manage_members && (perm === "view_members" || perm === "approve_requests" || perm === "promote_members" || perm === "edit_members")) return true;
+        if (ceoTagRules.can_create_announcements && (perm === "manage_announcements" || (perm as string) === "create_announcements")) return true;
+        if ((ceoTagRules.can_deposit_cash_fund || ceoTagRules.can_withdraw_cash_fund) && (perm === "view_cash_fund" || perm === "manage_cash_fund")) return true;
+        if ((ceoTagRules.can_access_ceo || ceoTagRules.is_ceo) && (perm === "view_ceo" || perm === "view_ceo_dashboard")) return true;
+
+        return false;
+      };
+
+      // 4. TAG DEV (SE ELE POSSUIR):
+      const checkDevTagHasPermission = (perm: Permission): boolean => {
+        if (!isDevUser) return false;
+        if (perm === "view_dev_hub" || perm === "view_dev" || perm.startsWith("manage_dev_")) return true;
+        if (satisfiesPermission(devTagPermissions, perm)) return true;
+        if (devTagRules.can_access_dev || devTagRules.is_dev_test) {
+          if (perm === "view_dev_hub" || perm === "view_dev") return true;
+        }
+        return false;
+      };
+
+      // =========================================================================
+      // 1. PAINEL DO MEMBRO:
+      // O membro só terá as permissões do seu cargo + da sua tag do sistema (Gerenciar Tags).
+      // NÃO ter permissões das tag dev e tag ceo no painel de membro!
+      // =========================================================================
+      if (activePanel === "member") {
         // Bloqueia permissões exclusivas dos painéis executivos CEO e Dev no painel de membro
         if (
           permission === "view_ceo" ||
@@ -1665,140 +1835,89 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return false;
         }
 
-        // 0.7. RESTRIÇÕES ESPECÍFICAS DE REGRAS OPERACIONAIS DAS TAGS (quando explicitamente desativadas em tags ativas)
+        // Restrições específicas de regras operacionais das tags de sistema
         if (!isDevBypass) {
-          if (memberTagRules.can_sell === false && (permission === "create_sale" || permission === "sales.create")) {
+          if (systemTagRules.can_sell === false && (permission === "create_sale" || permission === "sales.create")) {
             return false;
           }
-          if (memberTagRules.can_reverse_sales === false && (permission === "reverse_sale" || permission === "sales.cancel")) {
+          if (systemTagRules.can_reverse_sales === false && (permission === "reverse_sale" || permission === "sales.cancel")) {
             return false;
           }
-          if (memberTagRules.can_view_all_sales === false && permission === "view_all_sales") {
+          if (systemTagRules.can_view_all_sales === false && permission === "view_all_sales") {
             return false;
           }
-          if (memberTagRules.can_view_all_tickets === false && (permission === "view_all_tickets" || (permission as string) === "can_view_all_tickets")) {
+          if (systemTagRules.can_view_all_tickets === false && (permission === "view_all_tickets" || (permission as string) === "can_view_all_tickets")) {
             return false;
           }
-          if (memberTagRules.can_view_sensitive_data === false && permission === "view_sensitive_data") {
+          if (systemTagRules.can_view_sensitive_data === false && permission === "view_sensitive_data") {
             return false;
           }
-          if (memberTagRules.can_create_announcements === false && (permission === "manage_announcements" || (permission as string) === "create_announcements")) {
+          if (systemTagRules.can_create_announcements === false && (permission === "manage_announcements" || (permission as string) === "create_announcements")) {
             return false;
           }
-          if (memberTagRules.can_manage_productions === false && (permission === "create_production" || permission === "productions.create" || permission === "productions.edit")) {
+          if (systemTagRules.can_manage_productions === false && (permission === "create_production" || permission === "productions.create" || permission === "productions.edit")) {
             return false;
           }
-          if (memberTagRules.can_transfer_warehouse === false && (permission === "warehouse.transfer" || permission === "warehouse.transfer_storage" || permission === "warehouse.transfer_sale")) {
+          if (systemTagRules.can_transfer_warehouse === false && (permission === "warehouse.transfer" || permission === "warehouse.transfer_storage" || permission === "warehouse.transfer_sale")) {
             return false;
           }
-          if (memberTagRules.can_adjust_warehouse_stock === false && permission === "warehouse.adjust") {
+          if (systemTagRules.can_adjust_warehouse_stock === false && permission === "warehouse.adjust") {
             return false;
           }
-          if (memberTagRules.can_manage_production_recipes === false && (permission.startsWith("production_management.") || permission === "production_management.view")) {
+          if (systemTagRules.can_manage_production_recipes === false && (permission.startsWith("production_management.") || permission === "production_management.view")) {
             return false;
           }
-          if (memberTagRules.can_manage_escalas === false && (permission === "escalas.create" || permission === "escalas.edit" || permission === "escalas.delete" || permission === "escalas.publish" || permission === "escalas.cancel")) {
+          if (systemTagRules.can_manage_escalas === false && (permission === "escalas.create" || permission === "escalas.edit" || permission === "escalas.delete" || permission === "escalas.publish" || permission === "escalas.cancel")) {
             return false;
           }
-          if (memberTagRules.can_manage_members === false && (permission === "view_members" || permission === "approve_requests" || permission === "promote_members" || permission === "edit_members")) {
+          if (systemTagRules.can_manage_members === false && (permission === "view_members" || permission === "approve_requests" || permission === "promote_members" || permission === "edit_members")) {
             return false;
           }
         }
 
-        // Concessões diretas por regras operacionais ativas na tag
-        if (memberTagRules.can_sell && (permission === "sales.view" || permission === "sales.create" || permission === "create_sale" || permission === "view_sales")) {
-          return true;
-        }
-        if (memberTagRules.can_reverse_sales && (permission === "reverse_sale" || permission === "sales.cancel")) {
-          return true;
-        }
-        if (memberTagRules.can_view_all_sales && permission === "view_all_sales") {
-          return true;
-        }
-        if (memberTagRules.can_view_all_tickets && (permission === "view_all_tickets" || (permission as string) === "can_view_all_tickets")) {
-          return true;
-        }
-        if (memberTagRules.can_view_sensitive_data && permission === "view_sensitive_data") {
-          return true;
-        }
-        if (memberTagRules.can_create_announcements && (permission === "manage_announcements" || (permission as string) === "create_announcements")) {
-          return true;
-        }
-        if (memberTagRules.can_manage_productions && (permission === "productions.view" || permission === "productions.create" || permission === "create_production" || permission === "view_productions")) {
-          return true;
-        }
-        if (memberTagRules.can_manage_raw_materials && (permission === "raw_materials.view" || permission === "raw_materials.create" || permission === "raw_materials.edit" || permission === "raw_materials.transfer_bau")) {
-          return true;
-        }
-        if (memberTagRules.can_transfer_warehouse && (permission === "warehouse.view" || permission === "warehouse.transfer" || permission === "warehouse.transfer_storage" || permission === "warehouse.transfer_sale")) {
-          return true;
-        }
-        if (memberTagRules.can_adjust_warehouse_stock && (permission === "warehouse.view" || permission === "warehouse.adjust")) {
-          return true;
-        }
-        if (memberTagRules.can_manage_production_recipes && (permission.startsWith("production_management.") || permission === "production_management.view")) {
-          return true;
-        }
-        if (memberTagRules.can_manage_escalas && permission.startsWith("escalas.")) {
-          return true;
-        }
-        if ((memberTagRules.can_view_escalas || memberTagRules.can_participate_escalas) && (permission === "escalas.view" || permission === "escalas.details" || permission === "escalas.confirm_presence")) {
-          return true;
-        }
-        if (memberTagRules.can_view_financial_reports && (permission === "view_consolidated_financials" || permission === "view_ceo_financials")) {
-          return true;
-        }
-        if (memberTagRules.can_manage_members && (permission === "view_members" || permission === "approve_requests" || permission === "promote_members" || permission === "edit_members")) {
-          return true;
-        }
-
-        // Se o level base for "desenvolvedor" ou "ceo", no painel de membro avalia de acordo com seu cargo operacional real (ou "membro")
-        const effectiveLevel = (level === "desenvolvedor" || level === "ceo")
-          ? ((profile as any)?.cargo || (profile as any)?.role || (profile as any)?.nivel || "membro")
-          : level;
-        if (can(effectiveLevel, permission, customRolePermissions)) return true;
-        if (satisfiesPermission(memberTagsPermissions, permission)) return true;
-        return false;
-      };
-
-      // =========================================================================
-      // 1. PAINEL MEMBRO:
-      // O membro só tem as permissões do cargo dele somada às permissões das tags
-      // que ele possui criada no sistema de tags do painel.
-      // NÃO ter permissões das tag dev e tag ceo no painel de membro!
-      // =========================================================================
-      if (activePanel === "member") {
-        return evaluateAsMember();
+        return checkCargoHasPermission(permission) || checkSystemTagHasPermission(permission);
       }
 
       // =========================================================================
       // 2. PAINEL CEO:
-      // O membro só tem as permissões da tag ceo.
+      // O membro terá permissões do seu cargo + da sua tag do sistema (Gerenciar Tags) + da tag ceo (se ele possuir).
       // NÃO ter permissões das tag dev no painel de ceo!
       // =========================================================================
       if (activePanel === "ceo") {
-        if (!isCeoUser) return false;
-        if (permission === "view_ceo" || permission === "view_ceo_dashboard") return true;
-        return satisfiesPermission(ceoTagPermissions, permission);
-      }
+        if (!isCeoUser && !isDevUser) return false;
 
-      // =========================================================================
-      // 3. PAINEL DEV:
-      // O membro só tem as permissões da tag dev.
-      // =========================================================================
-      if (activePanel === "dev") {
-        if (!isDevUser) return false;
+        // Permissões exclusivas de desenvolvimento nunca entram no painel CEO
         if (
           permission === "view_dev_hub" ||
           permission === "view_dev" ||
           permission.startsWith("manage_dev_")
         ) {
-          return true;
+          return false;
         }
-        return satisfiesPermission(devTagPermissions, permission);
+
+        const hasCargo = checkCargoHasPermission(permission);
+        const hasSystemTag = checkSystemTagHasPermission(permission);
+        const hasCeoTag = isCeoUser ? checkCeoTagHasPermission(permission) : false;
+
+        return hasCargo || hasSystemTag || hasCeoTag;
       }
 
-      return evaluateAsMember();
+      // =========================================================================
+      // 3. PAINEL DEV:
+      // O membro terá permissões do seu cargo + da sua tag do sistema (Gerenciar Tags) + da tag ceo (se ele possuir) + da tag dev (se ele possuir).
+      // =========================================================================
+      if (activePanel === "dev") {
+        if (!isDevUser) return false;
+
+        const hasCargo = checkCargoHasPermission(permission);
+        const hasSystemTag = checkSystemTagHasPermission(permission);
+        const hasCeoTag = isCeoUser ? checkCeoTagHasPermission(permission) : false;
+        const hasDevTag = isDevUser ? checkDevTagHasPermission(permission) : false;
+
+        return hasCargo || hasSystemTag || hasCeoTag || hasDevTag;
+      }
+
+      return checkCargoHasPermission(permission) || checkSystemTagHasPermission(permission);
     },
     [
       level,
@@ -1812,7 +1931,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       devTagPermissions,
       customRolePermissions,
       panelMode,
-      memberTagRules,
+      systemTagRules,
+      ceoTagRules,
+      devTagRules,
       devConfigTick,
       permissionsTick,
     ]
@@ -1820,49 +1941,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const hasMemberRolePermission = useCallback(
     (permission: Permission) => {
-      const bypassActive = isDevBypassActive();
-      if (isDevUser && bypassActive) return true;
-
-      // 0. Bloqueios de login e operacionais
-      const hasLoginBlock =
-        memberTags.some((t) => t.is_active !== false && t.rules?.block_login === true) ||
-        Boolean(activeSuspension?.blocks?.block_login);
-      if (hasLoginBlock) return false;
-
-      const hasOperationsBlock =
-        memberTags.some(
-          (t) =>
-            t.is_active !== false &&
-            (t.rules?.is_blocked === true || t.rules?.block_operations === true)
-        ) || Boolean(activeSuspension?.blocks?.block_all_operations);
-      if (
-        hasOperationsBlock &&
-        (permission.startsWith("manage_") ||
-          permission.startsWith("approve_") ||
-          permission.startsWith("create_") ||
-          permission.startsWith("delete_"))
-      ) {
-        return false;
-      }
-
-      if (
-        permission === "view_ceo" ||
-        permission === "view_ceo_dashboard" ||
-        permission === "view_dev_hub" ||
-        permission === "view_dev" ||
-        permission.startsWith("manage_dev_")
-      ) {
-        return false;
-      }
-
-      // Soma permissões do cargo + tags de membros (sem dev e sem ceo)
-      const effectiveLevel = (level === "desenvolvedor" || level === "ceo") ? "01" : level;
-      return (
-        can(effectiveLevel, permission, customRolePermissions) ||
-        satisfiesPermission(memberTagsPermissions, permission)
-      );
+      return hasPermission(permission, "member");
     },
-    [level, isDevUser, memberTags, activeSuspension, customRolePermissions, memberTagsPermissions, devConfigTick]
+    [hasPermission]
   );
 
   const value = useMemo<AuthContextValue>(

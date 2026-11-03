@@ -79,9 +79,9 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
   estoque: "view_stock",
   "gestao-estoque": "view_stock_management",
   gestaoestoque: "view_stock_management",
-  baus: "view_stock_management",
-  categorias: "view_stock_management",
-  produtos: "view_stock_management",
+  baus: "view_baus",
+  categorias: "view_categories",
+  produtos: "view_products",
   saldos: "view_stock_management",
   membros: "view_members",
   hierarquia: "view_hierarchy",
@@ -358,6 +358,55 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       return (
         <NoAccess message="Você não tem permissão para acessar a central de Atendimento de Tickets." />
       );
+    }
+  } else if (
+    normalizedPage === "gestao-estoque" ||
+    normalizedPage === "gestaoestoque"
+  ) {
+    const canAccessGestao =
+      hasPermission("view_stock_management", mode) ||
+      hasPermission("view_products", mode) ||
+      hasPermission("view_categories", mode) ||
+      hasPermission("view_baus", mode) ||
+      hasPermission("adjust_stock_balance", mode) ||
+      hasPermission("manage_stock_balance", mode);
+    if (!canAccessGestao) {
+      return <NoAccess message="Você não tem permissão para acessar a Gestão de Estoque." />;
+    }
+  } else if (normalizedPage === "produtos") {
+    const canAccessProdutos =
+      hasPermission("view_products", mode) ||
+      hasPermission("view_stock_management", mode) ||
+      hasPermission("manage_products", mode) ||
+      hasPermission("manage_stock_products", mode);
+    if (!canAccessProdutos) {
+      return <NoAccess message="Você não tem permissão para acessar a área de Produtos." />;
+    }
+  } else if (normalizedPage === "categorias") {
+    const canAccessCategorias =
+      hasPermission("view_categories", mode) ||
+      hasPermission("view_stock_management", mode) ||
+      hasPermission("manage_categories", mode) ||
+      hasPermission("manage_stock_categories", mode);
+    if (!canAccessCategorias) {
+      return <NoAccess message="Você não tem permissão para acessar a área de Categorias." />;
+    }
+  } else if (normalizedPage === "baus") {
+    const canAccessBaus =
+      hasPermission("view_baus", mode) ||
+      hasPermission("view_stock_management", mode) ||
+      hasPermission("manage_baus", mode) ||
+      hasPermission("manage_stock_baus", mode);
+    if (!canAccessBaus) {
+      return <NoAccess message="Você não tem permissão para acessar a área de Baús." />;
+    }
+  } else if (normalizedPage === "saldos") {
+    const canAccessSaldos =
+      hasPermission("adjust_stock_balance", mode) ||
+      hasPermission("manage_stock_balance", mode) ||
+      hasPermission("view_stock_management", mode);
+    if (!canAccessSaldos) {
+      return <NoAccess message="Você não tem permissão para acessar a área de Saldos de Estoque." />;
     }
   } else if (requiredPerm && !hasPermission(requiredPerm, mode)) {
     return <NoAccess />;

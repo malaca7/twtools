@@ -5293,23 +5293,28 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
   const checkPerm = (perm: Permission): boolean => {
     if (isSuperUser) return true;
 
-    if (isDevPanel) {
-      // Painel Dev: apenas permissões da tag dev
-      return satisfiesPermission(devPerms, perm);
-    }
-
-    if (isCeoPanel) {
-      // Painel CEO: apenas permissões da tag ceo (NÃO tem permissões da tag dev)
-      return satisfiesPermission(ceoPerms, perm);
-    }
-
-    // Painel Membro: soma das permissões das tags comuns do membro + cargo do membro (sem tag dev e sem tag ceo)
-    const regularTagPerms = tagPermsList.filter((p) => p !== "view_dev_hub" && p !== "view_dev" && p !== "view_ceo" && p !== "view_ceo_dashboard");
     const effectiveRole = (userLevel === "desenvolvedor" || userLevel === "ceo")
       ? ((p as any)?.cargo || (p as any)?.role || (p as any)?.nivel || "membro")
       : userLevel;
     const hasRolePerm = can(effectiveRole, perm, customRoleMap);
-    return hasTagPerm || hasRolePerm;
+    const regularTagPerms = tagPermsList.filter((p) => p !== "view_dev_hub" && p !== "view_dev" && p !== "view_ceo" && p !== "view_ceo_dashboard");
+    const hasSystemTagPerm = satisfiesPermission(regularTagPerms, perm) || hasTagPerm;
+
+    if (isDevPanel) {
+      // Painel Dev: cargo + tags de sistema (Gerenciar Tags) + tag ceo (se ele possuir) + tag dev (se ele possuir)
+      const hasCeoTag = isCeoUser && satisfiesPermission(ceoPerms, perm);
+      const hasDevTag = isDevUser && (perm === "view_dev_hub" || perm === "view_dev" || satisfiesPermission(devPerms, perm));
+      return hasRolePerm || hasSystemTagPerm || hasCeoTag || hasDevTag;
+    }
+
+    if (isCeoPanel) {
+      // Painel CEO: cargo + tags de sistema (Gerenciar Tags) + tag ceo (se ele possuir)
+      const hasCeoTag = isCeoUser && satisfiesPermission(ceoPerms, perm);
+      return hasRolePerm || hasSystemTagPerm || hasCeoTag;
+    }
+
+    // Painel Membro: cargo + tags de sistema (Gerenciar Tags) - sem tag dev e sem tag ceo
+    return hasRolePerm || hasSystemTagPerm;
   };
 
   const canManage = isSuperUser || checkPerm("manage_tickets");
@@ -6522,4 +6527,4 @@ export async function reviewActionScaleMember(payload: {
   if (error) throw error;
   return data as ActionScaleMember;
 }
-
+
