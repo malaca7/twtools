@@ -102,8 +102,8 @@ function DevPermissoesContent() {
   const { isMobile, open: isSidebarOpen, sidebarWidth } = useSidebar();
   const sidebarLeftOffset = isMobile ? 0 : (isSidebarOpen ? sidebarWidth : 56);
 
-  // Aba ativa: Cargos da Plataforma vs Tag Dev vs Tag CEO
-  const [activeTab, setActiveTab] = useState<"cargos" | "dev" | "ceo">("cargos");
+  // Aba ativa: Tag CEO vs Tag Dev vs Cargos da Plataforma (Padrão: CEO)
+  const [activeTab, setActiveTab] = useState<"ceo" | "dev" | "cargos">("ceo");
 
   // Lista de cargos ativos configurados no Gerenciamento de Cargos (/cargos)
   const activeRolesList = useMemo(() => {
@@ -1027,46 +1027,46 @@ function DevPermissoesContent() {
       {/* Page Header */}
       <PageHeader
         title={
-          activeTab === "cargos"
-            ? "Dev → Permissões dos Cargos da Plataforma"
+          activeTab === "ceo"
+            ? "Dev → Configuração & Permissões da Tag CEO"
             : activeTab === "dev"
             ? "Dev → Permissões da Tag Desenvolvedor"
-            : "Dev → Configuração & Permissões da Tag CEO"
+            : "Dev → Permissões dos Cargos da Plataforma"
         }
         description={
-          activeTab === "cargos"
-            ? "Gerencie a matriz de permissões de cada cargo da plataforma (01, 02, Gerente, etc.). Sincronizado automaticamente e em tempo real com /permissoes e o banco de dados."
+          activeTab === "ceo"
+            ? "Configure a matriz de permissões da Tag CEO [Diretoria Executiva 👑] e gerencie quais membros possuem a tag. Apenas usuários com a Tag Dev têm autorização para atribuir a Tag CEO."
             : activeTab === "dev"
             ? "Configure as permissões operacionais vinculadas exclusivamente à Tag Desenvolvedor [Dev System 💻] e gerencie os membros com a tag ativa. As permissões se somam às do cargo do membro."
-            : "Configure a matriz de permissões da Tag CEO [Diretoria Executiva 👑] e gerencie quais membros possuem a tag. Apenas usuários com a Tag Dev têm autorização para atribuir a Tag CEO."
+            : "Gerencie a matriz de permissões de cada cargo da plataforma (01, 02, Gerente, etc.). Sincronizado automaticamente e em tempo real com /permissoes e o banco de dados."
         }
         actions={
           <div className="flex items-center gap-2">
             <Badge
               className={cn(
                 "text-xs py-1.5 px-3 gap-1.5 font-bold transition-all",
-                activeTab === "cargos"
-                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                activeTab === "ceo"
+                  ? "bg-amber-500/10 text-amber-300 border-amber-500/30"
                   : activeTab === "dev"
                   ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
-                  : "bg-amber-500/10 text-amber-300 border-amber-500/30"
+                  : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
               )}
             >
-              {(activeTab === "cargos" ? isCargoSyncing : activeTab === "dev" ? isDevSyncing : isCeoSyncing) ? (
+              {(activeTab === "ceo" ? isCeoSyncing : activeTab === "dev" ? isDevSyncing : isCargoSyncing) ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <CheckCircle2
                   className={cn(
                     "h-3.5 w-3.5",
-                    activeTab === "cargos"
-                      ? "text-emerald-400"
+                    activeTab === "ceo"
+                      ? "text-amber-400"
                       : activeTab === "dev"
                       ? "text-rose-400"
-                      : "text-amber-400"
+                      : "text-emerald-400"
                   )}
                 />
               )}
-              {(activeTab === "cargos" ? isCargoSyncing : activeTab === "dev" ? isDevSyncing : isCeoSyncing)
+              {(activeTab === "ceo" ? isCeoSyncing : activeTab === "dev" ? isDevSyncing : isCargoSyncing)
                 ? "Sincronizando..."
                 : "Sincronizado em Tempo Real"}
             </Badge>
@@ -1074,36 +1074,41 @@ function DevPermissoesContent() {
         }
       />
 
-      {/* SELETOR DE ABAS MODERNAS: CARGOS vs TAG DEV vs TAG CEO */}
+      {/* SELETOR DE ABAS MODERNAS: TAG CEO vs TAG DEV vs CARGOS */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-2 bg-secondary/40 rounded-2xl border border-border/50 backdrop-blur-md">
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Aba Cargos da Plataforma */}
+          {/* Aba Tag CEO */}
           <button
             type="button"
-            onClick={() => setActiveTab("cargos")}
+            onClick={() => setActiveTab("ceo")}
             className={cn(
               "flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer",
-              activeTab !== "cargos" && "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+              activeTab !== "ceo" && "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
             )}
             style={
-              activeTab === "cargos"
+              activeTab === "ceo"
                 ? {
-                    backgroundColor: "rgba(16, 185, 129, 0.15)",
-                    color: "#34d399",
-                    borderColor: "rgba(16, 185, 129, 0.4)",
+                    backgroundColor: `${ceoStyle.primaryHex}25`,
+                    color: ceoStyle.primaryHex,
+                    borderColor: `${ceoStyle.primaryHex}50`,
                     borderWidth: "1px",
-                    boxShadow: "0 2px 8px rgba(16, 185, 129, 0.15)",
+                    boxShadow: `0 2px 8px ${ceoStyle.primaryHex}20`,
                   }
                 : undefined
             }
           >
-            <ShieldCheck className="h-4 w-4" style={{ color: activeTab === "cargos" ? "#34d399" : undefined }} />
-            Cargos da Plataforma
+            <CeoIcon className="h-4 w-4" style={{ color: activeTab === "ceo" ? ceoStyle.primaryHex : undefined }} />
+            Tag CEO
             <Badge
               variant="outline"
-              className="text-[9px] font-mono py-0 px-1.5 ml-1 font-bold border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
+              className="text-[9px] font-mono py-0 px-1.5 ml-1 font-bold"
+              style={{
+                borderColor: `${ceoStyle.primaryHex}40`,
+                color: ceoStyle.primaryHex,
+                backgroundColor: `${ceoStyle.primaryHex}15`,
+              }}
             >
-              /permissoes
+              Tag CEO ({activeCeosCount})
             </Badge>
           </button>
 
@@ -1142,38 +1147,33 @@ function DevPermissoesContent() {
             </Badge>
           </button>
 
-          {/* Aba Tag CEO */}
+          {/* Aba Cargos da Plataforma */}
           <button
             type="button"
-            onClick={() => setActiveTab("ceo")}
+            onClick={() => setActiveTab("cargos")}
             className={cn(
               "flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer",
-              activeTab !== "ceo" && "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+              activeTab !== "cargos" && "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
             )}
             style={
-              activeTab === "ceo"
+              activeTab === "cargos"
                 ? {
-                    backgroundColor: `${ceoStyle.primaryHex}25`,
-                    color: ceoStyle.primaryHex,
-                    borderColor: `${ceoStyle.primaryHex}50`,
+                    backgroundColor: "rgba(16, 185, 129, 0.15)",
+                    color: "#34d399",
+                    borderColor: "rgba(16, 185, 129, 0.4)",
                     borderWidth: "1px",
-                    boxShadow: `0 2px 8px ${ceoStyle.primaryHex}20`,
+                    boxShadow: "0 2px 8px rgba(16, 185, 129, 0.15)",
                   }
                 : undefined
             }
           >
-            <CeoIcon className="h-4 w-4" style={{ color: activeTab === "ceo" ? ceoStyle.primaryHex : undefined }} />
-            Tag CEO
+            <ShieldCheck className="h-4 w-4" style={{ color: activeTab === "cargos" ? "#34d399" : undefined }} />
+            Cargos da Plataforma
             <Badge
               variant="outline"
-              className="text-[9px] font-mono py-0 px-1.5 ml-1 font-bold"
-              style={{
-                borderColor: `${ceoStyle.primaryHex}40`,
-                color: ceoStyle.primaryHex,
-                backgroundColor: `${ceoStyle.primaryHex}15`,
-              }}
+              className="text-[9px] font-mono py-0 px-1.5 ml-1 font-bold border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
             >
-              Tag CEO ({activeCeosCount})
+              /permissoes
             </Badge>
           </button>
         </div>
@@ -2963,20 +2963,48 @@ function DevPermissoesContent() {
                 : `0 20px 50px rgba(0,0,0,0.75), 0 0 30px ${ceoStyle.primaryHex}25`,
             }}
           >
-            {/* Seletor Rápido de Abas: Cargos vs Tag Dev vs Tag CEO */}
+            {/* Seletor Rápido de Abas: Tag CEO vs Tag Dev vs Cargos */}
             <div className="flex items-center gap-1 bg-secondary/40 p-1 rounded-xl border border-border/50">
-              {/* Botão Cargos da Plataforma */}
+              {/* Botão Tag CEO */}
               <button
                 type="button"
-                onClick={() => setActiveTab("cargos")}
+                onClick={() => setActiveTab("ceo")}
                 className={cn(
-                  "flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none",
-                  "text-muted-foreground hover:text-foreground hover:bg-secondary/60 opacity-80"
+                  "flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none",
+                  activeTab === "ceo"
+                    ? "shadow-sm scale-[1.02]"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/60 opacity-80"
                 )}
-                title="Voltar para Cargos da Plataforma"
+                style={
+                  activeTab === "ceo"
+                    ? {
+                        backgroundColor: `${ceoStyle.primaryHex}25`,
+                        color: ceoStyle.primaryHex,
+                        border: `1px solid ${ceoStyle.primaryHex}60`,
+                        boxShadow: `0 2px 10px ${ceoStyle.primaryHex}25`,
+                      }
+                    : undefined
+                }
+                title="Alternar para Permissões da Tag CEO"
               >
-                <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
-                <span className="hidden xs:inline">Cargos</span>
+                <CeoIcon className="h-3.5 w-3.5 shrink-0" style={{ color: activeTab === "ceo" ? ceoStyle.primaryHex : undefined }} />
+                <span className="hidden xs:inline">Tag CEO</span>
+                <span className="xs:hidden">CEO</span>
+                <Badge
+                  variant="outline"
+                  className="text-[9px] font-mono px-1.5 py-0 font-bold hidden sm:inline-flex"
+                  style={
+                    activeTab === "ceo"
+                      ? {
+                          borderColor: `${ceoStyle.primaryHex}40`,
+                          color: ceoStyle.primaryHex,
+                          backgroundColor: `${ceoStyle.primaryHex}15`,
+                        }
+                      : undefined
+                  }
+                >
+                  {activeCeoPermissions.length}
+                </Badge>
               </button>
 
               {/* Botão Tag Dev */}
@@ -3021,46 +3049,18 @@ function DevPermissoesContent() {
                 </Badge>
               </button>
 
-              {/* Botão Tag CEO */}
+              {/* Botão Cargos da Plataforma */}
               <button
                 type="button"
-                onClick={() => setActiveTab("ceo")}
+                onClick={() => setActiveTab("cargos")}
                 className={cn(
-                  "flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none",
-                  activeTab === "ceo"
-                    ? "shadow-sm scale-[1.02]"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/60 opacity-80"
+                  "flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer select-none",
+                  "text-muted-foreground hover:text-foreground hover:bg-secondary/60 opacity-80"
                 )}
-                style={
-                  activeTab === "ceo"
-                    ? {
-                        backgroundColor: `${ceoStyle.primaryHex}25`,
-                        color: ceoStyle.primaryHex,
-                        border: `1px solid ${ceoStyle.primaryHex}60`,
-                        boxShadow: `0 2px 10px ${ceoStyle.primaryHex}25`,
-                      }
-                    : undefined
-                }
-                title="Alternar para Permissões da Tag CEO"
+                title="Voltar para Cargos da Plataforma"
               >
-                <CeoIcon className="h-3.5 w-3.5 shrink-0" style={{ color: activeTab === "ceo" ? ceoStyle.primaryHex : undefined }} />
-                <span className="hidden xs:inline">Tag CEO</span>
-                <span className="xs:hidden">CEO</span>
-                <Badge
-                  variant="outline"
-                  className="text-[9px] font-mono px-1.5 py-0 font-bold hidden sm:inline-flex"
-                  style={
-                    activeTab === "ceo"
-                      ? {
-                          borderColor: `${ceoStyle.primaryHex}40`,
-                          color: ceoStyle.primaryHex,
-                          backgroundColor: `${ceoStyle.primaryHex}15`,
-                        }
-                      : undefined
-                  }
-                >
-                  {activeCeoPermissions.length}
-                </Badge>
+                <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                <span className="hidden xs:inline">Cargos</span>
               </button>
             </div>
 

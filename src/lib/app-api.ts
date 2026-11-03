@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { rtdb } from "@/integrations/firebase/rtdb";
+import { rtdb, FIREBASE_RTDB_URL } from "@/integrations/firebase/rtdb";
 import type {
   AuthState,
   Category,
@@ -4151,7 +4151,7 @@ export async function getWeeklyGoals(): Promise<WeeklyGoal[]> {
   // 3. Fallback REST direto do Firebase
   if (goalsMap.size === 0 && typeof fetch !== "undefined") {
     try {
-      const res = await fetch("https://rfdrive-fd805-default-rtdb.firebaseio.com/weekly_goals.json");
+      const res = await fetch(`${FIREBASE_RTDB_URL}/weekly_goals.json`);
       const data = await res.json();
       if (data && typeof data === "object") {
         Object.values(data).forEach((g: any) => {
@@ -4462,7 +4462,7 @@ export async function getGoalSubmissions(): Promise<GoalSubmission[]> {
   // 3. Fallback REST direto do Firebase RTDB (bypassa qualquer timeout do SDK)
   if (subsMap.size === 0 && typeof fetch !== "undefined") {
     try {
-      const res = await fetch("https://rfdrive-fd805-default-rtdb.firebaseio.com/role_permissions/system_goal_submissions.json");
+      const res = await fetch(`${FIREBASE_RTDB_URL}/role_permissions/system_goal_submissions.json`);
       const data = await res.json();
       const list = data?.permissions?.submissions || (Array.isArray(data) ? data : null);
       if (Array.isArray(list) && list.length > 0) {

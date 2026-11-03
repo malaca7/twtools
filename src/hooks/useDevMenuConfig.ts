@@ -27,7 +27,7 @@ export const DEFAULT_DEV_MENU_ITEMS: DevMenuItemConfig[] = [
   { id: "dev-estoque", title: "Estoque", url: "/dev/estoque", iconName: "Boxes", visible: true, category: "DEV", order: 1 },
   { id: "dev-patch-notes", title: "Patch Notes & Releases", url: "/dev/patch-notes", iconName: "Sparkles", visible: true, category: "DEV", order: 2 },
   { id: "dev-desempenho", title: "Gestão Desempenho", url: "/dev/desempenho", iconName: "TrendingUp", visible: true, category: "DEV", order: 3 },
-  { id: "dev-permissoes", title: "Permissões Tag Dev", url: "/dev/permissoes", iconName: "KeyRound", visible: true, category: "DEV", order: 7 },
+  { id: "dev-permissoes", title: "Permissões (Painéis)", url: "/dev/permissoes", iconName: "KeyRound", visible: true, category: "DEV", order: 7 },
   { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", iconName: "Code2", visible: true, category: "DEV", order: 8 },
   { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", iconName: "Sliders", visible: true, category: "DEV", order: 9 },
   { id: "dev-notificacoes", title: "Central de Notificações", url: "/dev/notificacoes", iconName: "BellRing", visible: true, category: "DEV", order: 10 },

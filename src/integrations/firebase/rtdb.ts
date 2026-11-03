@@ -1,16 +1,23 @@
 /**
  * Twin Wheels - Firebase Realtime Database Integration & Schema Types
- * Database URL: https://rfdrive-fd805-default-rtdb.firebaseio.com
+ * Database URL: https://malacagroup-default-rtdb.firebaseio.com
  */
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getDatabase, ref, get, set, update, remove, onValue, off, type DatabaseReference } from 'firebase/database';
 
-const FIREBASE_RTDB_URL =
+export const FIREBASE_RTDB_URL =
   (typeof import.meta !== 'undefined' && (import.meta.env?.['VITE_FIREBASE_RTDB_URL'] as string)) ||
   'https://rfdrive-fd805-default-rtdb.firebaseio.com';
 
-const firebaseConfig = {
+export const firebaseConfig = {
+  apiKey: (typeof import.meta !== 'undefined' && (import.meta.env?.['VITE_FIREBASE_API_KEY'] as string)) || "AIzaSyD1kR3dRwS_K8ZNximxR10v0Ea1OnQt38I",
+  authDomain: (typeof import.meta !== 'undefined' && (import.meta.env?.['VITE_FIREBASE_AUTH_DOMAIN'] as string)) || "malacagroup.firebaseapp.com",
+  projectId: (typeof import.meta !== 'undefined' && (import.meta.env?.['VITE_FIREBASE_PROJECT_ID'] as string)) || "malacagroup",
+  storageBucket: (typeof import.meta !== 'undefined' && (import.meta.env?.['VITE_FIREBASE_STORAGE_BUCKET'] as string)) || "malacagroup.firebasestorage.app",
+  messagingSenderId: (typeof import.meta !== 'undefined' && (import.meta.env?.['VITE_FIREBASE_MESSAGING_SENDER_ID'] as string)) || "769206753468",
+  appId: (typeof import.meta !== 'undefined' && (import.meta.env?.['VITE_FIREBASE_APP_ID'] as string)) || "1:769206753468:web:21e154c24d60d8b8cf18b9",
+  measurementId: (typeof import.meta !== 'undefined' && (import.meta.env?.['VITE_FIREBASE_MEASUREMENT_ID'] as string)) || "G-LV3XFMJ2HM",
   databaseURL: FIREBASE_RTDB_URL,
 };
 

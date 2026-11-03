@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { FIREBASE_RTDB_URL } from "@/integrations/firebase/rtdb";
 import type { AppUser, Profile } from "@/lib/app-types";
 import { ALL_PERMISSIONS, type AppLevel, type Permission } from "@/lib/permissions";
 import type { PanelColor } from "@/lib/panelTheme";
@@ -675,7 +676,7 @@ export async function triggerForceCachePurge(
       localStorage.setItem("tw_force_cache_purge", JSON.stringify(record));
     }
 
-    await fetch(`https://rfdrive-fd805-default-rtdb.firebaseio.com/role_permissions/system_force_cache_purge.json`, {
+    await fetch(`${FIREBASE_RTDB_URL}/role_permissions/system_force_cache_purge.json`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1095,7 +1096,7 @@ export async function saveCeoTagPermissions(
       window.dispatchEvent(new Event("storage"));
     }
 
-    await fetch(`https://rfdrive-fd805-default-rtdb.firebaseio.com/role_permissions/ceo.json`, {
+    await fetch(`${FIREBASE_RTDB_URL}/role_permissions/ceo.json`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1189,7 +1190,7 @@ export async function saveCeoConfiguration(
       window.dispatchEvent(new Event("storage"));
     }
 
-    await fetch(`https://rfdrive-fd805-default-rtdb.firebaseio.com/role_permissions/system_ceo_config.json`, {
+    await fetch(`${FIREBASE_RTDB_URL}/role_permissions/system_ceo_config.json`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

@@ -63,7 +63,7 @@ const ROUTE_TITLE_MAP: Record<string, string> = {
   "/dev/estoque": "Dev · Gestão Técnica de Estoque",
   "/dev/patch-notes": "Dev · Patch Notes Studio",
   "/dev/desempenho": "Dev · Gestão de Desempenho",
-  "/dev/permissoes": "Dev · Permissões Tag Dev",
+  "/dev/permissoes": "Dev · Permissões (Painéis)",
   "/dev/configuracao": "Dev · Configurações Dev",
   "/dev/menu-lateral": "Dev · Personalização de Menus",
   "/dev/notificacoes": "Dev · Central de Notificações",
