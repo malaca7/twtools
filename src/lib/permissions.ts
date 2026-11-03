@@ -1322,14 +1322,6 @@ export const PERMISSION_EQUIVALENCES: Record<string, string[]> = {
   view_raw_materials: ["raw_materials.view"],
   view_all_tickets: ["can_view_all_tickets"],
   can_view_all_tickets: ["view_all_tickets"],
-  view_ticket_internal_notes: ["internal_notes_tickets"],
-  send_ticket_internal_notes: ["internal_notes_tickets"],
-  internal_notes_tickets: ["view_ticket_internal_notes", "send_ticket_internal_notes"],
-  send_ticket_attachments: ["reply_tickets", "reply_ticket"],
-  change_ticket_priority: ["change_ticket_status"],
-  change_ticket_category: ["change_ticket_status"],
-  unassign_tickets: ["claim_tickets", "claim_ticket"],
-  view_ticket_dossier: ["atendimento_tickets.view", "view_atendimento_tickets"],
 };
 
 /**
@@ -1355,7 +1347,14 @@ export function satisfiesPermission(
     if (
       permission === "view_all_tickets" ||
       permission === "can_view_all_tickets" ||
+      permission === "view_tickets" ||
+      permission === "atendimento_tickets.view" ||
+      permission === "view_atendimento_tickets" ||
       permission === "create_ticket" ||
+      permission === "reply_tickets" ||
+      permission === "reply_ticket" ||
+      permission === "claim_tickets" ||
+      permission === "claim_ticket" ||
       permission === "transfer_tickets" ||
       permission === "transfer_ticket" ||
       permission === "change_ticket_status" ||
@@ -1381,59 +1380,43 @@ export function satisfiesPermission(
     }
   }
 
-  // Visualizar / Enviar Notas Internas Privadas
+  // Visualizar / Enviar Notas Internas Privadas (Compatibilidade com pacote legado internal_notes_tickets)
   if (
     (permission === "view_ticket_internal_notes" || permission === "send_ticket_internal_notes") &&
-    (list.includes("internal_notes_tickets") || list.includes("manage_tickets"))
+    list.includes("internal_notes_tickets")
   ) {
     return true;
   }
 
-  // Enviar Anexos / Prints
-  if (
-    permission === "send_ticket_attachments" &&
-    (list.includes("send_ticket_attachments") ||
-      list.includes("reply_tickets") ||
-      list.includes("reply_ticket") ||
-      list.includes("manage_tickets"))
-  ) {
+  // Enviar Anexos / Prints (100% granular e independente)
+  if (permission === "send_ticket_attachments" && list.includes("send_ticket_attachments")) {
     return true;
   }
 
-  // Alterar Prioridade ou Categoria
-  if (
-    (permission === "change_ticket_priority" || permission === "change_ticket_category") &&
-    (list.includes("change_ticket_status") || list.includes("manage_tickets"))
-  ) {
+  // Alterar Prioridade (100% granular e independente)
+  if (permission === "change_ticket_priority" && list.includes("change_ticket_priority")) {
     return true;
   }
 
-  // Devolver Chamado para Fila Aberta
-  if (
-    permission === "unassign_tickets" &&
-    (list.includes("unassign_tickets") ||
-      list.includes("claim_tickets") ||
-      list.includes("claim_ticket") ||
-      list.includes("manage_tickets"))
-  ) {
+  // Alterar Categoria (100% granular e independente)
+  if (permission === "change_ticket_category" && list.includes("change_ticket_category")) {
     return true;
   }
 
-  // Dossiê do Jogador
-  if (
-    permission === "view_ticket_dossier" &&
-    (list.includes("view_ticket_dossier") ||
-      list.includes("atendimento_tickets.view") ||
-      list.includes("view_atendimento_tickets") ||
-      list.includes("manage_tickets"))
-  ) {
+  // Devolver Chamado para Fila Aberta (100% granular e independente)
+  if (permission === "unassign_tickets" && list.includes("unassign_tickets")) {
     return true;
   }
 
-  // Exportar Transcrição ou Macros
+  // Dossiê do Jogador (100% granular e independente)
+  if (permission === "view_ticket_dossier" && list.includes("view_ticket_dossier")) {
+    return true;
+  }
+
+  // Exportar Transcrição ou Macros (100% granular e independente)
   if (
     (permission === "export_ticket_transcript" || permission === "use_ticket_macros") &&
-    (list.includes(permission) || list.includes("manage_tickets"))
+    list.includes(permission)
   ) {
     return true;
   }
@@ -1449,9 +1432,13 @@ export function satisfiesPermission(
     }
   }
 
-  // Acesso à central de Atendimento Desk (/atendimento-tickets) - Estrito: requer explicitamente atendimento_tickets.view ou view_atendimento_tickets
+  // Acesso à central de Atendimento Desk (/atendimento-tickets)
   if (permission === "atendimento_tickets.view" || permission === "view_atendimento_tickets") {
-    if (list.includes("atendimento_tickets.view") || list.includes("view_atendimento_tickets")) {
+    if (
+      list.includes("atendimento_tickets.view") ||
+      list.includes("view_atendimento_tickets") ||
+      list.includes("manage_tickets")
+    ) {
       return true;
     }
   }
@@ -2854,7 +2841,7 @@ export function can(
     }
   }
 
-  // Visualizar / Enviar Notas Internas Privadas
+  // Visualizar / Enviar Notas Internas Privadas (Compatibilidade com pacote legado internal_notes_tickets)
   if (
     (permission === "view_ticket_internal_notes" || permission === "send_ticket_internal_notes") &&
     (rolePerms.includes("internal_notes_tickets") || rolePerms.includes("manage_tickets"))
@@ -2862,48 +2849,47 @@ export function can(
     return true;
   }
 
-  // Enviar Anexos / Prints
+  // Enviar Anexos / Prints (100% granular e independente)
   if (
     permission === "send_ticket_attachments" &&
-    (rolePerms.includes("send_ticket_attachments") ||
-      rolePerms.includes("reply_tickets") ||
-      rolePerms.includes("reply_ticket") ||
-      rolePerms.includes("manage_tickets"))
+    (rolePerms.includes("send_ticket_attachments") || rolePerms.includes("manage_tickets"))
   ) {
     return true;
   }
 
-  // Alterar Prioridade ou Categoria
+  // Alterar Prioridade (100% granular e independente)
   if (
-    (permission === "change_ticket_priority" || permission === "change_ticket_category") &&
-    (rolePerms.includes("change_ticket_status") || rolePerms.includes("manage_tickets"))
+    permission === "change_ticket_priority" &&
+    (rolePerms.includes("change_ticket_priority") || rolePerms.includes("manage_tickets"))
   ) {
     return true;
   }
 
-  // Devolver Chamado para Fila Aberta
+  // Alterar Categoria (100% granular e independente)
+  if (
+    permission === "change_ticket_category" &&
+    (rolePerms.includes("change_ticket_category") || rolePerms.includes("manage_tickets"))
+  ) {
+    return true;
+  }
+
+  // Devolver Chamado para Fila Aberta (100% granular e independente)
   if (
     permission === "unassign_tickets" &&
-    (rolePerms.includes("unassign_tickets") ||
-      rolePerms.includes("claim_tickets") ||
-      rolePerms.includes("claim_ticket") ||
-      rolePerms.includes("manage_tickets"))
+    (rolePerms.includes("unassign_tickets") || rolePerms.includes("manage_tickets"))
   ) {
     return true;
   }
 
-  // Dossiê do Jogador
+  // Dossiê do Jogador (100% granular e independente)
   if (
     permission === "view_ticket_dossier" &&
-    (rolePerms.includes("view_ticket_dossier") ||
-      rolePerms.includes("atendimento_tickets.view") ||
-      rolePerms.includes("view_atendimento_tickets") ||
-      rolePerms.includes("manage_tickets"))
+    (rolePerms.includes("view_ticket_dossier") || rolePerms.includes("manage_tickets"))
   ) {
     return true;
   }
 
-  // Exportar Transcrição ou Macros
+  // Exportar Transcrição ou Macros (100% granular e independente)
   if (
     (permission === "export_ticket_transcript" || permission === "use_ticket_macros") &&
     (rolePerms.includes(permission) || rolePerms.includes("manage_tickets"))

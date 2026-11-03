@@ -1140,6 +1140,12 @@ export const PAGE_CARDS: PageCardConfig[] = [
         badge: "Fila Aberta",
       },
       {
+        key: "transfer_tickets",
+        label: "Transferir Chamado para Outro Atendente",
+        description: "Permite transferir e reatribuir a responsabilidade de atendimento do chamado para outro membro.",
+        badge: "Transferência",
+      },
+      {
         key: "reply_tickets",
         label: "Responder e Enviar Mensagens nos Chamados",
         description: "Permite enviar mensagens de texto e interagir na conversa dos chamados.",

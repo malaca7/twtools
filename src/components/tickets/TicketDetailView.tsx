@@ -177,7 +177,6 @@ export function TicketDetailView({
   const canUnassign =
     !isMemberPortal &&
     (hasPermission("unassign_tickets" as Permission) ||
-      canClaim ||
       effectiveCanManage);
   const canTransfer =
     !isMemberPortal &&
@@ -191,12 +190,10 @@ export function TicketDetailView({
   const canChangePriority =
     !isMemberPortal &&
     (hasPermission("change_ticket_priority" as Permission) ||
-      canChangeStatus ||
       effectiveCanManage);
   const canChangeCategory =
     !isMemberPortal &&
     (hasPermission("change_ticket_category" as Permission) ||
-      canChangeStatus ||
       effectiveCanManage);
 
   // Permissões detalhadas de Notas Internas: Visualizar e Enviar
@@ -212,19 +209,15 @@ export function TicketDetailView({
       effectiveCanManage);
   const canInternalNotes = canViewInternalNotes || canSendInternalNotes;
 
-  // Permissão detalhada de Anexos
-  const canSendAttachments =
-    (hasPermission("send_ticket_attachments" as Permission) ||
-      hasPermission("reply_tickets") ||
-      hasPermission("reply_ticket" as Permission) ||
-      effectiveCanManage);
+  // Permissão detalhada de Anexos: no portal de membros o autor/participante pode enviar com a resposta; na central desk exige a permissão estrita
+  const canSendAttachments = isMemberPortal
+    ? (hasPermission("send_ticket_attachments" as Permission) || effectiveCanManage || isCreator || isParticipant)
+    : (hasPermission("send_ticket_attachments" as Permission) || effectiveCanManage);
 
   // Permissões de ferramentas adicionais
   const canViewDossier =
     !isMemberPortal &&
     (hasPermission("view_ticket_dossier" as Permission) ||
-      hasPermission("atendimento_tickets.view" as Permission) ||
-      hasPermission("view_atendimento_tickets" as Permission) ||
       effectiveCanManage);
   const canExportTranscript =
     !isMemberPortal &&
