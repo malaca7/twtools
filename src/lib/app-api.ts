@@ -5004,11 +5004,20 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
           const canClaim = isSuper || checkSimPerm("claim_tickets") || checkSimPerm("claim_ticket" as Permission);
           const canTransfer = isSuper || canManage || checkSimPerm("transfer_tickets") || checkSimPerm("transfer_ticket" as Permission);
           const canChangeStatus = isSuper || canManage || checkSimPerm("change_ticket_status");
+          const canChangePriority = isSuper || canManage || checkSimPerm("change_ticket_priority" as Permission) || canChangeStatus;
+          const canChangeCategory = isSuper || canManage || checkSimPerm("change_ticket_category" as Permission) || canChangeStatus;
+          const canUnassign = isSuper || canManage || checkSimPerm("unassign_tickets" as Permission) || canClaim;
           const canClose = isSuper || canManage || checkSimPerm("close_tickets") || checkSimPerm("close_ticket" as Permission);
           const canReopen = isSuper || canManage || checkSimPerm("reopen_tickets") || checkSimPerm("reopen_ticket" as Permission);
           const canDelete = isSuper || canManage || checkSimPerm("delete_tickets") || checkSimPerm("delete_ticket" as Permission);
           const canManageMembers = isSuper || canManage || checkSimPerm("manage_ticket_members");
-          const canInternalNotes = isSuper || canManage || checkSimPerm("internal_notes_tickets") || isCeo;
+          const canViewInternalNotes = isSuper || canManage || checkSimPerm("view_ticket_internal_notes" as Permission) || checkSimPerm("internal_notes_tickets") || isCeo;
+          const canSendInternalNotes = isSuper || canManage || checkSimPerm("send_ticket_internal_notes" as Permission) || checkSimPerm("internal_notes_tickets") || isCeo;
+          const canInternalNotes = canViewInternalNotes || canSendInternalNotes;
+          const canSendAttachments = isSuper || checkSimPerm("send_ticket_attachments" as Permission) || canReply;
+          const canViewDossier = isSuper || canManage || checkSimPerm("view_ticket_dossier" as Permission) || checkSimPerm("atendimento_tickets.view" as Permission) || checkSimPerm("view_atendimento_tickets" as Permission);
+          const canExportTranscript = isSuper || canManage || checkSimPerm("export_ticket_transcript" as Permission);
+          const canUseMacros = isSuper || canManage || checkSimPerm("use_ticket_macros" as Permission);
           const canView = isSuper || canViewAll || checkSimPerm("view_tickets") || checkSimPerm("atendimento_tickets.view" as Permission) || checkSimPerm("view_atendimento_tickets" as Permission);
 
           return {
@@ -5023,13 +5032,22 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
             canManage,
             canReply,
             canClaim,
+            canUnassign,
             canTransfer,
             canChangeStatus,
+            canChangePriority,
+            canChangeCategory,
             canClose,
             canReopen,
             canDelete,
             canManageMembers,
             canInternalNotes,
+            canViewInternalNotes,
+            canSendInternalNotes,
+            canSendAttachments,
+            canViewDossier,
+            canExportTranscript,
+            canUseMacros,
             isSuperUser: isSuper,
           };
         }
@@ -5095,11 +5113,20 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
           const canClaim = isSuper || checkDevPerm("claim_tickets") || checkDevPerm("claim_ticket" as Permission);
           const canTransfer = isSuper || canManage || checkDevPerm("transfer_tickets") || checkDevPerm("transfer_ticket" as Permission);
           const canChangeStatus = isSuper || canManage || checkDevPerm("change_ticket_status");
+          const canChangePriority = isSuper || canManage || checkDevPerm("change_ticket_priority" as Permission) || canChangeStatus;
+          const canChangeCategory = isSuper || canManage || checkDevPerm("change_ticket_category" as Permission) || canChangeStatus;
+          const canUnassign = isSuper || canManage || checkDevPerm("unassign_tickets" as Permission) || canClaim;
           const canClose = isSuper || canManage || checkDevPerm("close_tickets") || checkDevPerm("close_ticket" as Permission);
           const canReopen = isSuper || canManage || checkDevPerm("reopen_tickets") || checkDevPerm("reopen_ticket" as Permission);
           const canDelete = isSuper || canManage || checkDevPerm("delete_tickets") || checkDevPerm("delete_ticket" as Permission);
           const canManageMembers = isSuper || canManage || checkDevPerm("manage_ticket_members");
-          const canInternalNotes = isSuper || canManage || checkDevPerm("internal_notes_tickets") || isCeo;
+          const canViewInternalNotes = isSuper || canManage || checkDevPerm("view_ticket_internal_notes" as Permission) || checkDevPerm("internal_notes_tickets") || isCeo;
+          const canSendInternalNotes = isSuper || canManage || checkDevPerm("send_ticket_internal_notes" as Permission) || checkDevPerm("internal_notes_tickets") || isCeo;
+          const canInternalNotes = canViewInternalNotes || canSendInternalNotes;
+          const canSendAttachments = isSuper || checkDevPerm("send_ticket_attachments" as Permission) || canReply;
+          const canViewDossier = isSuper || canManage || checkDevPerm("view_ticket_dossier" as Permission) || checkDevPerm("atendimento_tickets.view" as Permission) || checkDevPerm("view_atendimento_tickets" as Permission);
+          const canExportTranscript = isSuper || canManage || checkDevPerm("export_ticket_transcript" as Permission);
+          const canUseMacros = isSuper || canManage || checkDevPerm("use_ticket_macros" as Permission);
           const canView = isSuper || canViewAll || checkDevPerm("view_tickets") || checkDevPerm("atendimento_tickets.view" as Permission) || checkDevPerm("view_atendimento_tickets" as Permission);
 
           return {
@@ -5114,13 +5141,22 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
             canManage,
             canReply,
             canClaim,
+            canUnassign,
             canTransfer,
             canChangeStatus,
+            canChangePriority,
+            canChangeCategory,
             canClose,
             canReopen,
             canDelete,
             canManageMembers,
             canInternalNotes,
+            canViewInternalNotes,
+            canSendInternalNotes,
+            canSendAttachments,
+            canViewDossier,
+            canExportTranscript,
+            canUseMacros,
             isSuperUser: isSuper,
           };
         }
@@ -5325,11 +5361,20 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
     checkPerm("transfer_tickets") ||
     checkPerm("transfer_ticket" as Permission);
   const canChangeStatus = isSuperUser || canManage || checkPerm("change_ticket_status");
+  const canChangePriority = isSuperUser || canManage || checkPerm("change_ticket_priority" as Permission) || canChangeStatus;
+  const canChangeCategory = isSuperUser || canManage || checkPerm("change_ticket_category" as Permission) || canChangeStatus;
+  const canUnassign = isSuperUser || canManage || checkPerm("unassign_tickets" as Permission) || canClaim;
   const canClose = isSuperUser || canManage || checkPerm("close_tickets") || checkPerm("close_ticket" as Permission);
   const canReopen = isSuperUser || canManage || checkPerm("reopen_tickets") || checkPerm("reopen_ticket" as Permission);
   const canDelete = isSuperUser || canManage || checkPerm("delete_tickets") || checkPerm("delete_ticket" as Permission);
   const canManageMembers = isSuperUser || canManage || checkPerm("manage_ticket_members");
-  const canInternalNotes = isSuperUser || canManage || checkPerm("internal_notes_tickets");
+  const canViewInternalNotes = isSuperUser || canManage || checkPerm("view_ticket_internal_notes" as Permission) || checkPerm("internal_notes_tickets");
+  const canSendInternalNotes = isSuperUser || canManage || checkPerm("send_ticket_internal_notes" as Permission) || checkPerm("internal_notes_tickets");
+  const canInternalNotes = canViewInternalNotes || canSendInternalNotes;
+  const canSendAttachments = isSuperUser || checkPerm("send_ticket_attachments" as Permission) || canReply;
+  const canViewDossier = isSuperUser || canManage || checkPerm("view_ticket_dossier" as Permission) || checkPerm("atendimento_tickets.view" as Permission) || checkPerm("view_atendimento_tickets" as Permission);
+  const canExportTranscript = isSuperUser || canManage || checkPerm("export_ticket_transcript" as Permission);
+  const canUseMacros = isSuperUser || canManage || checkPerm("use_ticket_macros" as Permission);
   const canView = isSuperUser || canViewAll || checkPerm("view_tickets") || checkPerm("atendimento_tickets.view" as Permission) || checkPerm("view_atendimento_tickets" as Permission);
 
   const nome = p?.nome || "Membro";
@@ -5348,13 +5393,22 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
     canManage,
     canReply,
     canClaim,
+    canUnassign,
     canTransfer,
     canChangeStatus,
+    canChangePriority,
+    canChangeCategory,
     canClose,
     canReopen,
     canDelete,
     canManageMembers,
     canInternalNotes,
+    canViewInternalNotes,
+    canSendInternalNotes,
+    canSendAttachments,
+    canViewDossier,
+    canExportTranscript,
+    canUseMacros,
     isSuperUser,
   };
 }
@@ -5384,9 +5438,9 @@ export async function getTickets(): Promise<Ticket[]> {
     return false;
   });
 
-  // Ocultar notas internas confidenciais para quem não possui manage_tickets ou internal_notes_tickets
+  // Ocultar notas internas confidenciais para quem não possui permissão de visualizar notas internas
   const sanitizedTickets = filteredTickets.map((ticket) => {
-    if (auth.canManage || auth.canInternalNotes || auth.isSuperUser) return ticket;
+    if (auth.canManage || auth.canViewInternalNotes || auth.canInternalNotes || auth.isSuperUser) return ticket;
     return {
       ...ticket,
       messages: (ticket.messages || []).filter((msg) => !msg.is_internal_note),
@@ -5514,8 +5568,18 @@ export async function addTicketMessage(
     throw new Error("Você não possui permissão para responder ou enviar mensagens neste chamado.");
   }
 
-  // Apenas quem possui manage_tickets, internal_notes_tickets ou isSuperUser pode enviar nota interna privada
-  const isInternal = Boolean(payload.is_internal_note && (auth.canManage || auth.canInternalNotes || auth.isSuperUser));
+  // Verificação estrita de permissão para Nota Interna Privada:
+  if (payload.is_internal_note && !auth.canSendInternalNotes && !auth.canInternalNotes && !auth.canManage && !auth.isSuperUser) {
+    throw new Error("Você não possui permissão para registrar notas internas privadas.");
+  }
+  const isInternal = Boolean(payload.is_internal_note && (auth.canManage || auth.canSendInternalNotes || auth.canInternalNotes || auth.isSuperUser));
+
+  // Verificação estrita de permissão para envio de anexos / prints:
+  if (payload.attachments && payload.attachments.length > 0) {
+    if (!auth.canSendAttachments && !auth.canReply && !auth.canManage && !auth.isSuperUser) {
+      throw new Error("Você não possui permissão para enviar anexos neste chamado.");
+    }
+  }
 
   const now = new Date().toISOString();
   const newMessage: TicketMessage = {

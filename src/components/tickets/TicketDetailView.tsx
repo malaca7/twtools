@@ -172,20 +172,69 @@ export function TicketDetailView({
   const canClaim =
     !isMemberPortal &&
     (hasPermission("claim_tickets") ||
-      hasPermission("claim_ticket" as Permission));
+      hasPermission("claim_ticket" as Permission) ||
+      effectiveCanManage);
+  const canUnassign =
+    !isMemberPortal &&
+    (hasPermission("unassign_tickets" as Permission) ||
+      canClaim ||
+      effectiveCanManage);
   const canTransfer =
     !isMemberPortal &&
     (hasPermission("transfer_tickets") ||
-      hasPermission("transfer_ticket") ||
+      hasPermission("transfer_ticket" as Permission) ||
       effectiveCanManage);
   const canChangeStatus =
     !isMemberPortal &&
     (hasPermission("change_ticket_status") ||
       effectiveCanManage);
-  const canInternalNotes =
+  const canChangePriority =
     !isMemberPortal &&
-    (hasPermission("internal_notes_tickets") ||
+    (hasPermission("change_ticket_priority" as Permission) ||
+      canChangeStatus ||
       effectiveCanManage);
+  const canChangeCategory =
+    !isMemberPortal &&
+    (hasPermission("change_ticket_category" as Permission) ||
+      canChangeStatus ||
+      effectiveCanManage);
+
+  // Permissões detalhadas de Notas Internas: Visualizar e Enviar
+  const canViewInternalNotes =
+    !isMemberPortal &&
+    (hasPermission("view_ticket_internal_notes" as Permission) ||
+      hasPermission("internal_notes_tickets") ||
+      effectiveCanManage);
+  const canSendInternalNotes =
+    !isMemberPortal &&
+    (hasPermission("send_ticket_internal_notes" as Permission) ||
+      hasPermission("internal_notes_tickets") ||
+      effectiveCanManage);
+  const canInternalNotes = canViewInternalNotes || canSendInternalNotes;
+
+  // Permissão detalhada de Anexos
+  const canSendAttachments =
+    (hasPermission("send_ticket_attachments" as Permission) ||
+      hasPermission("reply_tickets") ||
+      hasPermission("reply_ticket" as Permission) ||
+      effectiveCanManage);
+
+  // Permissões de ferramentas adicionais
+  const canViewDossier =
+    !isMemberPortal &&
+    (hasPermission("view_ticket_dossier" as Permission) ||
+      hasPermission("atendimento_tickets.view" as Permission) ||
+      hasPermission("view_atendimento_tickets" as Permission) ||
+      effectiveCanManage);
+  const canExportTranscript =
+    !isMemberPortal &&
+    (hasPermission("export_ticket_transcript" as Permission) ||
+      effectiveCanManage);
+  const canUseMacros =
+    !isMemberPortal &&
+    (hasPermission("use_ticket_macros" as Permission) ||
+      effectiveCanManage);
+
   const canManageMembers =
     !isMemberPortal &&
     (hasPermission("manage_ticket_members") ||
@@ -193,22 +242,23 @@ export function TicketDetailView({
   const canClose = isMemberPortal
     ? (isCreator && !isClosed)
     : (hasPermission("close_tickets") ||
-      hasPermission("close_ticket") ||
+      hasPermission("close_ticket" as Permission) ||
       effectiveCanManage ||
       isCreator);
   const canReopen =
     !isMemberPortal &&
     (hasPermission("reopen_tickets") ||
-      hasPermission("reopen_ticket") ||
+      hasPermission("reopen_ticket" as Permission) ||
       effectiveCanManage);
   const canDelete =
     !isMemberPortal &&
     (hasPermission("delete_tickets") ||
-      hasPermission("delete_ticket") ||
+      hasPermission("delete_ticket" as Permission) ||
       effectiveCanManage);
   const canReply =
     hasPermission("reply_tickets") ||
-    hasPermission("reply_ticket" as Permission);
+    hasPermission("reply_ticket" as Permission) ||
+    effectiveCanManage;
 
   // Lista de membros do grupo disponíveis para adicionar (não criador e ainda não participante)
   const availableMembersToAdd = useMemo(() => {
@@ -242,6 +292,10 @@ export function TicketDetailView({
       toast.error("Você não possui a permissão 'Responder e Enviar Mensagens nos Chamados'.");
       return;
     }
+    if (!canSendAttachments) {
+      toast.error("Você não possui a permissão para enviar anexos e prints nos chamados.");
+      return;
+    }
     if (!file.type.startsWith("image/")) {
       toast.error("Apenas imagens são aceitas como anexo.");
       return;
@@ -265,7 +319,7 @@ export function TicketDetailView({
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
-    if (!canReply) return;
+    if (!canReply || !canSendAttachments) return;
     const items = e.clipboardData?.items;
     if (!items) return;
     for (let i = 0; i < items.length; i++) {
@@ -287,7 +341,12 @@ export function TicketDetailView({
 
     const text = replyContent.trim();
     const attachments = [...replyAttachments];
-    const isNote = Boolean(isInternalNote && canInternalNotes);
+    const isNote = Boolean(isInternalNote && canSendInternalNotes);
+
+    if (attachments.length > 0 && !canSendAttachments) {
+      toast.error("Você não possui permissão para enviar anexos e prints nos chamados.");
+      return;
+    }
 
     if (!text && attachments.length === 0) {
       toast.error("Digite uma mensagem ou anexe uma imagem.");
@@ -580,10 +639,10 @@ export function TicketDetailView({
         </div>
 
         {/* Linha 4: Barra de Ações Operacionais */}
-        {(canClaim || canTransfer || canChangeStatus || canClose || canReopen || canDelete || !isMemberPortal) && (
+        {(canClaim || canTransfer || canChangeStatus || canChangePriority || canChangeCategory || canClose || canReopen || canDelete || !isMemberPortal) && (
           <div className="flex items-center gap-2 pt-2 border-t border-border/50 flex-wrap">
             {/* Dossiê do Jogador Toggle */}
-            {!isMemberPortal && (
+            {!isMemberPortal && canViewDossier && (
               <Button
                 variant="outline"
                 size="sm"
@@ -602,12 +661,12 @@ export function TicketDetailView({
             )}
 
             {/* Copiar Transcrição do Discord */}
-            {!isMemberPortal && (
+            {!isMemberPortal && canExportTranscript && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  const transcript = generateTicketDiscordTranscript(ticket, canInternalNotes);
+                  const transcript = generateTicketDiscordTranscript(ticket, canViewInternalNotes);
                   navigator.clipboard.writeText(transcript);
                   toast.success("Transcrição completa copiada para colar no Discord!");
                 }}
@@ -635,7 +694,7 @@ export function TicketDetailView({
             )}
 
             {/* Devolver para Fila (Desatribuir) */}
-            {isAssigned && !isClosed && (
+            {canUnassign && isAssigned && !isClosed && (
               <Button
                 variant="outline"
                 size="sm"
@@ -663,7 +722,7 @@ export function TicketDetailView({
             )}
 
             {/* Alterar Prioridade */}
-            {canChangeStatus && !isClosed && (
+            {canChangePriority && !isClosed && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -706,7 +765,7 @@ export function TicketDetailView({
             )}
 
             {/* Reclassificar Categoria */}
-            {canChangeStatus && !isClosed && (
+            {canChangeCategory && !isClosed && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -965,8 +1024,8 @@ export function TicketDetailView({
               const isMe = msg.sender_id === user?.id;
               const isNote = msg.is_internal_note;
 
-              // Notas internas confidenciais são estritamente ocultadas para quem não tem permissão
-              if (isNote && !canInternalNotes) {
+              // Notas internas confidenciais são estritamente ocultadas para quem não tem permissão de visualização
+              if (isNote && !canViewInternalNotes) {
                 return null;
               }
 
@@ -1114,11 +1173,11 @@ export function TicketDetailView({
             <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
               <div className="flex items-center gap-2 flex-wrap">
                 {/* Respostas Rápidas / Macros para Atendentes */}
-                {effectiveCanManage && (
+                {canUseMacros && (
                   <CannedResponsesMenu
                     onSelect={(text, isInternal) => {
                       setReplyContent((prev) => (prev ? `${prev}\n\n${text}` : text));
-                      if (isInternal !== undefined && canInternalNotes) {
+                      if (isInternal !== undefined && canSendInternalNotes) {
                         setIsInternalNote(isInternal);
                       }
                     }}
@@ -1126,34 +1185,38 @@ export function TicketDetailView({
                   />
                 )}
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="h-7 text-xs gap-1 border-border/70 bg-secondary/40 text-muted-foreground hover:text-foreground"
-                >
-                  <Paperclip className="h-3 w-3" />
-                  Anexar Print
-                </Button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => {
-                    const files = e.target.files;
-                    if (files) {
-                      for (let i = 0; i < files.length; i++) {
-                        handleImageFile(files[i]);
-                      }
-                    }
-                  }}
-                />
+                {canSendAttachments && (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="h-7 text-xs gap-1 border-border/70 bg-secondary/40 text-muted-foreground hover:text-foreground"
+                    >
+                      <Paperclip className="h-3 w-3" />
+                      Anexar Print
+                    </Button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        const files = e.target.files;
+                        if (files) {
+                          for (let i = 0; i < files.length; i++) {
+                            handleImageFile(files[i]);
+                          }
+                        }
+                      }}
+                    />
+                  </>
+                )}
 
-                {/* Botão Switch Nota Interna (somente quem tem permissão para notas internas) */}
-                {canInternalNotes && (
+                {/* Botão Switch Nota Interna (somente quem tem permissão para enviar notas internas) */}
+                {canSendInternalNotes && (
                   <div className="flex items-center gap-2 px-2.5 py-1 rounded-md border border-amber-500/30 bg-amber-500/10">
                     <Switch
                       id="internal_note_switch"

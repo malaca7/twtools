@@ -193,6 +193,15 @@ export type Permission =
   | "transfer_tickets"
   | "transfer_ticket"
   | "change_ticket_status"
+  | "change_ticket_priority"
+  | "change_ticket_category"
+  | "unassign_tickets"
+  | "view_ticket_dossier"
+  | "export_ticket_transcript"
+  | "use_ticket_macros"
+  | "send_ticket_attachments"
+  | "view_ticket_internal_notes"
+  | "send_ticket_internal_notes"
   | "internal_notes_tickets"
   | "manage_ticket_members"
   | "close_tickets"
@@ -524,6 +533,15 @@ export const ALL_PERMISSIONS: Permission[] = [
   "transfer_tickets",
   "transfer_ticket",
   "change_ticket_status",
+  "change_ticket_priority",
+  "change_ticket_category",
+  "unassign_tickets",
+  "view_ticket_dossier",
+  "export_ticket_transcript",
+  "use_ticket_macros",
+  "send_ticket_attachments",
+  "view_ticket_internal_notes",
+  "send_ticket_internal_notes",
   "internal_notes_tickets",
   "manage_ticket_members",
   "close_tickets",
@@ -907,6 +925,15 @@ const OFFICER: Permission[] = [
   "transfer_tickets",
   "transfer_ticket",
   "change_ticket_status",
+  "change_ticket_priority",
+  "change_ticket_category",
+  "unassign_tickets",
+  "view_ticket_dossier",
+  "export_ticket_transcript",
+  "use_ticket_macros",
+  "send_ticket_attachments",
+  "view_ticket_internal_notes",
+  "send_ticket_internal_notes",
   "internal_notes_tickets",
   "manage_ticket_members",
   "close_tickets",
@@ -1100,6 +1127,15 @@ const MANAGER: Permission[] = [
   "transfer_tickets",
   "transfer_ticket",
   "change_ticket_status",
+  "change_ticket_priority",
+  "change_ticket_category",
+  "unassign_tickets",
+  "view_ticket_dossier",
+  "export_ticket_transcript",
+  "use_ticket_macros",
+  "send_ticket_attachments",
+  "view_ticket_internal_notes",
+  "send_ticket_internal_notes",
   "internal_notes_tickets",
   "manage_ticket_members",
   "close_tickets",
@@ -1286,6 +1322,14 @@ export const PERMISSION_EQUIVALENCES: Record<string, string[]> = {
   view_raw_materials: ["raw_materials.view"],
   view_all_tickets: ["can_view_all_tickets"],
   can_view_all_tickets: ["view_all_tickets"],
+  view_ticket_internal_notes: ["internal_notes_tickets"],
+  send_ticket_internal_notes: ["internal_notes_tickets"],
+  internal_notes_tickets: ["view_ticket_internal_notes", "send_ticket_internal_notes"],
+  send_ticket_attachments: ["reply_tickets", "reply_ticket"],
+  change_ticket_priority: ["change_ticket_status"],
+  change_ticket_category: ["change_ticket_status"],
+  unassign_tickets: ["claim_tickets", "claim_ticket"],
+  view_ticket_dossier: ["atendimento_tickets.view", "view_atendimento_tickets"],
 };
 
 /**
@@ -1310,10 +1354,20 @@ export function satisfiesPermission(
   if (list.includes("manage_tickets")) {
     if (
       permission === "view_all_tickets" ||
+      permission === "can_view_all_tickets" ||
       permission === "create_ticket" ||
       permission === "transfer_tickets" ||
       permission === "transfer_ticket" ||
       permission === "change_ticket_status" ||
+      permission === "change_ticket_priority" ||
+      permission === "change_ticket_category" ||
+      permission === "unassign_tickets" ||
+      permission === "view_ticket_dossier" ||
+      permission === "export_ticket_transcript" ||
+      permission === "use_ticket_macros" ||
+      permission === "send_ticket_attachments" ||
+      permission === "view_ticket_internal_notes" ||
+      permission === "send_ticket_internal_notes" ||
       permission === "close_tickets" ||
       permission === "close_ticket" ||
       permission === "reopen_tickets" ||
@@ -1325,6 +1379,63 @@ export function satisfiesPermission(
     ) {
       return true;
     }
+  }
+
+  // Visualizar / Enviar Notas Internas Privadas
+  if (
+    (permission === "view_ticket_internal_notes" || permission === "send_ticket_internal_notes") &&
+    (list.includes("internal_notes_tickets") || list.includes("manage_tickets"))
+  ) {
+    return true;
+  }
+
+  // Enviar Anexos / Prints
+  if (
+    permission === "send_ticket_attachments" &&
+    (list.includes("send_ticket_attachments") ||
+      list.includes("reply_tickets") ||
+      list.includes("reply_ticket") ||
+      list.includes("manage_tickets"))
+  ) {
+    return true;
+  }
+
+  // Alterar Prioridade ou Categoria
+  if (
+    (permission === "change_ticket_priority" || permission === "change_ticket_category") &&
+    (list.includes("change_ticket_status") || list.includes("manage_tickets"))
+  ) {
+    return true;
+  }
+
+  // Devolver Chamado para Fila Aberta
+  if (
+    permission === "unassign_tickets" &&
+    (list.includes("unassign_tickets") ||
+      list.includes("claim_tickets") ||
+      list.includes("claim_ticket") ||
+      list.includes("manage_tickets"))
+  ) {
+    return true;
+  }
+
+  // Dossiê do Jogador
+  if (
+    permission === "view_ticket_dossier" &&
+    (list.includes("view_ticket_dossier") ||
+      list.includes("atendimento_tickets.view") ||
+      list.includes("view_atendimento_tickets") ||
+      list.includes("manage_tickets"))
+  ) {
+    return true;
+  }
+
+  // Exportar Transcrição ou Macros
+  if (
+    (permission === "export_ticket_transcript" || permission === "use_ticket_macros") &&
+    (list.includes(permission) || list.includes("manage_tickets"))
+  ) {
+    return true;
   }
 
   // Visualizar Todos os Chamados na Fila Geral (Estrita: requer view_all_tickets ou manage_tickets)
@@ -2716,10 +2827,20 @@ export function can(
   if (rolePerms.includes("manage_tickets")) {
     if (
       permission === "view_all_tickets" ||
+      permission === "can_view_all_tickets" ||
       permission === "create_ticket" ||
       permission === "transfer_tickets" ||
       permission === "transfer_ticket" ||
       permission === "change_ticket_status" ||
+      permission === "change_ticket_priority" ||
+      permission === "change_ticket_category" ||
+      permission === "unassign_tickets" ||
+      permission === "view_ticket_dossier" ||
+      permission === "export_ticket_transcript" ||
+      permission === "use_ticket_macros" ||
+      permission === "send_ticket_attachments" ||
+      permission === "view_ticket_internal_notes" ||
+      permission === "send_ticket_internal_notes" ||
       permission === "close_tickets" ||
       permission === "close_ticket" ||
       permission === "reopen_tickets" ||
@@ -2731,6 +2852,63 @@ export function can(
     ) {
       return true;
     }
+  }
+
+  // Visualizar / Enviar Notas Internas Privadas
+  if (
+    (permission === "view_ticket_internal_notes" || permission === "send_ticket_internal_notes") &&
+    (rolePerms.includes("internal_notes_tickets") || rolePerms.includes("manage_tickets"))
+  ) {
+    return true;
+  }
+
+  // Enviar Anexos / Prints
+  if (
+    permission === "send_ticket_attachments" &&
+    (rolePerms.includes("send_ticket_attachments") ||
+      rolePerms.includes("reply_tickets") ||
+      rolePerms.includes("reply_ticket") ||
+      rolePerms.includes("manage_tickets"))
+  ) {
+    return true;
+  }
+
+  // Alterar Prioridade ou Categoria
+  if (
+    (permission === "change_ticket_priority" || permission === "change_ticket_category") &&
+    (rolePerms.includes("change_ticket_status") || rolePerms.includes("manage_tickets"))
+  ) {
+    return true;
+  }
+
+  // Devolver Chamado para Fila Aberta
+  if (
+    permission === "unassign_tickets" &&
+    (rolePerms.includes("unassign_tickets") ||
+      rolePerms.includes("claim_tickets") ||
+      rolePerms.includes("claim_ticket") ||
+      rolePerms.includes("manage_tickets"))
+  ) {
+    return true;
+  }
+
+  // Dossiê do Jogador
+  if (
+    permission === "view_ticket_dossier" &&
+    (rolePerms.includes("view_ticket_dossier") ||
+      rolePerms.includes("atendimento_tickets.view") ||
+      rolePerms.includes("view_atendimento_tickets") ||
+      rolePerms.includes("manage_tickets"))
+  ) {
+    return true;
+  }
+
+  // Exportar Transcrição ou Macros
+  if (
+    (permission === "export_ticket_transcript" || permission === "use_ticket_macros") &&
+    (rolePerms.includes(permission) || rolePerms.includes("manage_tickets"))
+  ) {
+    return true;
   }
   // Equivalências diretas entre plural e singular
   if (permission === "reply_tickets" && rolePerms.includes("reply_ticket")) return true;

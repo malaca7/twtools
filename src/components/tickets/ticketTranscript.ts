@@ -79,3 +79,4 @@ export function generateTicketDiscordTranscript(ticket: Ticket, includeInternalN
 
   return lines.join("\n");
 }
+
