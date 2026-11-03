@@ -158,35 +158,29 @@ export function VerifiedBadge({
     return null;
   }
 
-  // Resolução da identidade visual seguindo a hierarquia:
-  // 1. Props explícitos passados ao componente
-  // 2. Customizações específicas do membro (se gravadas em member_verifications)
-  // 3. Configuração oficial definida em "Personalização Visual & Requisitos do Selo"
-  // 4. Fallback padrão da Twin Wheels
+  // Identidade visual unificada para todos os integrantes de acordo com a configuração de aparência do selo:
   const effectiveIconName =
-    iconName ||
-    memberVerRecord?.badge_icon_override ||
+    (preview && iconName) ||
     config?.badge_icon ||
     "BadgeCheck";
 
   const effectiveColor =
-    color ||
-    memberVerRecord?.badge_color_override ||
+    (preview && color) ||
     config?.badge_color ||
     "#38bdf8";
 
-  const rawGlow = glowStyle !== undefined ? glowStyle : config?.glow_style || "cyan";
+  const rawGlow = (preview && glowStyle !== undefined)
+    ? glowStyle
+    : (config?.glow_style || "cyan");
 
   const effectiveTooltip =
-    tooltip ||
-    memberVerRecord?.custom_title ||
+    (preview && tooltip) ||
     config?.tooltip_text ||
     config?.badge_name ||
     "Membro Oficial Verificado";
 
   const effectiveText =
-    text ||
-    memberVerRecord?.custom_title ||
+    (preview && text) ||
     config?.badge_name ||
     "Verificado";
 

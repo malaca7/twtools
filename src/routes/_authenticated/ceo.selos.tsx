@@ -154,7 +154,6 @@ export function CeoSelosPage() {
     updateConfigMutation,
     reviewRequestMutation,
     grantDirectMutation,
-    updateOverrideMutation,
     revokeMutation,
   } = useVerificationMutations();
 
@@ -169,23 +168,12 @@ export function CeoSelosPage() {
   const [selectedRequest, setSelectedRequest] = useState<VerificationRequest | null>(null);
   const [reviewAction, setReviewAction] = useState<"approve" | "reject">("approve");
   const [reviewNotes, setReviewNotes] = useState("");
-  const [customTitle, setCustomTitle] = useState("Verificado Oficial");
-  const [reviewBadgeColor, setReviewBadgeColor] = useState("");
 
   // Modal de Concessão Direta
   const [isDirectModalOpen, setIsDirectModalOpen] = useState(false);
   const [directTargetUserId, setDirectTargetUserId] = useState("");
-  const [directCustomTitle, setDirectCustomTitle] = useState("Verificado Oficial");
-  const [directColor, setDirectColor] = useState("");
   const [directNotes, setDirectNotes] = useState("");
   const [directSearch, setDirectSearch] = useState("");
-
-  // Modal de Edição de Membro Verificado
-  const [editingVerifiedMember, setEditingVerifiedMember] = useState<MemberVerification | null>(null);
-  const [editMemberTitle, setEditMemberTitle] = useState("");
-  const [editMemberColor, setEditMemberColor] = useState("");
-  const [editMemberIcon, setEditMemberIcon] = useState("");
-  const [editMemberNotes, setEditMemberNotes] = useState("");
 
   // Modal de Revogação
   const [revokingMember, setRevokingMember] = useState<MemberVerification | null>(null);
@@ -359,20 +347,16 @@ export function CeoSelosPage() {
       requestId: selectedRequest.id,
       approve: reviewAction === "approve",
       notes: reviewNotes.trim() || undefined,
-      customTitle: customTitle.trim() || undefined,
-      badgeColor: reviewBadgeColor.trim() || undefined,
     });
     setSelectedRequest(null);
     setReviewNotes("");
   };
 
-  // Processar Concessão Direta
+  // Processar Concessão Direta (Selo Unificado Oficial)
   const handleConfirmDirect = async () => {
     if (!directTargetUserId) return;
     await grantDirectMutation.mutateAsync({
       targetUserId: directTargetUserId,
-      customTitle: directCustomTitle.trim() || undefined,
-      badgeColor: directColor.trim() || undefined,
       notes: directNotes.trim() || undefined,
     });
     setIsDirectModalOpen(false);
@@ -389,19 +373,6 @@ export function CeoSelosPage() {
     });
     setRevokingMember(null);
     setRevokeReason("");
-  };
-
-  // Processar Edição de Personalização do Membro
-  const handleConfirmEditMember = async () => {
-    if (!editingVerifiedMember) return;
-    await updateOverrideMutation.mutateAsync({
-      targetUserId: editingVerifiedMember.user_id,
-      customTitle: editMemberTitle.trim() || undefined,
-      badgeColor: editMemberColor.trim() || undefined,
-      badgeIcon: editMemberIcon.trim() || undefined,
-      notes: editMemberNotes.trim() || undefined,
-    });
-    setEditingVerifiedMember(null);
   };
 
   // Garante que abas restritas não permaneçam ativas se o membro perder a permissão
@@ -813,7 +784,7 @@ export function CeoSelosPage() {
                     <TableHeader>
                       <TableRow className="bg-muted/40 hover:bg-transparent border-b border-border/60">
                         <TableHead className="font-bold text-xs">Membro / Personagem</TableHead>
-                        <TableHead className="font-bold text-xs">Selo & Título</TableHead>
+                        <TableHead className="font-bold text-xs">Selo Oficial</TableHead>
                         <TableHead className="font-bold text-xs">Data de Verificação</TableHead>
                         <TableHead className="font-bold text-xs">Aprovado Por</TableHead>
                         {canRevoke && <TableHead className="font-bold text-xs text-right pr-4">Ações</TableHead>}
@@ -822,10 +793,10 @@ export function CeoSelosPage() {
 
                     <TableBody>
                       {filteredVerifications.map((v) => {
-                        const itemColor = v.badge_color_override || config?.badge_color || "#38bdf8";
-                        const itemIcon = v.badge_icon_override || config?.badge_icon || "BadgeCheck";
-                        const itemTitle = v.custom_title || config?.badge_name || "Membro Verificado";
-                        const itemGlow = config?.glow_style || "cyan";
+                        const badgeColor = config?.badge_color || "#38bdf8";
+                        const badgeIcon = config?.badge_icon || "BadgeCheck";
+                        const badgeName = config?.badge_name || "Membro Verificado";
+                        const badgeGlow = config?.glow_style || "cyan";
 
                         return (
                           <TableRow key={v.id} className="hover:bg-muted/30">
@@ -846,10 +817,10 @@ export function CeoSelosPage() {
                                       isVerified
                                       preview
                                       size="sm"
-                                      color={itemColor}
-                                      iconName={itemIcon}
-                                      glowStyle={itemGlow}
-                                      tooltip={itemTitle}
+                                      color={badgeColor}
+                                      iconName={badgeIcon}
+                                      glowStyle={badgeGlow}
+                                      tooltip={config?.tooltip_text || badgeName}
                                     />
                                   </div>
                                   <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
@@ -869,21 +840,21 @@ export function CeoSelosPage() {
                                 variant="outline"
                                 className="text-[11px] font-bold px-2.5 py-0.5 rounded-lg gap-1.5 transition-all shadow-xs"
                                 style={{
-                                  borderColor: `${itemColor}45`,
-                                  color: itemColor,
-                                  backgroundColor: `${itemColor}15`,
+                                  borderColor: `${badgeColor}45`,
+                                  color: badgeColor,
+                                  backgroundColor: `${badgeColor}15`,
                                 }}
                               >
                                 <VerifiedBadge
                                   isVerified
                                   preview
                                   size="xs"
-                                  color={itemColor}
-                                  iconName={itemIcon}
-                                  glowStyle={itemGlow}
+                                  color={badgeColor}
+                                  iconName={badgeIcon}
+                                  glowStyle={badgeGlow}
                                   noTooltip
                                 />
-                                <span>{itemTitle}</span>
+                                <span>{badgeName}</span>
                               </Badge>
                             </TableCell>
 
@@ -897,25 +868,6 @@ export function CeoSelosPage() {
 
                           <TableCell className="text-right pr-4">
                             <div className="flex items-center justify-end gap-1">
-                              {canGrant && (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setEditingVerifiedMember(v);
-                                    setEditMemberTitle(v.custom_title || config?.badge_name || "Verificado Oficial");
-                                    setEditMemberColor(v.badge_color_override || config?.badge_color || "");
-                                    setEditMemberIcon(v.badge_icon_override || config?.badge_icon || "");
-                                    setEditMemberNotes(v.notes || "");
-                                  }}
-                                  className="h-7 text-xs rounded-lg text-primary hover:bg-primary/10 gap-1 font-semibold cursor-pointer"
-                                  title="Editar personalização individual do selo deste membro"
-                                >
-                                  <Edit className="h-3.5 w-3.5" />
-                                  <span>Editar</span>
-                                </Button>
-                              )}
                               {canRevoke && (
                                 <Button
                                   type="button"
@@ -926,6 +878,7 @@ export function CeoSelosPage() {
                                     setRevokeReason("");
                                   }}
                                   className="h-7 text-xs rounded-lg text-rose-400 hover:bg-rose-500/10 gap-1 font-semibold cursor-pointer"
+                                  title="Remover selo de verificação deste integrante"
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                   <span>Remover Selo</span>
@@ -1392,18 +1345,32 @@ export function CeoSelosPage() {
           <div className="space-y-3 py-2 text-xs">
             {reviewAction === "approve" ? (
               <>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Título do Selo (Opcional)</Label>
-                  <Input
-                    value={customTitle}
-                    onChange={(e) => setCustomTitle(e.target.value)}
-                    placeholder="Ex: Verificado Oficial / Líder / Operador"
-                    className="h-8 text-xs rounded-xl"
-                  />
+                <div className="p-3 rounded-2xl bg-secondary/30 border border-border/50 flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Selo Oficial Concedido:</span>
+                  <Badge
+                    variant="outline"
+                    className="text-[11px] font-bold px-2.5 py-0.5 rounded-lg gap-1.5"
+                    style={{
+                      borderColor: `${config?.badge_color || "#38bdf8"}45`,
+                      color: config?.badge_color || "#38bdf8",
+                      backgroundColor: `${config?.badge_color || "#38bdf8"}15`,
+                    }}
+                  >
+                    <VerifiedBadge
+                      isVerified
+                      preview
+                      size="xs"
+                      color={config?.badge_color}
+                      iconName={config?.badge_icon}
+                      glowStyle={config?.glow_style}
+                      noTooltip
+                    />
+                    <span>{config?.badge_name || "Verificado Oficial"}</span>
+                  </Badge>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Notas / Observação Interna</Label>
+                  <Label className="text-xs font-semibold">Notas / Observação Interna (Opcional)</Label>
                   <Input
                     value={reviewNotes}
                     onChange={(e) => setReviewNotes(e.target.value)}
@@ -1463,7 +1430,6 @@ export function CeoSelosPage() {
           if (!open) {
             setDirectSearch("");
             setDirectNotes("");
-            setDirectColor("");
           }
         }}
       >
@@ -1514,15 +1480,15 @@ export function CeoSelosPage() {
               <div
                 className="p-3 rounded-2xl border space-y-2.5 transition-all shadow-xs"
                 style={{
-                  backgroundColor: `${directColor || config?.badge_color || formColor}10`,
-                  borderColor: `${directColor || config?.badge_color || formColor}30`,
+                  backgroundColor: `${config?.badge_color || formColor}10`,
+                  borderColor: `${config?.badge_color || formColor}30`,
                 }}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <Avatar
                       className="h-10 w-10 border shadow-xs"
-                      style={{ borderColor: `${directColor || config?.badge_color || formColor}40` }}
+                      style={{ borderColor: `${config?.badge_color || formColor}40` }}
                     >
                       <AvatarImage src={(selectedDirectMember as any).discord_avatar_url || selectedDirectMember.avatar_url || ""} />
                       <AvatarFallback className="font-bold text-xs">
@@ -1538,9 +1504,9 @@ export function CeoSelosPage() {
                           preview
                           size="sm"
                           iconName={config?.badge_icon || formIcon}
-                          color={directColor || config?.badge_color || formColor}
+                          color={config?.badge_color || formColor}
                           glowStyle={config?.glow_style || formGlow}
-                          tooltip={directCustomTitle || formTooltip}
+                          tooltip={config?.tooltip_text || formTooltip}
                         />
                       </div>
                       <p className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
@@ -1553,27 +1519,27 @@ export function CeoSelosPage() {
 
                 <div
                   className="flex items-center justify-between text-[11px] pt-2 border-t text-muted-foreground"
-                  style={{ borderColor: `${directColor || config?.badge_color || formColor}25` }}
+                  style={{ borderColor: `${config?.badge_color || formColor}25` }}
                 >
-                  <span>Visualização Oficial:</span>
+                  <span>Selo Oficial Concedido:</span>
                   <Badge
                     variant="outline"
                     className="text-[10px] font-bold px-2.5 py-0.5 rounded-lg gap-1 transition-all shadow-xs"
                     style={{
-                      borderColor: `${directColor || config?.badge_color || formColor}45`,
-                      color: directColor || config?.badge_color || formColor,
-                      backgroundColor: `${directColor || config?.badge_color || formColor}20`,
+                      borderColor: `${config?.badge_color || formColor}45`,
+                      color: config?.badge_color || formColor,
+                      backgroundColor: `${config?.badge_color || formColor}20`,
                     }}
                   >
                     <VerifiedBadge
                       preview
                       size="xs"
                       iconName={config?.badge_icon || formIcon}
-                      color={directColor || config?.badge_color || formColor}
+                      color={config?.badge_color || formColor}
                       glowStyle={config?.glow_style || formGlow}
                       noTooltip
                     />
-                    <span>{directCustomTitle.trim() || config?.badge_name || formName || "Verificado Oficial"}</span>
+                    <span>{config?.badge_name || formName || "Verificado Oficial"}</span>
                   </Badge>
                 </div>
               </div>
@@ -1583,46 +1549,9 @@ export function CeoSelosPage() {
               </div>
             )}
 
-            {/* TÍTULO PERSONALIZADO */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Título Personalizado do Selo</Label>
-              <Input
-                value={directCustomTitle}
-                onChange={(e) => setDirectCustomTitle(e.target.value)}
-                placeholder="Ex: Verificado Oficial / Líder / Parceiro"
-                className="h-8 text-xs rounded-xl"
-              />
-            </div>
-
-            {/* COR PERSONALIZADA / PALETA */}
-            <div className="space-y-2">
-              <Label className="text-xs font-semibold">Cor de Destaque do Selo</Label>
-              <div className="flex flex-wrap gap-1.5">
-                {PRESET_COLORS.map((preset) => (
-                  <button
-                    key={preset.color}
-                    type="button"
-                    onClick={() => setDirectColor(preset.color)}
-                    className={cn(
-                      "px-2.5 py-1 rounded-lg text-[11px] font-bold border flex items-center gap-1.5 transition-all",
-                      directColor === preset.color || (!directColor && preset.color === formColor)
-                        ? "border-white bg-white/10 shadow-sm scale-105"
-                        : "border-border/60 bg-secondary/20 hover:border-border"
-                    )}
-                  >
-                    <span
-                      className="h-2.5 w-2.5 rounded-full inline-block border border-white/20"
-                      style={{ backgroundColor: preset.color }}
-                    />
-                    <span>{preset.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* JUSTIFICATIVA / NOTAS */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Justificativa / Motivo da Concessão</Label>
+              <Label className="text-xs font-semibold">Justificativa / Motivo da Concessão (Opcional)</Label>
               <Input
                 value={directNotes}
                 onChange={(e) => setDirectNotes(e.target.value)}
@@ -1781,151 +1710,6 @@ export function CeoSelosPage() {
               className="text-xs rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90"
             >
               Adicionar Requisito
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      {/* DIALOG DE EDIÇÃO DE PERSONALIZAÇÃO INDIVIDUAL DO MEMBRO */}
-      <Dialog
-        open={Boolean(editingVerifiedMember)}
-        onOpenChange={(open) => !open && setEditingVerifiedMember(null)}
-      >
-        <DialogContent className="sm:max-w-lg surface-card border-border/80 shadow-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-base font-bold flex items-center gap-2">
-              <Edit className="h-5 w-5 text-sky-400" />
-              <span>Editar Selo de {editingVerifiedMember?.member?.nickname || editingVerifiedMember?.member?.nome || "Membro"}</span>
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              Personalize o título, ícone ou cor de destaque individual deste integrante ou deixe em branco para seguir o padrão global.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2 text-xs">
-            {/* PRÉ-VISUALIZAÇÃO EM TEMPO REAL */}
-            <div
-              className="p-3.5 rounded-2xl border space-y-2 flex items-center justify-between"
-              style={{
-                backgroundColor: `${editMemberColor || config?.badge_color || "#38bdf8"}10`,
-                borderColor: `${editMemberColor || config?.badge_color || "#38bdf8"}30`,
-              }}
-            >
-              <div className="flex items-center gap-2.5">
-                <Avatar className="h-10 w-10 border border-border/60">
-                  <AvatarImage src={editingVerifiedMember?.member?.discord_avatar_url || editingVerifiedMember?.member?.avatar_url || ""} />
-                  <AvatarFallback className="font-bold text-xs">
-                    {(editingVerifiedMember?.member?.nickname || editingVerifiedMember?.member?.nome || "MB").slice(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-sm text-foreground">
-                      {editingVerifiedMember?.member?.nickname || editingVerifiedMember?.member?.nome}
-                    </span>
-                    <VerifiedBadge
-                      preview
-                      size="sm"
-                      iconName={editMemberIcon || config?.badge_icon}
-                      color={editMemberColor || config?.badge_color}
-                      glowStyle={config?.glow_style}
-                      tooltip={editMemberTitle || config?.tooltip_text}
-                    />
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {editMemberTitle || config?.badge_name || "Verificado Oficial"}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* TÍTULO PERSONALIZADO */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Título do Selo no Perfil</Label>
-              <Input
-                value={editMemberTitle}
-                onChange={(e) => setEditMemberTitle(e.target.value)}
-                placeholder={config?.badge_name || "Ex: Verificado Oficial / Líder de Equipe"}
-                className="h-8 text-xs rounded-xl"
-              />
-            </div>
-
-            {/* COR PERSONALIZADA */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-semibold">Cor de Destaque Individual</Label>
-                {editMemberColor && (
-                  <button
-                    type="button"
-                    onClick={() => setEditMemberColor("")}
-                    className="text-[10px] text-sky-400 hover:underline cursor-pointer"
-                  >
-                    Restaurar cor padrão global
-                  </button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {PRESET_COLORS.map((preset) => (
-                  <button
-                    key={preset.color}
-                    type="button"
-                    onClick={() => setEditMemberColor(preset.color)}
-                    className={cn(
-                      "px-2.5 py-1 rounded-lg text-[11px] font-bold border flex items-center gap-1.5 transition-all cursor-pointer",
-                      editMemberColor === preset.color
-                        ? "border-white bg-white/10 shadow-sm scale-105"
-                        : "border-border/60 bg-secondary/20 hover:border-border"
-                    )}
-                  >
-                    <span
-                      className="h-2.5 w-2.5 rounded-full inline-block border border-white/20"
-                      style={{ backgroundColor: preset.color }}
-                    />
-                    <span>{preset.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* NOTAS / MOTIVO */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Notas / Observação Interna</Label>
-              <Input
-                value={editMemberNotes}
-                onChange={(e) => setEditMemberNotes(e.target.value)}
-                placeholder="Ex: Título concedido por mérito operacional"
-                className="h-8 text-xs rounded-xl"
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="gap-2 pt-2 border-t border-border/60">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setEditingVerifiedMember(null)}
-              className="text-xs rounded-xl"
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleConfirmEditMember}
-              disabled={updateOverrideMutation.isPending}
-              className="text-xs rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-md"
-            >
-              {updateOverrideMutation.isPending ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span>Salvando...</span>
-                </>
-              ) : (
-                <>
-                  <Check className="h-3.5 w-3.5" />
-                  <span>Salvar Alterações</span>
-                </>
-              )}
             </Button>
           </DialogFooter>
         </DialogContent>
