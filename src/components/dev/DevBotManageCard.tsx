@@ -45,6 +45,7 @@ import {
   Tag,
   ArrowUp,
   ArrowDown,
+  Camera,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -75,6 +76,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
+import { isUserDeveloper, isUserCeo } from "@/services/devService";
 import { supabase } from "@/integrations/supabase/client";
 import { logAuditAction } from "@/lib/app-api";
 import {
@@ -123,7 +125,16 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
       ? isCeoViewProp
       : typeof window !== "undefined" && window.location.pathname.includes("/ceo");
 
-  const { user, profile, level, hasPermission } = useAuth();
+  const { user, profile, level, hasPermission: authHasPermission, isDevUser, isCeoUser } = useAuth();
+
+  const isDev = isUserDeveloper(user, profile, level) || Boolean(isDevUser) || level === "desenvolvedor";
+  const isCeo = isUserCeo(profile) || Boolean(isCeoUser) || level === "ceo";
+  const canManageBot = isDev || isCeo;
+
+  const hasPermission = (perm: string) => {
+    if (canManageBot) return true;
+    return authHasPermission(perm as any);
+  };
 
   const canEditProfile =
     hasPermission("bot_change_banner") ||
@@ -611,7 +622,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
         );
 
         const currentToken = config.botToken || tokenInput || "";
-        const res = await updateDiscordBotProfile(currentToken, { avatarUrlOrFile: croppedFile });
+        const res = await updateDiscordBotProfile(currentToken, { avatarUrlOrFile: publicUrl || croppedFile });
         if (res.success) {
           toast.success("Foto de perfil sincronizada no Discord com sucesso!", { id: toastId });
         } else {
@@ -628,7 +639,7 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
         );
 
         const currentToken = config.botToken || tokenInput || "";
-        const res = await updateDiscordBotProfile(currentToken, { bannerUrlOrFile: croppedFile });
+        const res = await updateDiscordBotProfile(currentToken, { bannerUrlOrFile: publicUrl || croppedFile });
         if (res.success) {
           toast.success("Banner salvo e sincronizado no Discord com sucesso!", { id: toastId });
         } else {
@@ -973,15 +984,41 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
         {/* COLUNA ESQUERDA: DISCORD BOT PROFILE POPOUT CARD (FIDELIDADE DISCORD 1:1) */}
         <div className="lg:col-span-5 xl:col-span-5 2xl:col-span-4 flex flex-col items-center lg:items-start w-full">
           <div className="w-full max-w-[360px] mx-auto lg:mx-0 rounded-3xl bg-[#111214] border border-[#2b2d31] overflow-hidden shadow-2xl shadow-black/90 font-sans select-none ring-1 ring-white/5">
-            {/* BANNER COM OPÇÕES (...) */}
+            {/* BANNER COM OPÇÕES (...) E HOVER EDITÁVEL */}
             <div
               key={botBanner}
-              className="relative w-full h-36 sm:h-40 bg-cover bg-center transition-all duration-300"
+              onClick={() => {
+                setBannerUrlInput(config.botBannerUrl || "");
+                setIsBannerModalOpen(true);
+              }}
+              className="relative w-full h-36 sm:h-40 bg-cover bg-center transition-all duration-300 group cursor-pointer"
               style={{
                 backgroundImage: `url("${botBanner}")`,
                 backgroundColor: "#1e1f22",
               }}
+              title="Clique para alterar ou recortar o banner"
             >
+              {/* Overlay suave ao passar o mouse com botão Alterar Banner */}
+              <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
+                <div className="px-3.5 py-1.5 rounded-full bg-black/75 border border-white/20 text-white text-xs font-bold flex items-center gap-2 shadow-2xl transform group-hover:scale-105 transition-transform">
+                  <Camera className="h-4 w-4 text-primary" />
+                  <span>Alterar Banner</span>
+                </div>
+              </div>
+
+              {/* Botão de recorte rápido no canto superior esquerdo do banner */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenCropForExisting("banner");
+                }}
+                className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full bg-black/60 hover:bg-black/85 text-white text-[10px] font-bold flex items-center gap-1.5 backdrop-blur-md border border-white/15 opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-lg cursor-pointer"
+                title="Ajustar / Recortar banner no estúdio"
+              >
+                <Crop className="h-3 w-3 text-emerald-400" />
+                <span>Ajustar</span>
+              </button>
               {/* Top-Right Discord 3 Dots Menu (...) */}
               {(!isCeoView || canEditProfile) && (
                 <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-10">
@@ -1103,19 +1140,12 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                 <div className="flex items-end gap-2">
                   {/* Circular Avatar com Ring Discord */}
                   <div
-                    className={cn(
-                      "relative group shrink-0",
-                      hasPermission("bot_change_avatar") ? "cursor-pointer" : "cursor-default"
-                    )}
+                    className="relative group shrink-0 cursor-pointer"
                     onClick={() => {
-                      if (!hasPermission("bot_change_avatar")) return;
+                      setAvatarInput(config.botAvatarUrl || "");
                       setIsAvatarModalOpen(true);
                     }}
-                    title={
-                      hasPermission("bot_change_avatar")
-                        ? "Clique para alterar ou recortar avatar"
-                        : botName
-                    }
+                    title="Clique para alterar ou recortar a foto de perfil (avatar)"
                   >
                     <img
                       key={botAvatar}
@@ -1141,12 +1171,11 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                       )}
                       title={`Status: ${currentPresence}`}
                     />
-                    {/* Hover overlay */}
-                    {hasPermission("bot_change_avatar") && (
-                      <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity ring-6 ring-[#111214]">
-                        <Edit2 className="h-4 w-4 text-white" />
-                      </div>
-                    )}
+                    {/* Discord Camera Hover Badge Overlay */}
+                    <div className="absolute inset-0 rounded-full bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-all ring-6 ring-[#111214] backdrop-blur-[1px]">
+                      <Camera className="h-5 w-5 text-white animate-in zoom-in-75 duration-150" />
+                      <span className="text-[9px] font-black uppercase tracking-wider text-white mt-0.5">Mudar</span>
+                    </div>
                   </div>
 
                   {/* Status Bubble (Pill format matching Discord: 'by malaca') */}
@@ -1449,6 +1478,85 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
                 </div>
               )}
             </div>
+          </div>
+
+          {/* BARRA DE AÇÕES RÁPIDAS DE EDIÇÃO DO PERFIL DO BOT */}
+          <div className="w-full max-w-[360px] mx-auto lg:mx-0 mt-3.5 p-2 rounded-2xl bg-zinc-950/90 border border-zinc-800/80 flex items-center gap-2 shadow-2xl backdrop-blur-sm">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setAvatarInput(config.botAvatarUrl || "");
+                setIsAvatarModalOpen(true);
+              }}
+              className="flex-1 h-8 text-xs font-bold gap-1.5 bg-zinc-900/90 hover:bg-zinc-800 border-zinc-700/60 text-white cursor-pointer hover:border-primary/50 transition-all shadow-xs"
+            >
+              <Camera className="h-3.5 w-3.5 text-primary" />
+              <span>Mudar Avatar</span>
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setBannerUrlInput(config.botBannerUrl || "");
+                setIsBannerModalOpen(true);
+              }}
+              className="flex-1 h-8 text-xs font-bold gap-1.5 bg-zinc-900/90 hover:bg-zinc-800 border-zinc-700/60 text-white cursor-pointer hover:border-primary/50 transition-all shadow-xs"
+            >
+              <ImageIcon className="h-3.5 w-3.5 text-indigo-400" />
+              <span>Mudar Banner</span>
+            </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-2.5 bg-zinc-900/90 hover:bg-zinc-800 border-zinc-700/60 text-zinc-300 hover:text-white cursor-pointer"
+                  title="Mais ferramentas de perfil"
+                >
+                  <Crop className="h-3.5 w-3.5 text-emerald-400" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52 bg-[#111214] border-[#2b2d31] text-zinc-200">
+                <DropdownMenuItem
+                  onClick={() => handleOpenCropForExisting("avatar")}
+                  className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
+                >
+                  <Crop className="h-3.5 w-3.5 text-emerald-400" />
+                  <span>Ajustar / Recortar Avatar</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleOpenCropForExisting("banner")}
+                  className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
+                >
+                  <Crop className="h-3.5 w-3.5 text-emerald-400" />
+                  <span>Ajustar / Recortar Banner</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-[#2b2d31]" />
+                <DropdownMenuItem
+                  onClick={() => {
+                    setNameInput(botName);
+                    setIsNameModalOpen(true);
+                  }}
+                  className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
+                >
+                  <Edit2 className="h-3.5 w-3.5 text-purple-400" />
+                  <span>Alterar Nome do Bot</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleCopyId}
+                  className="text-xs hover:bg-[#232428] hover:text-white cursor-pointer gap-2"
+                >
+                  {copiedId ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                  <span>Copiar ID do Bot</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -2135,6 +2243,27 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
               <p className="text-[0.65rem] text-muted-foreground">
                 Selecione uma imagem do seu computador (PNG, JPG, WEBP - máx. 8MB)
               </p>
+            </div>
+
+            {/* Divisor */}
+            <div className="relative flex items-center justify-center">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-zinc-800" />
+              </div>
+              <span className="relative bg-zinc-950 px-2 text-[10px] uppercase font-bold text-zinc-500">
+                ou informe um link direto
+              </span>
+            </div>
+
+            {/* Opção 2: URL direta da Imagem do Banner */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-muted-foreground">URL da Imagem do Banner</Label>
+              <Input
+                placeholder="https://... (i.postimg.cc, images.unsplash.com, cdn.discordapp.com)"
+                value={bannerUrlInput}
+                onChange={(e) => setBannerUrlInput(e.target.value.trim())}
+                className="bg-zinc-900 border-zinc-800 text-xs font-mono"
+              />
             </div>
 
             {/* Preview do Banner com Botão de Ajustar */}

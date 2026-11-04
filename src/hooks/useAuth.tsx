@@ -1791,6 +1791,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const checkCeoTagHasPermission = (perm: Permission): boolean => {
         if (!isCeoUser) return false;
         if (perm === "view_ceo" || perm === "view_ceo_dashboard") return true;
+        if (perm.startsWith("bot_") || perm === "manage_ceo_bot") return true;
         if (satisfiesPermission(ceoTagPermissions, perm)) return true;
 
         if (ceoTagRules.can_view_all_tickets && (perm === "view_all_tickets" || (perm as string) === "can_view_all_tickets")) return true;
@@ -1806,7 +1807,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // 4. TAG DEV (SE ELE POSSUIR):
       const checkDevTagHasPermission = (perm: Permission): boolean => {
         if (!isDevUser) return false;
-        if (perm === "view_dev_hub" || perm === "view_dev" || perm.startsWith("manage_dev_")) return true;
+        if (
+          perm === "view_dev_hub" ||
+          perm === "view_dev" ||
+          perm.startsWith("manage_dev_") ||
+          perm.startsWith("dev_") ||
+          perm.startsWith("bot_") ||
+          perm === "manage_ceo_bot"
+        ) return true;
         if (satisfiesPermission(devTagPermissions, perm)) return true;
         if (devTagRules.can_access_dev || devTagRules.is_dev_test) {
           if (perm === "view_dev_hub" || perm === "view_dev") return true;

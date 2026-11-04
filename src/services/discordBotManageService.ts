@@ -568,7 +568,20 @@ export async function uploadBotImage(file: File, type: "avatar" | "banner" = "av
   const sanitized = file.name.replace(/[^a-zA-Z0-9.-]/g, "_").toLowerCase().replace(/\.[^/.]+$/, "");
   const fileName = `bot_${type}_${Date.now()}_${sanitized}.${cleanExt}`;
 
-  // 1. Tenta upload no Supabase Storage primeiro (bucket products)
+  // 1. Tenta Postimages primeiro (CDN ultra-rápido com suporte a proxy e compatível com Discord)
+  try {
+    const { uploadImageToPostimages } = await import("@/services/postimagesService");
+    const cdnUrl = await uploadImageToPostimages(file, {
+      filename: fileName,
+      maxDimension: type === "avatar" ? 512 : 1920,
+      quality: 0.88,
+    });
+    if (cdnUrl && cdnUrl.startsWith("http")) return cdnUrl;
+  } catch (piErr) {
+    console.warn("Falha no Postimages, tentando Supabase Storage:", piErr);
+  }
+
+  // 2. Fallback para Supabase Storage (bucket products)
   try {
     const { data: uploadData, error: uploadErr } = await supabase.storage
       .from("products")
@@ -586,23 +599,10 @@ export async function uploadBotImage(file: File, type: "avatar" | "banner" = "av
       }
     }
   } catch (sbErr) {
-    console.warn("Falha no upload Supabase Storage, tentando Postimages:", sbErr);
+    console.warn("Falha no upload Supabase Storage:", sbErr);
   }
 
-  // 2. Fallback para Postimages
-  try {
-    const { uploadImageToPostimages } = await import("@/services/postimagesService");
-    const cdnUrl = await uploadImageToPostimages(file, {
-      filename: fileName,
-      maxDimension: type === "avatar" ? 512 : 1920,
-      quality: 0.88,
-    });
-    if (cdnUrl) return cdnUrl;
-  } catch (piErr) {
-    console.warn("Falha no Postimages:", piErr);
-  }
-
-  // 3. Fallback para Base64 Data URL
+  // 3. Fallback final para Base64 Data URL
   return fileOrUrlToBase64DataUrl(file);
 }
 
