@@ -484,7 +484,8 @@ export function TicketDetailView({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+    // Envia diretamente com Enter (Shift + Enter desce a linha)
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       void handleSendReply();
     }
@@ -1560,7 +1561,7 @@ export function TicketDetailView({
               </div>
 
               <span className="text-[10px] text-muted-foreground hidden sm:inline-block font-mono">
-                Pressione <kbd className="px-1.5 py-0.5 rounded bg-muted/80 text-[10px] border border-border/70 font-sans">Ctrl + Enter</kbd> para enviar
+                Pressione <kbd className="px-1.5 py-0.5 rounded bg-muted/80 text-[10px] border border-border/70 font-sans">Enter</kbd> para enviar • <kbd className="px-1.5 py-0.5 rounded bg-muted/80 text-[10px] border border-border/70 font-sans">Shift + Enter</kbd> para quebrar linha
               </span>
             </div>
 
