@@ -76,6 +76,14 @@ function AuthPage() {
 
   useEffect(() => {
     if (!authLoading && approvedAccess) {
+      const redirectUrl = typeof window !== 'undefined' ? sessionStorage.getItem('tw_auth_redirect') : null;
+      if (redirectUrl) {
+        try {
+          sessionStorage.removeItem('tw_auth_redirect');
+        } catch {}
+        void navigate({ to: redirectUrl as any, replace: true });
+        return;
+      }
       if (isDevUser) {
         void navigate({ to: settings.startPageDev || "/dev", replace: true });
       } else if (isCeoUser) {

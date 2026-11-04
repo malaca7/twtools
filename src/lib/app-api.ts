@@ -7029,7 +7029,7 @@ export async function pokeTicketMember(
     if (discordUserId) {
       const cleanDiscId = String(discordUserId).replace(/[<@!>]/g, "").trim();
       const siteUrl = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://twtools.site";
-      const ticketUrl = `${siteUrl}/ticket/${ticket.id}/`;
+      const ticketUrl = `${siteUrl}/ticket/${ticket.id}`;
       const numFmt = String(ticket.ticket_number).padStart(3, "0");
       const urgencyBadge = urgency === "urgente" ? "🚨 Urgente" : urgency === "alta" ? "⚡ Alta" : "🔔 Normal";
       const embedColor = urgency === "urgente" ? "#EF4444" : urgency === "alta" ? "#F97316" : "#F59E0B";

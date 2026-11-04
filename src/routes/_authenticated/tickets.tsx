@@ -120,7 +120,11 @@ function TicketsContent() {
   // Ticket atualmente selecionado para exibição detalhada
   const selectedTicket = useMemo(() => {
     if (!selectedTicketId) return null;
-    return myTickets.find((t) => t.id === selectedTicketId) || null;
+    return (
+      myTickets.find(
+        (t) => t.id === selectedTicketId || String(t.ticket_number) === selectedTicketId
+      ) || null
+    );
   }, [selectedTicketId, myTickets]);
 
   // Se o ticket selecionado não existe mais nos chamados do membro, fecha a visualização

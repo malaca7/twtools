@@ -248,7 +248,7 @@ export function AtendimentoTicketsContent() {
 
   // Limpar seleção caso o ticket selecionado seja excluído em tempo real
   useEffect(() => {
-    if (selectedTicketId && tickets.length > 0 && !tickets.some((t) => t.id === selectedTicketId)) {
+    if (selectedTicketId && tickets.length > 0 && !tickets.some((t) => t.id === selectedTicketId || String(t.ticket_number) === selectedTicketId)) {
       setSelectedTicketId(null);
     }
   }, [tickets, selectedTicketId, setSelectedTicketId]);
@@ -400,7 +400,11 @@ export function AtendimentoTicketsContent() {
 
   const selectedTicket = useMemo(() => {
     if (!selectedTicketId) return null;
-    return tickets.find((t) => t.id === selectedTicketId) || null;
+    return (
+      tickets.find(
+        (t) => t.id === selectedTicketId || String(t.ticket_number) === selectedTicketId
+      ) || null
+    );
   }, [tickets, selectedTicketId]);
 
   const handleClaimTicket = async (ticketId: string, e: React.MouseEvent) => {

@@ -52,6 +52,7 @@ import { Route as AuthenticatedVendasRouteImport } from './routes/_authenticated
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as DevDiscordIdRouteImport } from './routes/dev.$discordId'
 import { Route as DevmlcDiscordIdRouteImport } from './routes/devmlc.$discordId'
+import { Route as TicketTicketIdRouteImport } from './routes/ticket.$ticketId'
 import { Route as AuthenticatedAtendimentoTicketsTabRouteImport } from './routes/_authenticated/atendimento-tickets.$tab'
 import { Route as AuthenticatedAusenciasTabRouteImport } from './routes/_authenticated/ausencias.$tab'
 import { Route as AuthenticatedCeoTabRouteImport } from './routes/_authenticated/ceo.$tab'
@@ -341,6 +342,11 @@ const DevmlcDiscordIdRoute = DevmlcDiscordIdRouteImport.update({
   path: '/devmlc/$discordId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TicketTicketIdRoute = TicketTicketIdRouteImport.update({
+  id: '/ticket/$ticketId',
+  path: '/ticket/$ticketId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAtendimentoTicketsTabRoute =
   AuthenticatedAtendimentoTicketsTabRouteImport.update({
     id: '/$tab',
@@ -606,9 +612,9 @@ const DevmlcDiscordidDiscordIdRoute =
   } as any)
 const TicketTicketIdTranscriptRoute =
   TicketTicketIdTranscriptRouteImport.update({
-    id: '/ticket/$ticketId/transcript',
-    path: '/ticket/$ticketId/transcript',
-    getParentRoute: () => rootRouteImport,
+    id: '/transcript',
+    path: '/transcript',
+    getParentRoute: () => TicketTicketIdRoute,
   } as any)
 const AuthenticatedCeoTabSubtabRoute =
   AuthenticatedCeoTabSubtabRouteImport.update({
@@ -748,6 +754,7 @@ export interface FileRoutesByFullPath {
   '/auth/callback': typeof AuthCallbackRoute
   '/dev/$discordId': typeof DevDiscordIdRoute
   '/devmlc/$discordId': typeof DevmlcDiscordIdRoute
+  '/ticket/$ticketId': typeof TicketTicketIdRouteWithChildren
   '/atendimento-tickets/$tab': typeof AuthenticatedAtendimentoTicketsTabRoute
   '/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
   '/ceo/$tab': typeof AuthenticatedCeoTabRouteWithChildren
@@ -855,6 +862,7 @@ export interface FileRoutesByTo {
   '/auth/callback': typeof AuthCallbackRoute
   '/dev/$discordId': typeof DevDiscordIdRoute
   '/devmlc/$discordId': typeof DevmlcDiscordIdRoute
+  '/ticket/$ticketId': typeof TicketTicketIdRouteWithChildren
   '/atendimento-tickets/$tab': typeof AuthenticatedAtendimentoTicketsTabRoute
   '/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
   '/ceo/$tab': typeof AuthenticatedCeoTabRouteWithChildren
@@ -964,6 +972,7 @@ export interface FileRoutesById {
   '/auth/callback': typeof AuthCallbackRoute
   '/dev/$discordId': typeof DevDiscordIdRoute
   '/devmlc/$discordId': typeof DevmlcDiscordIdRoute
+  '/ticket/$ticketId': typeof TicketTicketIdRouteWithChildren
   '/_authenticated/atendimento-tickets/$tab': typeof AuthenticatedAtendimentoTicketsTabRoute
   '/_authenticated/ausencias/$tab': typeof AuthenticatedAusenciasTabRoute
   '/_authenticated/ceo/$tab': typeof AuthenticatedCeoTabRouteWithChildren
@@ -1073,6 +1082,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/dev/$discordId'
     | '/devmlc/$discordId'
+    | '/ticket/$ticketId'
     | '/atendimento-tickets/$tab'
     | '/ausencias/$tab'
     | '/ceo/$tab'
@@ -1180,6 +1190,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/dev/$discordId'
     | '/devmlc/$discordId'
+    | '/ticket/$ticketId'
     | '/atendimento-tickets/$tab'
     | '/ausencias/$tab'
     | '/ceo/$tab'
@@ -1288,6 +1299,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/dev/$discordId'
     | '/devmlc/$discordId'
+    | '/ticket/$ticketId'
     | '/_authenticated/atendimento-tickets/$tab'
     | '/_authenticated/ausencias/$tab'
     | '/_authenticated/ceo/$tab'
@@ -1360,8 +1372,8 @@ export interface RootRouteChildren {
   AuthCallbackRoute: typeof AuthCallbackRoute
   DevDiscordIdRoute: typeof DevDiscordIdRoute
   DevmlcDiscordIdRoute: typeof DevmlcDiscordIdRoute
+  TicketTicketIdRoute: typeof TicketTicketIdRouteWithChildren
   DevmlcDiscordidDiscordIdRoute: typeof DevmlcDiscordidDiscordIdRoute
-  TicketTicketIdTranscriptRoute: typeof TicketTicketIdTranscriptRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1665,6 +1677,13 @@ declare module '@tanstack/react-router' {
       path: '/devmlc/$discordId'
       fullPath: '/devmlc/$discordId'
       preLoaderRoute: typeof DevmlcDiscordIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ticket/$ticketId': {
+      id: '/ticket/$ticketId'
+      path: '/ticket/$ticketId'
+      fullPath: '/ticket/$ticketId'
+      preLoaderRoute: typeof TicketTicketIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/atendimento-tickets/$tab': {
@@ -1991,10 +2010,10 @@ declare module '@tanstack/react-router' {
     }
     '/ticket/$ticketId/transcript': {
       id: '/ticket/$ticketId/transcript'
-      path: '/ticket/$ticketId/transcript'
+      path: '/transcript'
       fullPath: '/ticket/$ticketId/transcript'
       preLoaderRoute: typeof TicketTicketIdTranscriptRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof TicketTicketIdRoute
     }
     '/_authenticated/ceo/$tab/$subtab': {
       id: '/_authenticated/ceo/$tab/$subtab'
@@ -2518,6 +2537,18 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface TicketTicketIdRouteChildren {
+  TicketTicketIdTranscriptRoute: typeof TicketTicketIdTranscriptRoute
+}
+
+const TicketTicketIdRouteChildren: TicketTicketIdRouteChildren = {
+  TicketTicketIdTranscriptRoute: TicketTicketIdTranscriptRoute,
+}
+
+const TicketTicketIdRouteWithChildren = TicketTicketIdRoute._addFileChildren(
+  TicketTicketIdRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
@@ -2525,8 +2556,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthCallbackRoute: AuthCallbackRoute,
   DevDiscordIdRoute: DevDiscordIdRoute,
   DevmlcDiscordIdRoute: DevmlcDiscordIdRoute,
+  TicketTicketIdRoute: TicketTicketIdRouteWithChildren,
   DevmlcDiscordidDiscordIdRoute: DevmlcDiscordidDiscordIdRoute,
-  TicketTicketIdTranscriptRoute: TicketTicketIdTranscriptRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
