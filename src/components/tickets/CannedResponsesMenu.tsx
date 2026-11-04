@@ -1,26 +1,22 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import {
   Zap,
   Plus,
   Trash2,
   Search,
-  MessageSquare,
   Lock,
   Sparkles,
   Check,
+  Copy,
   ChevronRight,
+  X,
+  FileText,
+  CornerDownLeft,
+  ArrowUpRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -37,7 +33,7 @@ import { cn } from "@/lib/utils";
 
 export interface CannedResponseTemplate {
   id: string;
-  category: "atendimento" | "provas" | "reembolso" | "denuncia" | "conclusao" | "notas" | "personalizado";
+  category: "atendimento" | "provas" | "reembolso" | "denuncia" | "conclusao" | "notas" | "operacional" | "personalizado";
   title: string;
   text: string;
   isInternal?: boolean;
@@ -87,6 +83,18 @@ export const DEFAULT_CANNED_RESPONSES: CannedResponseTemplate[] = [
     text: "Sua denúncia foi registrada sob sigilo e está sob investigação da liderança. Nenhuma represália será tolerada e as providências cabíveis estão sendo tomadas.",
   },
   {
+    id: "bau_log_check",
+    category: "operacional",
+    title: "📦 Verificação de Baú e Suprimentos",
+    text: "Estamos verificando os logs operacionais de entrada e saída do baú para checagem dos itens mencionados. Em breve retornaremos com a conclusão.",
+  },
+  {
+    id: "rules_warning",
+    category: "atendimento",
+    title: "📜 Orientação sobre Regras do Grupo",
+    text: "Lembramos a todos os integrantes que condutas contrárias ao estatuto da facção, ausência injustificada em ações ou conflitos internos são passíveis de advertência disciplinar.",
+  },
+  {
     id: "resolved_success",
     category: "conclusao",
     title: "✨ Chamado Resolvido com Sucesso",
@@ -108,6 +116,18 @@ export const DEFAULT_CANNED_RESPONSES: CannedResponseTemplate[] = [
   },
 ];
 
+const CATEGORY_TABS = [
+  { id: "all", label: "Todas" },
+  { id: "atendimento", label: "👋 Atendimento" },
+  { id: "provas", label: "📸 Provas" },
+  { id: "reembolso", label: "💰 Reembolso" },
+  { id: "operacional", label: "📦 Operacional" },
+  { id: "denuncia", label: "⚠️ Denúncia" },
+  { id: "conclusao", label: "✨ Conclusão" },
+  { id: "notas", label: "🔒 Notas Internas" },
+  { id: "personalizado", label: "⭐ Minhas Macros" },
+] as const;
+
 const STORAGE_KEY = "tw_custom_canned_responses";
 
 interface CannedResponsesMenuProps {
@@ -116,7 +136,18 @@ interface CannedResponsesMenuProps {
 }
 
 export function CannedResponsesMenu({ onSelect, disabled = false }: CannedResponsesMenuProps) {
+  const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [isCreating, setIsCreating] = useState(false);
+
+  // Formulário de criação
+  const [newTitle, setNewTitle] = useState("");
+  const [newText, setNewText] = useState("");
+  const [newIsInternal, setNewIsInternal] = useState(false);
+  const [newCategory, setNewCategory] = useState<CannedResponseTemplate["category"]>("atendimento");
+
+  // Custom responses salvas no localStorage
   const [customResponses, setCustomResponses] = useState<CannedResponseTemplate[]>(() => {
     if (typeof window === "undefined") return [];
     try {
@@ -127,35 +158,54 @@ export function CannedResponsesMenu({ onSelect, disabled = false }: CannedRespon
     }
   });
 
-  const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
-  const [newText, setNewText] = useState("");
-  const [newIsInternal, setNewIsInternal] = useState(false);
-
   const allResponses = useMemo(() => {
     return [...customResponses, ...DEFAULT_CANNED_RESPONSES];
   }, [customResponses]);
 
   const filteredResponses = useMemo(() => {
-    if (!searchTerm.trim()) return allResponses;
-    const q = searchTerm.toLowerCase().trim();
-    return allResponses.filter(
-      (r) =>
+    return allResponses.filter((r) => {
+      // Filtro de categoria
+      if (selectedCategory !== "all") {
+        if (selectedCategory === "notas" && !r.isInternal) return false;
+        if (selectedCategory !== "notas" && r.category !== selectedCategory) return false;
+      }
+
+      // Filtro de busca
+      if (!searchTerm.trim()) return true;
+      const q = searchTerm.toLowerCase().trim();
+      return (
         r.title.toLowerCase().includes(q) ||
         r.text.toLowerCase().includes(q) ||
         r.category.toLowerCase().includes(q)
-    );
-  }, [allResponses, searchTerm]);
+      );
+    });
+  }, [allResponses, selectedCategory, searchTerm]);
 
-  const handleSaveCustom = () => {
+  const handleInsert = (text: string, isInternal?: boolean) => {
+    onSelect(text, isInternal);
+    setIsOpen(false);
+    toast.success("Resposta rápida inserida no chamado! ⚡", {
+      description: text.slice(0, 75) + (text.length > 75 ? "..." : ""),
+      id: "macro-inserted-toast",
+    });
+  };
+
+  const handleCopyOnly = (text: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(text);
+    toast.success("Texto copiado para a área de transferência!");
+  };
+
+  const handleSaveCustom = (e: React.FormEvent) => {
+    e.preventDefault();
     if (!newTitle.trim() || !newText.trim()) {
-      toast.error("Preencha o título e o texto do modelo.");
+      toast.error("Preencha o título e o conteúdo da resposta rápida.");
       return;
     }
 
     const created: CannedResponseTemplate = {
       id: `custom_${Date.now()}`,
-      category: "personalizado",
+      category: newIsInternal ? "notas" : newCategory,
       title: newTitle.trim(),
       text: newText.trim(),
       isInternal: newIsInternal,
@@ -167,8 +217,8 @@ export function CannedResponsesMenu({ onSelect, disabled = false }: CannedRespon
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     } catch {}
 
-    toast.success("Modelo rápido criado com sucesso!");
-    setIsNewDialogOpen(false);
+    toast.success("Macro personalizada criada com sucesso!");
+    setIsCreating(false);
     setNewTitle("");
     setNewText("");
     setNewIsInternal(false);
@@ -181,183 +231,299 @@ export function CannedResponsesMenu({ onSelect, disabled = false }: CannedRespon
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     } catch {}
-    toast.success("Modelo personalizado removido.");
+    toast.success("Macro personalizada removida.");
   };
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={disabled}
-            className="h-7 text-xs gap-1.5 font-bold border-amber-500/35 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 rounded-lg cursor-pointer shadow-2xs transition-all active:scale-95"
-            title="Inserir modelo de resposta rápida no chamado"
-          >
-            <Zap className="h-3 w-3 fill-amber-400 text-amber-400" />
-            <span className="hidden sm:inline">Respostas Rápidas</span>
-            <span className="sm:hidden">Macros</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="start"
-          sideOffset={8}
-          className="w-80 sm:w-96 max-h-[460px] overflow-y-auto p-2 bg-card/95 backdrop-blur-md border-border/80 shadow-2xl rounded-2xl z-[10000]"
-        >
-          <div className="flex items-center justify-between px-2 py-1 mb-1.5">
-            <DropdownMenuLabel className="p-0 text-xs font-black flex items-center gap-1.5 text-amber-400">
-              <Zap className="h-3.5 w-3.5 fill-amber-400" />
-              <span>Modelos de Atendimento</span>
-            </DropdownMenuLabel>
+      {/* BOTÃO PRINCIPAL DE ACESSO */}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={disabled}
+        onClick={() => setIsOpen(true)}
+        className="h-7 text-xs gap-1.5 font-bold border-amber-500/35 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 rounded-lg cursor-pointer shadow-2xs transition-all active:scale-95"
+        title="Abrir biblioteca de respostas rápidas e macros operacionais"
+      >
+        <Zap className="h-3 w-3 fill-amber-400 text-amber-400" />
+        <span className="hidden sm:inline">Respostas Rápidas</span>
+        <span className="sm:hidden">Macros</span>
+      </Button>
+
+      {/* MODAL DIALOG COMPLETO E PRODUTIVO DE RESPOSTAS RÁPIDAS */}
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col bg-card/95 backdrop-blur-md border-border/80 rounded-2xl p-0 overflow-hidden shadow-2xl">
+          {/* Cabeçalho */}
+          <div className="p-4 sm:p-5 border-b border-border/70 bg-gradient-to-r from-amber-500/10 via-secondary/30 to-amber-500/5 shrink-0 flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 shadow-sm">
+                <Zap className="h-5 w-5 fill-amber-400" />
+              </div>
+              <div>
+                <DialogTitle className="text-base sm:text-lg font-black text-foreground tracking-tight flex items-center gap-2">
+                  <span>Respostas Rápidas & Macros</span>
+                  <Badge variant="outline" className="text-[10px] font-mono border-amber-500/40 text-amber-300 bg-amber-500/10">
+                    {allResponses.length} Modelos
+                  </Badge>
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  Selecione um modelo pronto para inserir na resposta ou crie suas próprias macros operacionais.
+                </DialogDescription>
+              </div>
+            </div>
+
             <Button
               type="button"
-              variant="ghost"
               size="sm"
-              onClick={() => setIsNewDialogOpen(true)}
-              className="h-6 px-2 text-[10px] font-bold gap-1 text-cyan-400 hover:bg-cyan-500/10 rounded-lg"
+              onClick={() => setIsCreating((prev) => !prev)}
+              className={cn(
+                "h-8 text-xs font-bold gap-1.5 rounded-xl transition-all shadow-xs shrink-0",
+                isCreating
+                  ? "bg-secondary text-foreground hover:bg-secondary/80"
+                  : "bg-cyan-500 hover:bg-cyan-600 text-black"
+              )}
             >
-              <Plus className="h-3 w-3" />
-              <span>Novo Modelo</span>
+              {isCreating ? (
+                <>
+                  <X className="h-3.5 w-3.5" />
+                  <span>Voltar à Lista</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Nova Macro</span>
+                </>
+              )}
             </Button>
           </div>
 
-          {/* Busca rápida de respostas */}
-          <div className="px-1 pb-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por título ou texto..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-8 pl-8 text-xs bg-secondary/50 border-border/70 rounded-xl"
-              />
-            </div>
-          </div>
-
-          <DropdownMenuSeparator className="my-1 border-border/50" />
-
-          {filteredResponses.length === 0 ? (
-            <div className="p-4 text-center text-xs text-muted-foreground">
-              Nenhum modelo encontrado para "{searchTerm}".
-            </div>
-          ) : (
-            <div className="space-y-1">
-              {filteredResponses.map((item) => {
-                const isCustom = item.category === "personalizado";
-                return (
-                  <DropdownMenuItem
-                    key={item.id}
-                    onClick={() => onSelect(item.text, item.isInternal)}
-                    className="flex flex-col items-start gap-1 p-2 rounded-xl cursor-pointer hover:bg-secondary/70 focus:bg-secondary transition-all group"
-                  >
-                    <div className="flex items-center justify-between w-full">
-                      <div className="flex items-center gap-1.5 font-bold text-xs text-foreground group-hover:text-amber-300">
-                        {item.isInternal && (
-                          <Badge variant="outline" className="text-[9px] px-1 py-0 border-amber-500/40 text-amber-400 bg-amber-500/10 gap-0.5 rounded-full font-bold">
-                            <Lock className="h-2.5 w-2.5" />
-                            Nota
-                          </Badge>
-                        )}
-                        <span>{item.title}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {isCustom && (
-                          <button
-                            type="button"
-                            onClick={(e) => handleDeleteCustom(item.id, e)}
-                            className="text-muted-foreground hover:text-rose-400 p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Excluir este modelo personalizado"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        )}
-                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 group-hover:text-foreground shrink-0" />
-                      </div>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground line-clamp-2 text-left leading-relaxed">
-                      {item.text}
-                    </p>
-                  </DropdownMenuItem>
-                );
-              })}
-            </div>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      {/* DIÁLOGO: CRIAR NOVO MODELO PERSONALIZADO */}
-      <Dialog open={isNewDialogOpen} onOpenChange={setIsNewDialogOpen}>
-        <DialogContent className="max-w-md bg-card/95 backdrop-blur-md border-border/80 rounded-2xl shadow-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-base font-bold flex items-center gap-2 text-amber-400">
-              <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                <Sparkles className="h-4 w-4" />
-              </span>
-              <span>Criar Modelo de Resposta Rápida</span>
-            </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
-              Salve suas próprias respostas padronizadas para agilizar atendimentos operacionais no dia a dia.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Título / Identificador do Modelo</Label>
-              <Input
-                placeholder="Ex: 🚗 Veículo Apreendido / Resgate"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                className="text-xs bg-secondary/40 border-border/70 rounded-xl"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Texto da Mensagem</Label>
-              <Textarea
-                placeholder="Digite a resposta que será colada no chamado..."
-                value={newText}
-                onChange={(e) => setNewText(e.target.value)}
-                rows={4}
-                className="text-xs bg-secondary/40 border-border/70 resize-none rounded-xl leading-relaxed"
-              />
-            </div>
-
-            <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/30 border border-border/60">
-              <div className="space-y-0.5">
-                <Label className="text-xs font-bold flex items-center gap-1.5 text-foreground">
-                  <Lock className="h-3.5 w-3.5 text-amber-400" />
-                  <span>Inserir como Nota Interna</span>
-                </Label>
-                <p className="text-[11px] text-muted-foreground">
-                  Se ativado, ao clicar no modelo ele marcará automaticamente como nota interna confidencial.
+          {/* MODO CRIAÇÃO DE NOVA MACRO */}
+          {isCreating ? (
+            <form onSubmit={handleSaveCustom} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 animate-in fade-in duration-150">
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                  <Sparkles className="h-4 w-4 text-cyan-400" />
+                  <span>Criar Novo Modelo de Resposta</span>
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Salve respostas padronizadas para acelerar atendimentos recorrentes na facção.
                 </p>
               </div>
-              <Switch checked={newIsInternal} onCheckedChange={setNewIsInternal} />
-            </div>
-          </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setIsNewDialogOpen(false)}
-              className="text-xs rounded-xl"
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleSaveCustom}
-              className="text-xs font-bold gap-1 bg-amber-500 hover:bg-amber-600 text-black rounded-xl shadow-xs"
-            >
-              <Check className="h-3.5 w-3.5" />
-              <span>Salvar Modelo</span>
-            </Button>
-          </DialogFooter>
+              <div className="space-y-3 pt-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="macro_title" className="text-xs font-bold">
+                    Título / Identificador da Macro *
+                  </Label>
+                  <Input
+                    id="macro_title"
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    placeholder="Ex: 🚗 Veículo Apreendido / Resgate de Carro"
+                    className="text-xs bg-secondary/40 border-border/70 rounded-xl"
+                    required
+                    autoFocus
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="macro_text" className="text-xs font-bold">
+                    Texto Completo da Mensagem *
+                  </Label>
+                  <Textarea
+                    id="macro_text"
+                    value={newText}
+                    onChange={(e) => setNewText(e.target.value)}
+                    placeholder="Escreva o texto que será automaticamente colado no chamado..."
+                    rows={4}
+                    className="text-xs bg-secondary/40 border-border/70 rounded-xl resize-none leading-relaxed"
+                    required
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-bold flex items-center gap-1.5 text-amber-300">
+                      <Lock className="h-3.5 w-3.5" />
+                      <span>Inserir como Nota Interna Privada</span>
+                    </Label>
+                    <p className="text-[11px] text-amber-200/80">
+                      Ao selecionar, o chamado ativará automaticamente o modo de nota confidencial (visível apenas para a gerência).
+                    </p>
+                  </div>
+                  <Switch checked={newIsInternal} onCheckedChange={setNewIsInternal} />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-border/60">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsCreating(false)}
+                  className="text-xs rounded-xl"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="text-xs bg-cyan-500 hover:bg-cyan-600 text-black font-bold gap-1.5 rounded-xl shadow-xs"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  <span>Salvar Modelo</span>
+                </Button>
+              </div>
+            </form>
+          ) : (
+            /* MODO LISTA E BUSCA DE RESPOSTAS RÁPIDAS */
+            <div className="flex flex-col flex-1 overflow-hidden p-4 sm:p-5 space-y-3.5">
+              {/* Barra de Busca */}
+              <div className="relative shrink-0">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Buscar modelo por título, conteúdo ou palavra-chave..."
+                  className="pl-9 pr-9 h-9 text-xs bg-secondary/50 border-border/70 rounded-xl focus-visible:ring-cyan-500/40"
+                  autoFocus
+                />
+                {searchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    title="Limpar busca"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Categorias Tabs em Carrossel Horizontal */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 shrink-0 scrollbar-none">
+                {CATEGORY_TABS.map((cat) => {
+                  const isSelected = selectedCategory === cat.id;
+                  const count =
+                    cat.id === "all"
+                      ? allResponses.length
+                      : cat.id === "personalizado"
+                      ? customResponses.length
+                      : cat.id === "notas"
+                      ? allResponses.filter((r) => r.isInternal).length
+                      : allResponses.filter((r) => r.category === cat.id).length;
+
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setSelectedCategory(cat.id)}
+                      className={cn(
+                        "text-[11px] font-semibold px-2.5 py-1 rounded-lg border whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 shrink-0",
+                        isSelected
+                          ? "bg-amber-500/20 border-amber-500/50 text-amber-300 font-bold shadow-2xs"
+                          : "bg-secondary/40 border-border/60 hover:bg-secondary/70 hover:text-foreground text-muted-foreground"
+                      )}
+                    >
+                      <span>{cat.label}</span>
+                      <span className="text-[10px] opacity-70">({count})</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Grade de Cards de Respostas Rápidas */}
+              <div className="flex-1 overflow-y-auto pr-1">
+                {filteredResponses.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground space-y-2">
+                    <FileText className="h-8 w-8 text-muted-foreground/50" />
+                    <p className="text-xs font-semibold">Nenhum modelo encontrado.</p>
+                    <p className="text-[11px] text-muted-foreground/80">
+                      Tente buscar por outro termo ou limpe os filtros.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                    {filteredResponses.map((item) => {
+                      const isCustom = item.category === "personalizado";
+                      return (
+                        <div
+                          key={item.id}
+                          onClick={() => handleInsert(item.text, item.isInternal)}
+                          className="group relative flex flex-col justify-between p-3.5 rounded-xl border border-border/70 bg-card hover:border-amber-500/50 hover:bg-secondary/40 transition-all cursor-pointer shadow-2xs space-y-2.5"
+                        >
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-bold text-foreground group-hover:text-amber-300 transition-colors line-clamp-1">
+                                {item.title}
+                              </span>
+                              <div className="flex items-center gap-1 shrink-0">
+                                {item.isInternal && (
+                                  <Badge variant="outline" className="text-[8px] py-0 px-1 border-amber-500/40 text-amber-400 bg-amber-500/10 gap-0.5 rounded-full font-bold">
+                                    <Lock className="h-2 w-2" />
+                                    Nota
+                                  </Badge>
+                                )}
+                                {isCustom && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleDeleteCustom(item.id, e)}
+                                    className="p-1 rounded-md text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                                    title="Excluir macro personalizada"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground line-clamp-3 leading-relaxed font-sans">
+                              {item.text}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-1 border-t border-border/30 text-[10px]">
+                            <button
+                              type="button"
+                              onClick={(e) => handleCopyOnly(item.text, e)}
+                              className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 font-mono transition-colors"
+                              title="Copiar texto para área de transferência"
+                            >
+                              <Copy className="h-2.5 w-2.5" />
+                              <span>Copiar</span>
+                            </button>
+
+                            <span className="text-amber-400 font-bold inline-flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                              <span>Inserir</span>
+                              <CornerDownLeft className="h-2.5 w-2.5" />
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Rodapé Informativo */}
+          {!isCreating && (
+            <div className="p-3 bg-secondary/30 border-t border-border/70 flex items-center justify-between text-[11px] text-muted-foreground px-4 shrink-0">
+              <span className="flex items-center gap-1">
+                <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                <span>Clique em qualquer cartão para colar o texto no chamado.</span>
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsOpen(false)}
+                className="h-7 text-xs rounded-lg"
+              >
+                Fechar
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>

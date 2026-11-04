@@ -173,6 +173,7 @@ export function TicketDetailView({
   const [replyAttachments, setReplyAttachments] = useState<TicketAttachment[]>([]);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const replyTextareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Modals state
@@ -256,7 +257,10 @@ export function TicketDetailView({
   const canUseMacros =
     !isMemberPortal &&
     (hasPermission("use_ticket_macros" as Permission) ||
-      effectiveCanManage);
+      hasPermission("reply_tickets") ||
+      hasPermission("reply_ticket" as Permission) ||
+      effectiveCanManage ||
+      canReply);
 
   const canManageMembers =
     !isMemberPortal &&
@@ -1277,6 +1281,9 @@ export function TicketDetailView({
                       if (isInternal !== undefined && canSendInternalNotes) {
                         setIsInternalNote(isInternal);
                       }
+                      setTimeout(() => {
+                        replyTextareaRef.current?.focus();
+                      }, 60);
                     }}
                     disabled={addMessageMutation.isPending}
                   />
@@ -1380,6 +1387,7 @@ export function TicketDetailView({
             {/* Textarea e Botão Enviar */}
             <div className="flex gap-2 items-end">
               <Textarea
+                ref={replyTextareaRef}
                 value={replyContent}
                 onChange={(e) => setReplyContent(e.target.value)}
                 onKeyDown={handleKeyDown}
