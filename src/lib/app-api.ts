@@ -5631,7 +5631,7 @@ export async function addTicketMessage(
     if (!m.expires_at) return true;
     return new Date(m.expires_at).getTime() > nowMs;
   });
-  if (isMuted && !auth.canManage && !auth.isSuperUser) {
+  if (isMuted && !auth.isSuperUser) {
     throw new Error("Você está temporariamente silenciado(a) pela moderação neste chamado.");
   }
 
@@ -6713,15 +6713,17 @@ export async function muteTicketMember(
   const auth = await getEffectiveTicketAuth();
   if (!auth) throw new Error("Usuário não autenticado");
 
-  if (!(auth as any).canMuteMembers && !auth.canManage && !auth.isSuperUser) {
-    throw new Error("Você não possui permissão para silenciar integrantes neste chamado");
-  }
-
   const allRawTickets = await fetchAllRawTickets();
   const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
   if (targetIndex === -1) throw new Error("Ticket não encontrado");
 
   const ticket = allRawTickets[targetIndex];
+  const isAssigned = ticket.assigned_to_id === auth.user.id;
+
+  if (!(auth as any).canMuteMembers && !auth.canManage && !auth.isSuperUser && !isAssigned) {
+    throw new Error("Você não possui permissão para silenciar integrantes neste chamado");
+  }
+
   const now = new Date().toISOString();
   const actorName = auth.nickname || auth.nome || "Moderação";
 
@@ -6812,15 +6814,17 @@ export async function unmuteTicketMember(
   const auth = await getEffectiveTicketAuth();
   if (!auth) throw new Error("Usuário não autenticado");
 
-  if (!(auth as any).canMuteMembers && !auth.canManage && !auth.isSuperUser) {
-    throw new Error("Você não possui permissão para desilenciar integrantes neste chamado");
-  }
-
   const allRawTickets = await fetchAllRawTickets();
   const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
   if (targetIndex === -1) throw new Error("Ticket não encontrado");
 
   const ticket = allRawTickets[targetIndex];
+  const isAssigned = ticket.assigned_to_id === auth.user.id;
+
+  if (!(auth as any).canMuteMembers && !auth.canManage && !auth.isSuperUser && !isAssigned) {
+    throw new Error("Você não possui permissão para desilenciar integrantes neste chamado");
+  }
+
   const targetUserId = String(
     typeof targetUserIdOrPayload === "string"
       ? targetUserIdOrPayload
@@ -6891,15 +6895,17 @@ export async function pokeTicketMember(
   const auth = await getEffectiveTicketAuth();
   if (!auth) throw new Error("Usuário não autenticado");
 
-  if (!(auth as any).canAlertMembers && !auth.canManage && !auth.isSuperUser) {
-    throw new Error("Você não possui permissão para alertar integrantes neste chamado");
-  }
-
   const allRawTickets = await fetchAllRawTickets();
   const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
   if (targetIndex === -1) throw new Error("Ticket não encontrado");
 
   const ticket = allRawTickets[targetIndex];
+  const isAssigned = ticket.assigned_to_id === auth.user.id;
+
+  if (!(auth as any).canAlertMembers && !auth.canManage && !auth.isSuperUser && !isAssigned) {
+    throw new Error("Você não possui permissão para alertar integrantes neste chamado");
+  }
+
   const now = new Date().toISOString();
   const actorName = auth.nickname || auth.nome || "Atendente";
 
@@ -6960,13 +6966,41 @@ export async function pokeTicketMember(
   // 2. Envio de DM Direta no Discord via Bot (se o usuário possuir discord_id)
   try {
     let discordUserId = payload.targetDiscordId || payload.target_discord_id || null;
+    
+    // 2.1 Busca no Supabase profiles se não foi fornecido diretamente
     if (!discordUserId && targetUserId) {
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("discord_id")
-        .or(`id.eq.${targetUserId},user_id.eq.${targetUserId}`)
-        .maybeSingle();
-      if (prof?.discord_id) discordUserId = prof.discord_id;
+      try {
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("discord_id")
+          .or(`id.eq.${targetUserId},user_id.eq.${targetUserId}`)
+          .maybeSingle();
+        if (prof?.discord_id) discordUserId = prof.discord_id;
+      } catch {}
+    }
+
+    // 2.2 Busca na tabela members pelo targetUserId
+    if (!discordUserId && targetUserId) {
+      try {
+        const { data: mem } = await supabase
+          .from("members")
+          .select("discord_id")
+          .or(`id.eq.${targetUserId},user_id.eq.${targetUserId}`)
+          .maybeSingle();
+        if (mem?.discord_id) discordUserId = mem.discord_id;
+      } catch {}
+    }
+
+    // 2.3 Busca na tabela members pelo nome ou nickname
+    if (!discordUserId && targetName) {
+      try {
+        const { data: memByName } = await supabase
+          .from("members")
+          .select("discord_id")
+          .or(`nome.ilike.%${targetName}%,nickname.ilike.%${targetName}%`)
+          .maybeSingle();
+        if (memByName?.discord_id) discordUserId = memByName.discord_id;
+      } catch {}
     }
 
     if (discordUserId) {
@@ -6976,32 +7010,30 @@ export async function pokeTicketMember(
       const urgencyBadge = urgency === "urgente" ? "🚨 Urgente" : urgency === "alta" ? "⚡ Alta" : "🔔 Normal";
       const embedColor = urgency === "urgente" ? "#EF4444" : urgency === "alta" ? "#F97316" : "#F59E0B";
 
-      const botControl = supabase.channel("system-discord-bot-control");
-      await botControl.send({
-        type: "broadcast",
-        event: "send_dm",
-        payload: {
-          userId: discordUserId,
-          sender: actorName,
-          content: `🔔 **Atenção:** Você recebeu uma notificação prioritária no chamado **#${numFmt}**!`,
-          embed: {
-            title: `🔔 Alerta de Atendimento — Chamado #${numFmt}`,
-            url: ticketUrl,
-            description: `Olá **${targetName}**! Você foi alertado(a) por **${actorName}** referente ao chamado **"${ticket.subject}"**.`,
-            color: embedColor,
-            fields: [
-              { name: "💬 Mensagem do Alerta", value: reason },
-              { name: "⚡ Nível de Urgência", value: urgencyBadge, inline: true },
-              { name: "👤 Atendente / Autor", value: actorName, inline: true },
-              { name: "🔗 Link do Chamado", value: `[Clique aqui para abrir na Web](${ticketUrl})`, inline: false },
-            ],
-            footer: { text: "Twin Wheels RP • Atendimento Ticket" },
-            timestamp: now,
-          },
-          timestamp: Date.now(),
-        },
+      const embed = {
+        title: `🔔 Alerta de Atendimento — Chamado #${numFmt}`,
+        url: ticketUrl,
+        description: `Olá **${targetName}**! Você recebeu uma notificação de **${actorName}** referente ao chamado **"${ticket.subject}"**.`,
+        color: embedColor,
+        fields: [
+          { name: "💬 Mensagem do Alerta", value: reason },
+          { name: "⚡ Nível de Urgência", value: urgencyBadge, inline: true },
+          { name: "👤 Solicitante / Atendente", value: actorName, inline: true },
+          { name: "🔗 Link do Chamado", value: `[Clique aqui para abrir na Web](${ticketUrl})`, inline: false },
+        ],
+        footer: { text: "Twin Wheels RP • Atendimento Ticket" },
+        timestamp: now,
+      };
+
+      // Dispara o envio multi-estratégia (REST Oficial + Bot HTTP Discloud + Realtime Broadcast)
+      const { sendDiscordDirectMessage } = await import("@/services/discordBotManageService");
+      await sendDiscordDirectMessage({
+        discordUserId,
+        content: `🔔 **Atenção:** Você recebeu uma notificação prioritária no chamado **#${numFmt}**!`,
+        embed,
+        senderName: actorName,
       });
-      console.log(`✉️ [POKE BOT DM] Broadcast enviado para usuário Discord ${discordUserId}`);
+      console.log(`✉️ [POKE BOT DM] DM disparada via sendDiscordDirectMessage para usuário Discord ${discordUserId}`);
     }
   } catch (dmErr) {
     console.warn("⚠️ [POKE BOT DM] Falha ao despachar DM no Discord:", dmErr);

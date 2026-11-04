@@ -292,6 +292,7 @@ export function TicketDetailView({
   const [memberToPoke, setMemberToPoke] = useState<{ id: string; name: string; avatar?: string } | null>(null);
   const [pokeMessage, setPokeMessage] = useState("");
   const [pokeUrgency, setPokeUrgency] = useState<"baixa" | "normal" | "alta" | "urgente">("normal");
+  const [pokeDiscordId, setPokeDiscordId] = useState("");
 
   const [memberDialogOpen, setMemberDialogOpen] = useState(false);
   const [memberSearchTerm, setMemberSearchTerm] = useState("");
@@ -414,27 +415,80 @@ export function TicketDetailView({
 
   const canMuteTicketMembers =
     !isMemberPortal &&
-    (hasPermission("mute_ticket_members" as Permission) || effectiveCanManage);
+    (hasPermission("mute_ticket_members" as Permission) || effectiveCanManage || ticket.assigned_to_id === user?.id);
 
   const canAlertTicketMembers =
     !isMemberPortal &&
-    (hasPermission("alert_ticket_members" as Permission) || effectiveCanManage);
+    (hasPermission("alert_ticket_members" as Permission) || effectiveCanManage || ticket.assigned_to_id === user?.id);
 
-  // Verificações de Silenciamento de Membros
+  // Localiza o Discord ID de um participante no cadastro de membros ou metadados
+  const findMemberDiscordId = (userId?: string | null, userName?: string | null): string => {
+    if (!userId && !userName) return "";
+    const cleanId = (userId || "").trim().toLowerCase();
+    const cleanName = (userName || "").trim().toLowerCase();
+
+    // 1. Procura na lista de membros da organização
+    const foundMem = members.find((m) => {
+      const mId = (m.id || "").trim().toLowerCase();
+      const mUserId = (m.user_id || "").trim().toLowerCase();
+      const mDiscordId = ((m as any).discord_id || "").trim().toLowerCase();
+      const mName = (m.nome || "").trim().toLowerCase();
+      const mNick = (m.nickname || "").trim().toLowerCase();
+      return (
+        (cleanId && (mId === cleanId || mUserId === cleanId || mDiscordId === cleanId)) ||
+        (cleanName && (mName === cleanName || mNick === cleanName))
+      );
+    });
+
+    if ((foundMem as any)?.discord_id) return (foundMem as any).discord_id;
+    if ((foundMem as any)?.discordId) return (foundMem as any).discordId;
+
+    // 2. Procura nos dados do ticket se for o criador
+    if (ticket.creator_id && (cleanId === ticket.creator_id.toLowerCase() || (cleanName && cleanName === (ticket.creator_nickname || ticket.creator_name || "").toLowerCase()))) {
+      if ((ticket as any).creator_discord_id) return (ticket as any).creator_discord_id;
+    }
+
+    return "";
+  };
+
+  const handleOpenPokeDialog = (target: { id: string; name: string; avatar?: string }) => {
+    setMemberToPoke(target);
+    const discId = findMemberDiscordId(target.id, target.name);
+    setPokeDiscordId(discId);
+    setPokeMessage("");
+    setPokeUrgency("normal");
+    setPokeDialogOpen(true);
+  };
+
+  // Verificações robustas de Silenciamento de Membros
   const isMemberMuted = (userId?: string | null, userName?: string | null) => {
     if (!ticket.muted_members || ticket.muted_members.length === 0) return false;
     const now = new Date();
     const uid = (userId || "").trim().toLowerCase();
     const uname = (userName || "").trim().toLowerCase();
+
+    const candidateIdentifiers = new Set<string>();
+    if (uid) candidateIdentifiers.add(uid);
+    if (uname) candidateIdentifiers.add(uname);
+
+    const mem = members.find((m) =>
+      (uid && (m.id?.toLowerCase() === uid || m.user_id?.toLowerCase() === uid)) ||
+      (uname && (m.nome?.toLowerCase() === uname || m.nickname?.toLowerCase() === uname))
+    );
+    if (mem) {
+      if (mem.id) candidateIdentifiers.add(mem.id.toLowerCase());
+      if (mem.user_id) candidateIdentifiers.add(mem.user_id.toLowerCase());
+      if (mem.nome) candidateIdentifiers.add(mem.nome.toLowerCase());
+      if (mem.nickname) candidateIdentifiers.add(mem.nickname.toLowerCase());
+    }
+
     return ticket.muted_members.some((m) => {
       const targetId = (m.user_id || "").trim().toLowerCase();
       const targetName = (m.name || m.nickname || (m as any).user_name || "").trim().toLowerCase();
-      const match =
-        (uid && targetId && (targetId === uid || targetName === uid)) ||
-        (uname && targetName && (targetName === uname || targetId === uname)) ||
-        (uid && targetName && targetName === uid) ||
-        (uname && targetId && targetId === uname);
-      if (!match) return false;
+      const matches =
+        (targetId && candidateIdentifiers.has(targetId)) ||
+        (targetName && candidateIdentifiers.has(targetName));
+      if (!matches) return false;
       if (!m.expires_at) return true;
       return new Date(m.expires_at) > now;
     });
@@ -445,16 +499,30 @@ export function TicketDetailView({
     const now = new Date();
     const uid = (userId || "").trim().toLowerCase();
     const uname = (userName || "").trim().toLowerCase();
+
+    const candidateIdentifiers = new Set<string>();
+    if (uid) candidateIdentifiers.add(uid);
+    if (uname) candidateIdentifiers.add(uname);
+
+    const mem = members.find((m) =>
+      (uid && (m.id?.toLowerCase() === uid || m.user_id?.toLowerCase() === uid)) ||
+      (uname && (m.nome?.toLowerCase() === uname || m.nickname?.toLowerCase() === uname))
+    );
+    if (mem) {
+      if (mem.id) candidateIdentifiers.add(mem.id.toLowerCase());
+      if (mem.user_id) candidateIdentifiers.add(mem.user_id.toLowerCase());
+      if (mem.nome) candidateIdentifiers.add(mem.nome.toLowerCase());
+      if (mem.nickname) candidateIdentifiers.add(mem.nickname.toLowerCase());
+    }
+
     return (
       ticket.muted_members.find((m) => {
         const targetId = (m.user_id || "").trim().toLowerCase();
         const targetName = (m.name || m.nickname || (m as any).user_name || "").trim().toLowerCase();
-        const match =
-          (uid && targetId && (targetId === uid || targetName === uid)) ||
-          (uname && targetName && (targetName === uname || targetId === uname)) ||
-          (uid && targetName && targetName === uid) ||
-          (uname && targetId && targetId === uname);
-        if (!match) return false;
+        const matches =
+          (targetId && candidateIdentifiers.has(targetId)) ||
+          (targetName && candidateIdentifiers.has(targetName));
+        if (!matches) return false;
         if (!m.expires_at) return true;
         return new Date(m.expires_at) > now;
       }) || null
@@ -476,6 +544,21 @@ export function TicketDetailView({
         .filter(Boolean)
         .map((x) => String(x).trim().toLowerCase())
     );
+
+    const myMem = members.find((m) =>
+      (user?.id && (m.user_id === user.id || m.id === user.id)) ||
+      (profile?.id && (m.user_id === profile.id || m.id === profile.id)) ||
+      (profile?.nome && m.nome?.toLowerCase() === profile.nome.toLowerCase()) ||
+      (profile?.nickname && m.nickname?.toLowerCase() === profile.nickname.toLowerCase())
+    );
+    if (myMem) {
+      if (myMem.id) myIds.add(String(myMem.id).toLowerCase());
+      if (myMem.user_id) myIds.add(String(myMem.user_id).toLowerCase());
+      if (myMem.nome) myIds.add(myMem.nome.toLowerCase());
+      if (myMem.nickname) myIds.add(myMem.nickname.toLowerCase());
+      if (myMem.discord_id) myIds.add(myMem.discord_id.toLowerCase());
+    }
+
     const now = new Date();
     return (
       ticket.muted_members.find((m) => {
@@ -487,7 +570,7 @@ export function TicketDetailView({
         return new Date(m.expires_at) > now;
       }) || null
     );
-  }, [ticket.muted_members, user, profile]);
+  }, [ticket.muted_members, user, profile, members]);
 
   const isUserMuted = Boolean(activeUserMute);
 
@@ -627,15 +710,7 @@ export function TicketDetailView({
   const handleConfirmPokeMember = async () => {
     if (!memberToPoke || !pokeMessage.trim()) return;
     try {
-      // Localiza o membro alvo para obter seu discord_id caso cadastrado
-      const targetM = members.find((m) =>
-        m.user_id === memberToPoke.id ||
-        m.id === memberToPoke.id ||
-        (m as any).discord_id === memberToPoke.id ||
-        (m.nome && m.nome.toLowerCase() === memberToPoke.name.toLowerCase()) ||
-        (m.nickname && m.nickname.toLowerCase() === memberToPoke.name.toLowerCase())
-      );
-      const targetDiscordId = targetM?.discord_id || (targetM as any)?.discordId || null;
+      const targetDiscordId = pokeDiscordId.trim() || findMemberDiscordId(memberToPoke.id, memberToPoke.name) || null;
 
       await pokeMemberMutation.mutateAsync({
         ticketId: ticket.id,
@@ -654,6 +729,7 @@ export function TicketDetailView({
       setPokeDialogOpen(false);
       setMemberToPoke(null);
       setPokeMessage("");
+      setPokeDiscordId("");
     } catch {}
   };
 
@@ -1254,7 +1330,7 @@ export function TicketDetailView({
                               <Copy className="h-3 w-3" />
                             </button>
 
-                            {((canEditTicketMessages && (isMe || canManageTicketMessages)) || canDeleteTicketMessages) && !isClosed && (
+                            {((canEditTicketMessages && (isMe || canManageTicketMessages)) || canDeleteTicketMessages || (!isMe && (canAlertTicketMembers || canMuteTicketMembers))) && !isClosed && (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <button
@@ -1265,7 +1341,7 @@ export function TicketDetailView({
                                     <MoreVertical className="h-3 w-3" />
                                   </button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="bg-popover border-border min-w-[140px]">
+                                <DropdownMenuContent align="end" className="bg-popover border-border min-w-[150px]">
                                   {canEditTicketMessages && (isMe || canManageTicketMessages) && (
                                     <DropdownMenuItem
                                       onClick={() => {
@@ -1290,6 +1366,49 @@ export function TicketDetailView({
                                       <Trash2 className="h-3.5 w-3.5 text-rose-400" />
                                       <span>Apagar</span>
                                     </DropdownMenuItem>
+                                  )}
+                                  {canAlertTicketMembers && !isMe && (
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        handleOpenPokeDialog({
+                                          id: msg.sender_id,
+                                          name: msg.sender_nickname || msg.sender_name,
+                                          avatar: msg.sender_avatar || undefined,
+                                        })
+                                      }
+                                      className="text-xs cursor-pointer gap-2 text-amber-400 focus:text-amber-400"
+                                    >
+                                      <BellRing className="h-3.5 w-3.5 text-amber-400" />
+                                      <span>Alertar Autor (Poke)</span>
+                                    </DropdownMenuItem>
+                                  )}
+                                  {canMuteTicketMembers && !isMe && (
+                                    isMemberMuted(msg.sender_id, msg.sender_nickname || msg.sender_name) ? (
+                                      <DropdownMenuItem
+                                        onClick={() => handleUnmuteMember(msg.sender_id)}
+                                        className="text-xs cursor-pointer gap-2 text-emerald-400 focus:text-emerald-400"
+                                      >
+                                        <Volume2 className="h-3.5 w-3.5 text-emerald-400" />
+                                        <span>Desilenciar Autor</span>
+                                      </DropdownMenuItem>
+                                    ) : (
+                                      <DropdownMenuItem
+                                        onClick={() => {
+                                          setMemberToMute({
+                                            id: msg.sender_id,
+                                            name: msg.sender_nickname || msg.sender_name,
+                                            avatar: msg.sender_avatar || undefined,
+                                          });
+                                          setMuteReason("");
+                                          setMuteDuration(60);
+                                          setMuteDialogOpen(true);
+                                        }}
+                                        className="text-xs cursor-pointer gap-2 text-rose-400 focus:text-rose-400"
+                                      >
+                                        <VolumeX className="h-3.5 w-3.5 text-rose-400" />
+                                        <span>Silenciar Autor</span>
+                                      </DropdownMenuItem>
+                                    )
                                   )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -2037,14 +2156,9 @@ export function TicketDetailView({
                       {canAlertTicketMembers && isNotMe && !isClosed && (
                         <button
                           type="button"
-                          onClick={() => {
-                            setMemberToPoke({ id: authorId, name: authorName, avatar: ticket.creator_avatar || undefined });
-                            setPokeMessage("");
-                            setPokeUrgency("normal");
-                            setPokeDialogOpen(true);
-                          }}
+                          onClick={() => handleOpenPokeDialog({ id: authorId, name: authorName, avatar: ticket.creator_avatar || undefined })}
                           className="p-1 rounded-md text-amber-400/80 hover:text-amber-300 hover:bg-amber-500/20 transition-colors"
-                          title="Alertar / Dar Poke no autor"
+                          title="Alertar / Dar Poke no autor (com DM no Discord)"
                         >
                           <BellRing className="h-3 w-3" />
                         </button>
@@ -2113,18 +2227,15 @@ export function TicketDetailView({
                     {canAlertTicketMembers && ticket.assigned_to_id !== user?.id && !isClosed && (
                       <button
                         type="button"
-                        onClick={() => {
-                          setMemberToPoke({
+                        onClick={() =>
+                          handleOpenPokeDialog({
                             id: ticket.assigned_to_id!,
                             name: ticket.assigned_to_nickname || ticket.assigned_to_name!,
                             avatar: ticket.assigned_to_avatar || undefined,
-                          });
-                          setPokeMessage("");
-                          setPokeUrgency("normal");
-                          setPokeDialogOpen(true);
-                        }}
+                          })
+                        }
                         className="p-1 rounded-md text-amber-400/80 hover:text-amber-300 hover:bg-amber-500/20 transition-colors"
-                        title="Alertar / Dar Poke no atendente"
+                        title="Alertar / Dar Poke no atendente (com DM no Discord)"
                       >
                         <BellRing className="h-3 w-3" />
                       </button>
@@ -2184,14 +2295,9 @@ export function TicketDetailView({
                       {canAlertTicketMembers && isNotMe && !isClosed && (
                         <button
                           type="button"
-                          onClick={() => {
-                            setMemberToPoke({ id: m.user_id, name: m.nickname || m.name, avatar: m.avatar });
-                            setPokeMessage("");
-                            setPokeUrgency("normal");
-                            setPokeDialogOpen(true);
-                          }}
+                          onClick={() => handleOpenPokeDialog({ id: m.user_id, name: m.nickname || m.name, avatar: m.avatar })}
                           className="p-1 rounded-md text-amber-400/80 hover:text-amber-300 hover:bg-amber-500/20 transition-colors"
-                          title="Alertar / Dar Poke no membro"
+                          title="Alertar / Dar Poke no participante (com DM no Discord)"
                         >
                           <BellRing className="h-3 w-3" />
                         </button>
@@ -3164,7 +3270,28 @@ export function TicketDetailView({
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-foreground">Motivo do Silenciamento:</Label>
+                <Label className="text-xs font-semibold text-foreground">Motivos Frequentes:</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    "Conduta inadequada ou desrespeito",
+                    "Envio excessivo de mensagens (flood)",
+                    "Spam ou conteúdo fora do escopo",
+                    "Perturbação do atendimento",
+                  ].map((mPreset) => (
+                    <button
+                      key={mPreset}
+                      type="button"
+                      onClick={() => setMuteReason(mPreset)}
+                      className="text-[11px] px-2 py-1 rounded-lg bg-secondary/40 hover:bg-rose-500/15 border border-border/50 hover:border-rose-500/40 text-muted-foreground hover:text-rose-200 transition-all font-medium"
+                    >
+                      {mPreset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-foreground">Motivo Personalizado do Silenciamento:</Label>
                 <Input
                   value={muteReason}
                   onChange={(e) => setMuteReason(e.target.value)}
@@ -3196,7 +3323,7 @@ export function TicketDetailView({
         </DialogContent>
       </Dialog>
 
-      {/* MODAL 10: ALERTAR MEMBRO (POKE 🔔) */}
+      {/* MODAL 10: ALERTAR MEMBRO (POKE 🔔) COM DM NO DISCORD */}
       <Dialog open={pokeDialogOpen} onOpenChange={setPokeDialogOpen}>
         <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-md border-border/80 rounded-2xl shadow-2xl">
           <DialogHeader>
@@ -3207,7 +3334,7 @@ export function TicketDetailView({
               <DialogTitle className="text-base font-bold">Alertar Membro (Poke 🔔)</DialogTitle>
             </div>
             <DialogDescription className="text-xs text-muted-foreground pt-1">
-              Envie um alerta sonoro e visual para chamar a atenção imediata do participante no chamado.
+              Envie um alerta sonoro e visual no chamado e dispare uma DM direta no Discord através do bot oficial.
             </DialogDescription>
           </DialogHeader>
 
@@ -3224,6 +3351,34 @@ export function TicketDetailView({
                   <p className="text-xs font-bold text-foreground">{memberToPoke.name}</p>
                   <p className="text-[10px] text-muted-foreground">Destinatário do Alerta</p>
                 </div>
+              </div>
+
+              {/* Bloco de Notificação e Envio de DM pelo Bot do Discord */}
+              <div className="space-y-2 p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/25">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-300">
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    <span>Notificação no Discord (DM Privada via Bot)</span>
+                  </div>
+                  {pokeDiscordId.trim() ? (
+                    <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-emerald-500/15 text-emerald-300 border-emerald-500/30 font-medium">
+                      ● ID Vinculado
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-amber-500/15 text-amber-300 border-amber-500/30 font-medium">
+                      Manual / Opcional
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  O bot oficial do Discord (<strong className="text-indigo-200">twin</strong>) enviará uma DM privada personalizada com o alerta e link direto do chamado.
+                </p>
+                <Input
+                  value={pokeDiscordId}
+                  onChange={(e) => setPokeDiscordId(e.target.value.trim())}
+                  placeholder="ID do Discord (ex: 284128919028400128)"
+                  className="h-8 text-xs font-mono bg-secondary/50 border-border/70 rounded-lg"
+                />
               </div>
 
               <div className="space-y-1.5">
@@ -3301,7 +3456,7 @@ export function TicketDetailView({
               className="bg-amber-500 hover:bg-amber-600 text-black font-bold text-xs rounded-xl gap-1.5"
             >
               <Bell className="h-3.5 w-3.5" />
-              <span>{pokeMemberMutation.isPending ? "Enviando..." : "Enviar Alerta (Poke)"}</span>
+              <span>{pokeMemberMutation.isPending ? "Enviando..." : "Enviar Alerta (Poke + DM Bot)"}</span>
             </Button>
           </DialogFooter>
         </DialogContent>

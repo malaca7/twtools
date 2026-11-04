@@ -898,6 +898,116 @@ export async function sendBotDiscordMessage(params: SendDiscordMessageParams): P
 }
 
 /**
+ * Envia uma mensagem direta (DM privada) para um usuário do Discord usando o Bot oficial
+ */
+export async function sendDiscordDirectMessage({
+  discordUserId,
+  content,
+  embed,
+  senderName,
+}: {
+  discordUserId: string;
+  content?: string;
+  embed?: any;
+  senderName?: string;
+}): Promise<{ success: boolean; directSent: boolean; message: string }> {
+  if (!discordUserId) {
+    return { success: false, directSent: false, message: "ID do Discord do destinatário não informado." };
+  }
+
+  let directSent = false;
+  let errorMsg = "";
+
+  // 1. Envio REST direto caso haja botToken configurado
+  try {
+    const config = await getDiscordBotConfig().catch(() => null);
+    const cleanToken = config?.botToken?.replace(/^Bot\s+/i, "").trim();
+    if (cleanToken) {
+      const dmChannelRes = await fetch("https://discord.com/api/v10/users/@me/channels", {
+        method: "POST",
+        headers: {
+          Authorization: `Bot ${cleanToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ recipient_id: discordUserId }),
+      });
+
+      if (dmChannelRes.ok) {
+        const dmChannel = await dmChannelRes.json();
+        const msgPayload: any = {};
+        if (content) msgPayload.content = content;
+        if (embed) msgPayload.embeds = [embed];
+
+        const sendRes = await fetch(`https://discord.com/api/v10/channels/${dmChannel.id}/messages`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bot ${cleanToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(msgPayload),
+        });
+
+        if (sendRes.ok) {
+          directSent = true;
+        } else {
+          const errData = await sendRes.json().catch(() => ({}));
+          errorMsg = errData.message || `HTTP ${sendRes.status}`;
+        }
+      }
+    }
+  } catch (e: any) {
+    errorMsg = e?.message || "Erro na conexão REST do Discord";
+  }
+
+  // 2. Envio HTTP direto ao servidor do bot no Discloud (https://twin.discloud.app/api/send-dm)
+  if (!directSent) {
+    try {
+      const res = await fetch("https://twin.discloud.app/api/send-dm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: discordUserId,
+          sender: senderName || "Central de Atendimento",
+          content: content || "",
+          embed: embed || null,
+        }),
+      });
+      if (res.ok) {
+        directSent = true;
+      }
+    } catch (httpErr) {
+      console.warn("Discloud send-dm HTTP error:", httpErr);
+    }
+  }
+
+  // 3. Emite broadcast no Supabase Realtime (canal system-discord-bot-control)
+  try {
+    const controlChannel = supabase.channel("system-discord-bot-control");
+    await controlChannel.send({
+      type: "broadcast",
+      event: "send_dm",
+      payload: {
+        userId: discordUserId,
+        sender: senderName || "Central de Atendimento",
+        content: content || "",
+        embed: embed || null,
+        timestamp: Date.now(),
+      },
+    });
+  } catch (bcErr) {
+    console.warn("Realtime broadcast send_dm error:", bcErr);
+  }
+
+  return {
+    success: true,
+    directSent,
+    message: directSent
+      ? "DM enviada com sucesso no Discord!"
+      : `Alerta transmitido ao bot do Discord (${errorMsg || "Aguardando entrega"})`,
+  };
+}
+
+/**
  * Dispara atualização instantânea do Avatar e Banner do bot na API do Discord através do bot no Discloud
  */
 export async function triggerBotProfileSync(payload: {
