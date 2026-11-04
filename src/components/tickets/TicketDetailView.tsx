@@ -39,6 +39,11 @@ import {
   ShieldAlert,
   ArrowUpRight,
   Share2,
+  KeyRound,
+  ShieldCheck,
+  Globe,
+  Settings2,
+  EyeOff,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -72,6 +77,7 @@ import {
   type TicketAttachment,
   type TicketPriority,
   type TicketCategory,
+  type TicketTranscriptConfig,
   formatTicketNumber,
   getCategoryInfo,
   getPriorityInfo,
@@ -93,6 +99,7 @@ import {
   useUpdateTicketPriority,
   useUpdateTicketCategory,
   useUnassignTicket,
+  useUpdateTicketTranscriptConfig,
   useTickets,
 } from "@/hooks/useTickets";
 import { useAuth } from "@/hooks/useAuth";
@@ -184,6 +191,63 @@ export function TicketDetailView({
 
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [closeReason, setCloseReason] = useState("");
+  const [enableTranscript, setEnableTranscript] = useState(true);
+  const [requirePassword, setRequirePassword] = useState(false);
+  const [transcriptPassword, setTranscriptPassword] = useState("");
+  const [includeNotesInTranscript, setIncludeNotesInTranscript] = useState(false);
+  const [censorSensitiveInTranscript, setCensorSensitiveInTranscript] = useState(false);
+  const [showClosePassword, setShowClosePassword] = useState(false);
+
+  // Configuração posterior da transcrição (chamados já fechados)
+  const [transcriptSettingsOpen, setTranscriptSettingsOpen] = useState(false);
+  const [cfgEnabled, setCfgEnabled] = useState(true);
+  const [cfgRequirePassword, setCfgRequirePassword] = useState(false);
+  const [cfgPassword, setCfgPassword] = useState("");
+  const [cfgIncludeNotes, setCfgIncludeNotes] = useState(false);
+  const [cfgCensorSensitive, setCfgCensorSensitive] = useState(false);
+  const [showCfgPassword, setShowCfgPassword] = useState(false);
+
+  const updateTranscriptMutation = useUpdateTicketTranscriptConfig();
+
+  const getTranscriptUrl = (id: string) => {
+    if (typeof window !== "undefined") {
+      return `${window.location.origin}/ticket/${id}/transcript/`;
+    }
+    return `/ticket/${id}/transcript/`;
+  };
+
+  const handleGenerateRandomPass = (target: "close" | "settings") => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let res = "TW-";
+    for (let i = 0; i < 4; i++) {
+      res += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    if (target === "close") {
+      setTranscriptPassword(res);
+      setRequirePassword(true);
+    } else {
+      setCfgPassword(res);
+      setCfgRequirePassword(true);
+    }
+    toast.success(`Senha segura gerada: ${res}`);
+  };
+
+  const handleSaveTranscriptSettings = async () => {
+    try {
+      const trimmed = cfgPassword.trim();
+      await updateTranscriptMutation.mutateAsync({
+        ticketId: ticket.id,
+        config: {
+          enabled: cfgEnabled,
+          has_password: Boolean(cfgRequirePassword && trimmed),
+          password: cfgRequirePassword && trimmed ? trimmed : null,
+          include_internal_notes: cfgIncludeNotes,
+          censor_sensitive_data: cfgCensorSensitive,
+        },
+      });
+      setTranscriptSettingsOpen(false);
+    } catch {}
+  };
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const [memberDialogOpen, setMemberDialogOpen] = useState(false);
@@ -454,6 +518,7 @@ export function TicketDetailView({
 
   const handleConfirmClose = async () => {
     try {
+      const trimmedPass = transcriptPassword.trim();
       await closeMutation.mutateAsync({
         ticketId: ticket.id,
         payload: {
@@ -462,10 +527,24 @@ export function TicketDetailView({
             (isCreator && !effectiveCanManage
               ? "Chamado finalizado pelo próprio autor."
               : "Chamado concluído e resolvido pela gerência."),
+          transcript_config: {
+            enabled: enableTranscript,
+            has_password: Boolean(requirePassword && trimmedPass),
+            password: requirePassword && trimmedPass ? trimmedPass : null,
+            include_internal_notes: includeNotesInTranscript,
+            censor_sensitive_data: censorSensitiveInTranscript,
+          },
         },
       });
       setCloseDialogOpen(false);
       setCloseReason("");
+      toast.success("Chamado encerrado e Transcrição Oficial gerada!", {
+        description: `/ticket/${ticket.id}/transcript/`,
+        action: {
+          label: "Abrir Transcrição",
+          onClick: () => window.open(`/ticket/${ticket.id}/transcript/`, "_blank"),
+        },
+      });
     } catch {}
   };
 
@@ -972,6 +1051,58 @@ export function TicketDetailView({
                 </Button>
               )}
 
+              {/* Transcrição Web Oficial (Chamado Fechado) */}
+              {isClosed && (
+                <>
+                  <a
+                    href={`/ticket/${ticket.id}/transcript/`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="h-7 text-xs px-2.5 inline-flex items-center gap-1.5 border border-cyan-500/35 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 rounded-lg font-semibold transition-all shadow-xs"
+                    title="Abrir transcrição oficial na web"
+                  >
+                    <Globe className="h-3.5 w-3.5 text-cyan-400" />
+                    <span className="hidden sm:inline">Transcrição Web</span>
+                    <ExternalLink className="h-3 w-3 opacity-70" />
+                  </a>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(getTranscriptUrl(ticket.id));
+                      toast.success("Link oficial da transcrição copiado!");
+                    }}
+                    className="h-7 text-xs gap-1 border-border/70 rounded-lg text-muted-foreground hover:text-foreground"
+                    title="Copiar link da transcrição web"
+                  >
+                    <Share2 className="h-3.5 w-3.5 text-cyan-400" />
+                    <span className="hidden sm:inline">Copiar Link</span>
+                  </Button>
+
+                  {effectiveCanManage && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const curCfg = ticket.transcript_config;
+                        setCfgEnabled(curCfg?.enabled ?? true);
+                        setCfgRequirePassword(Boolean(curCfg?.has_password && curCfg?.password));
+                        setCfgPassword(curCfg?.password || "");
+                        setCfgIncludeNotes(Boolean(curCfg?.include_internal_notes));
+                        setCfgCensorSensitive(Boolean(curCfg?.censor_sensitive_data));
+                        setTranscriptSettingsOpen(true);
+                      }}
+                      className="h-7 text-xs gap-1 border-border/70 rounded-lg text-muted-foreground hover:text-foreground"
+                      title="Configurar senha e opções da transcrição"
+                    >
+                      <Settings2 className="h-3.5 w-3.5 text-amber-400" />
+                      <span className="hidden sm:inline">Opções Transcrição</span>
+                    </Button>
+                  )}
+                </>
+              )}
+
               {/* Reabrir Ticket */}
               {isClosed && (
                 canReopen ? (
@@ -1245,23 +1376,106 @@ export function TicketDetailView({
           </div>
         )}
 
-        {/* Banner de Chamado Fechado */}
+        {/* Banner de Chamado Fechado e Transcrição Web Oficial */}
         {isClosed && (
-          <div className="rounded-2xl border border-zinc-500/30 bg-zinc-500/10 p-5 text-center space-y-2 my-4 shadow-sm">
-            <div className="flex items-center justify-center gap-2 text-zinc-300 font-black text-sm">
-              <span className="p-1 rounded-md bg-zinc-500/20 border border-zinc-500/30">
-                <Lock className="h-4 w-4" />
-              </span>
-              <span>CHAMADO FINALIZADO E ARQUIVADO</span>
+          <div className="rounded-3xl border border-zinc-500/30 bg-gradient-to-br from-zinc-500/10 via-secondary/40 to-zinc-500/5 p-5 sm:p-6 space-y-4 my-4 shadow-md">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/50 pb-3">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 rounded-xl bg-zinc-500/20 border border-zinc-500/30 text-zinc-300">
+                  <Lock className="h-5 w-5" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-black text-foreground uppercase tracking-wider">
+                    Chamado Finalizado e Arquivado
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground font-mono">
+                    Encerrado por {ticket.closed_by_name || "Gerência"} em {dateTime(ticket.closed_at)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <a
+                  href={`/ticket/${ticket.id}/transcript/`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 font-bold text-xs transition-all shadow-xs"
+                >
+                  <Globe className="h-3.5 w-3.5" />
+                  <span>Abrir Transcrição Web</span>
+                  <ExternalLink className="h-3 w-3 opacity-70" />
+                </a>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(getTranscriptUrl(ticket.id));
+                    toast.success("Link oficial da transcrição copiado!");
+                  }}
+                  className="h-8 text-xs gap-1 border-border/70 rounded-xl"
+                  title="Copiar URL pública da transcrição"
+                >
+                  <Share2 className="h-3.5 w-3.5 text-cyan-400" />
+                  <span className="hidden sm:inline">Copiar Link</span>
+                </Button>
+
+                {effectiveCanManage && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const curCfg = ticket.transcript_config;
+                      setCfgEnabled(curCfg?.enabled ?? true);
+                      setCfgRequirePassword(Boolean(curCfg?.has_password && curCfg?.password));
+                      setCfgPassword(curCfg?.password || "");
+                      setCfgIncludeNotes(Boolean(curCfg?.include_internal_notes));
+                      setCfgCensorSensitive(Boolean(curCfg?.censor_sensitive_data));
+                      setTranscriptSettingsOpen(true);
+                    }}
+                    className="h-8 text-xs gap-1 border-border/70 rounded-xl text-muted-foreground hover:text-foreground"
+                    title="Configurar senha e opções da transcrição"
+                  >
+                    <Settings2 className="h-3.5 w-3.5 text-amber-400" />
+                    <span className="hidden sm:inline">Opções Transcrição</span>
+                  </Button>
+                )}
+              </div>
             </div>
+
             {ticket.closed_reason && (
-              <p className="text-xs text-muted-foreground max-w-lg mx-auto">
-                Conclusão registrada: <span className="text-foreground font-semibold italic">"{ticket.closed_reason}"</span>
-              </p>
+              <div className="p-3 rounded-2xl bg-secondary/40 border border-border/50 text-xs space-y-1">
+                <span className="text-[10px] uppercase font-bold text-muted-foreground">
+                  Conclusão Registrada:
+                </span>
+                <p className="text-foreground font-semibold italic leading-relaxed">"{ticket.closed_reason}"</p>
+              </div>
             )}
-            <p className="text-[11px] text-muted-foreground/80 font-mono">
-              Finalizado por {ticket.closed_by_name || "Gerência"} em {dateTime(ticket.closed_at)}
-            </p>
+
+            {/* Link e Segurança da Transcrição */}
+            <div className="flex items-center justify-between gap-2 p-3 rounded-2xl bg-cyan-500/5 border border-cyan-500/20 text-xs flex-wrap">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-cyan-400 shrink-0" />
+                <span className="text-muted-foreground text-[11px]">
+                  URL Oficial:{" "}
+                  <code className="text-cyan-300 font-mono font-bold bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/25">
+                    /ticket/{ticket.id}/transcript/
+                  </code>
+                </span>
+              </div>
+
+              {ticket.transcript_config?.has_password && (
+                <div className="flex items-center gap-1.5 text-[11px] text-amber-300 font-semibold bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20">
+                  <KeyRound className="h-3 w-3" />
+                  <span>Protegida por Senha</span>
+                  {effectiveCanManage && ticket.transcript_config?.password && (
+                    <span className="font-mono bg-amber-500/20 px-1 rounded text-amber-200">
+                      ({ticket.transcript_config.password})
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -1597,8 +1811,135 @@ export function TicketDetailView({
                 onChange={(e) => setCloseReason(e.target.value)}
                 placeholder="Ex: Dúvida esclarecida pelo chat / Reembolso aprovado e pago no jogo..."
                 rows={3}
-                className="text-xs bg-secondary/30 rounded-xl"
+                className="text-xs bg-secondary/30 rounded-xl leading-relaxed"
               />
+            </div>
+
+            {/* OPÇÕES DA TRANSCRIÇÃO WEB */}
+            <div className="pt-2 border-t border-border/50 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <Globe className="h-3.5 w-3.5 text-cyan-400" />
+                  <span>Transcrição Web Oficial</span>
+                </span>
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  /ticket/{ticket.id}/transcript/
+                </span>
+              </div>
+
+              {/* Ativar Transcrição */}
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-secondary/30 border border-border/60">
+                <div className="space-y-0.5">
+                  <Label htmlFor="trans_enabled" className="text-xs font-semibold cursor-pointer">
+                    Gerar Página Pública da Transcrição
+                  </Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    Cria o link interativo no site para auditoria ou envio no Discord.
+                  </p>
+                </div>
+                <Switch
+                  id="trans_enabled"
+                  checked={enableTranscript}
+                  onCheckedChange={setEnableTranscript}
+                />
+              </div>
+
+              {enableTranscript && (
+                <div className="space-y-2.5 animate-in fade-in duration-150">
+                  {/* Ativar Senha de Acesso */}
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="trans_pwd_toggle" className="text-xs font-bold text-amber-300 flex items-center gap-1.5 cursor-pointer">
+                          <Lock className="h-3.5 w-3.5" />
+                          <span>Proteger Transcrição com Senha</span>
+                        </Label>
+                        <p className="text-[10px] text-amber-200/80">
+                          Exige senha para qualquer pessoa visualizar o histórico na web.
+                        </p>
+                      </div>
+                      <Switch
+                        id="trans_pwd_toggle"
+                        checked={requirePassword}
+                        onCheckedChange={setRequirePassword}
+                        className="data-[state=checked]:bg-amber-500"
+                      />
+                    </div>
+
+                    {requirePassword && (
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="close_pwd_input" className="text-[11px] font-semibold text-amber-300">
+                            Senha de Acesso *
+                          </Label>
+                          <button
+                            type="button"
+                            onClick={() => handleGenerateRandomPass("close")}
+                            className="text-[10px] font-mono text-cyan-400 hover:underline flex items-center gap-1"
+                          >
+                            <Sparkles className="h-2.5 w-2.5" />
+                            <span>Gerar Senha Segura</span>
+                          </button>
+                        </div>
+                        <div className="relative">
+                          <KeyRound className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                          <Input
+                            id="close_pwd_input"
+                            type={showClosePassword ? "text" : "password"}
+                            value={transcriptPassword}
+                            onChange={(e) => setTranscriptPassword(e.target.value)}
+                            placeholder="Digite ou gere uma senha..."
+                            className="pl-8 pr-8 h-8 text-xs bg-secondary/50 border-amber-500/40 rounded-xl"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowClosePassword((p) => !p)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          >
+                            {showClosePassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Incluir Notas Internas Privadas (Apenas para Staff com permissão) */}
+                  {canViewInternalNotes && (
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-secondary/30 border border-border/60">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="trans_notes_toggle" className="text-xs font-semibold cursor-pointer">
+                          Incluir Notas Internas na Transcrição
+                        </Label>
+                        <p className="text-[10px] text-muted-foreground">
+                          Se ativado, notas confidenciais da moderação também serão exibidas no registro.
+                        </p>
+                      </div>
+                      <Switch
+                        id="trans_notes_toggle"
+                        checked={includeNotesInTranscript}
+                        onCheckedChange={setIncludeNotesInTranscript}
+                      />
+                    </div>
+                  )}
+
+                  {/* Censurar Dados Pessoais / LGPD */}
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-secondary/30 border border-border/60">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="trans_censor_toggle" className="text-xs font-semibold cursor-pointer">
+                        Censurar Dados Sensíveis (Telefone / Discord)
+                      </Label>
+                      <p className="text-[10px] text-muted-foreground">
+                        Oculta números de telefone e IDs pessoais de visualizadores não-staff.
+                      </p>
+                    </div>
+                    <Switch
+                      id="trans_censor_toggle"
+                      checked={censorSensitiveInTranscript}
+                      onCheckedChange={setCensorSensitiveInTranscript}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1744,6 +2085,188 @@ export function TicketDetailView({
               )}
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL 6: CONFIGURAÇÕES DA TRANSCRIÇÃO WEB */}
+      <Dialog open={transcriptSettingsOpen} onOpenChange={setTranscriptSettingsOpen}>
+        <DialogContent className="max-w-md bg-card/95 backdrop-blur-md border-border/80 rounded-2xl shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+              <span className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                <Globe className="h-4 w-4" />
+              </span>
+              <span>Configurações da Transcrição Web</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Ajuste as permissões de acesso, senha e opções do registro oficial deste chamado.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3.5 py-2">
+            {/* Link da Transcrição com Copiar */}
+            <div className="p-2.5 rounded-xl bg-secondary/40 border border-border/60 flex items-center justify-between gap-2 text-xs">
+              <div className="min-w-0">
+                <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                  Link Oficial da Web:
+                </span>
+                <span className="font-mono text-cyan-300 font-bold truncate block">
+                  /ticket/{ticket.id}/transcript/
+                </span>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    navigator.clipboard.writeText(getTranscriptUrl(ticket.id));
+                    toast.success("Link oficial copiado!");
+                  }}
+                  className="h-7 px-2 text-xs gap-1"
+                >
+                  <Copy className="h-3 w-3" />
+                  <span>Copiar</span>
+                </Button>
+                <a
+                  href={`/ticket/${ticket.id}/transcript/`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="h-7 px-2 text-xs inline-flex items-center gap-1 rounded-lg border border-border/70 hover:bg-secondary/80 text-foreground"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            </div>
+
+            {/* Ativar/Desativar Transcrição */}
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-secondary/30 border border-border/60">
+              <div className="space-y-0.5">
+                <Label htmlFor="cfg_enabled" className="text-xs font-semibold cursor-pointer">
+                  Página da Transcrição Habilitada
+                </Label>
+                <p className="text-[10px] text-muted-foreground">
+                  Permite que o registro seja acessado através da URL.
+                </p>
+              </div>
+              <Switch
+                id="cfg_enabled"
+                checked={cfgEnabled}
+                onCheckedChange={setCfgEnabled}
+              />
+            </div>
+
+            {/* Proteger com Senha */}
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="cfg_pwd_toggle" className="text-xs font-bold text-amber-300 flex items-center gap-1.5 cursor-pointer">
+                    <Lock className="h-3.5 w-3.5" />
+                    <span>Proteger com Senha</span>
+                  </Label>
+                  <p className="text-[10px] text-amber-200/80">
+                    Exige senha autorizada para visualizar mensagens e anexos.
+                  </p>
+                </div>
+                <Switch
+                  id="cfg_pwd_toggle"
+                  checked={cfgRequirePassword}
+                  onCheckedChange={setCfgRequirePassword}
+                  className="data-[state=checked]:bg-amber-500"
+                />
+              </div>
+
+              {cfgRequirePassword && (
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="cfg_pwd_input" className="text-[11px] font-semibold text-amber-300">
+                      Senha de Acesso *
+                    </Label>
+                    <button
+                      type="button"
+                      onClick={() => handleGenerateRandomPass("settings")}
+                      className="text-[10px] font-mono text-cyan-400 hover:underline flex items-center gap-1"
+                    >
+                      <Sparkles className="h-2.5 w-2.5" />
+                      <span>Gerar Senha Segura</span>
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <KeyRound className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      id="cfg_pwd_input"
+                      type={showCfgPassword ? "text" : "password"}
+                      value={cfgPassword}
+                      onChange={(e) => setCfgPassword(e.target.value)}
+                      placeholder="Digite ou gere uma senha..."
+                      className="pl-8 pr-8 h-8 text-xs bg-secondary/50 border-amber-500/40 rounded-xl"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCfgPassword((p) => !p)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showCfgPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Notas Internas */}
+            {canViewInternalNotes && (
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-secondary/30 border border-border/60">
+                <div className="space-y-0.5">
+                  <Label htmlFor="cfg_notes_toggle" className="text-xs font-semibold cursor-pointer">
+                    Incluir Notas Internas
+                  </Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    Exibe notas confidenciais da moderação na transcrição.
+                  </p>
+                </div>
+                <Switch
+                  id="cfg_notes_toggle"
+                  checked={cfgIncludeNotes}
+                  onCheckedChange={setCfgIncludeNotes}
+                />
+              </div>
+            )}
+
+            {/* Censurar Dados Pessoais */}
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-secondary/30 border border-border/60">
+              <div className="space-y-0.5">
+                <Label htmlFor="cfg_censor_toggle" className="text-xs font-semibold cursor-pointer">
+                  Censurar Dados Sensíveis (Telefone / Discord)
+                </Label>
+                <p className="text-[10px] text-muted-foreground">
+                  Oculta números de telefone e IDs pessoais de não-staff.
+                </p>
+              </div>
+              <Switch
+                id="cfg_censor_toggle"
+                checked={cfgCensorSensitive}
+                onCheckedChange={setCfgCensorSensitive}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setTranscriptSettingsOpen(false)}
+              className="text-xs rounded-xl"
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSaveTranscriptSettings}
+              disabled={updateTranscriptMutation.isPending}
+              className="text-xs bg-cyan-500 hover:bg-cyan-600 text-black font-bold rounded-xl shadow-xs"
+            >
+              Salvar Alterações
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

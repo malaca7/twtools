@@ -16,6 +16,7 @@ import {
   deleteTicket,
   addTicketMember,
   removeTicketMember,
+  updateTicketTranscriptConfig,
   broadcastTicketsRealtimeUpdate,
   getTicketsRealtimeChannel,
 } from "@/lib/app-api";
@@ -26,6 +27,7 @@ import type {
   AddTicketMessagePayload,
   TransferTicketPayload,
   CloseTicketPayload,
+  TicketTranscriptConfig,
   AddTicketMemberPayload,
   TicketStatus,
   TicketPriority,
@@ -375,6 +377,31 @@ export function useCloseTicket() {
     },
     onError: (err: any) => {
       toast.error(err?.message || "Erro ao fechar chamado.");
+    },
+  });
+}
+
+export function useUpdateTicketTranscriptConfig() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      ticketId,
+      config,
+    }: {
+      ticketId: string;
+      config: TicketTranscriptConfig;
+    }) => updateTicketTranscriptConfig(ticketId, config),
+    onSuccess: (updatedTicket) => {
+      queryClient.setQueryData<Ticket[]>(["tickets"], (old = []) => {
+        return old.map((t) => (t.id === updatedTicket.id ? updatedTicket : t));
+      });
+      void queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      broadcastTicketsRealtimeUpdate();
+      toast.success("Configurações da transcrição atualizadas com sucesso!");
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Erro ao atualizar transcrição.");
     },
   });
 }

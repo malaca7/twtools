@@ -15,6 +15,7 @@ const RESERVED_ROUTES = new Set([
   "hierarquia",
   "cargos",
   "tickets",
+  "ticket",
   "chat",
   "logs",
   "lives",

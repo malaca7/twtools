@@ -50,6 +50,7 @@ import type {
   TransferTicketPayload,
   CloseTicketPayload,
   AddTicketMemberPayload,
+  TicketTranscriptConfig,
 } from "@/types/tickets";
 import { getCategoryInfo, getStatusInfo } from "@/types/tickets";
 import { createNotification } from "./notifications-api";
@@ -6090,6 +6091,31 @@ export async function closeTicket(
     closed_by_id: auth.user.id,
     closed_by_name: actorName,
     closed_reason: reason,
+    transcript_config: {
+      enabled: payload?.transcript_config?.enabled ?? true,
+      has_password: Boolean(payload?.transcript_config?.password?.trim()),
+      password: payload?.transcript_config?.password?.trim() || null,
+      include_internal_notes: Boolean(payload?.transcript_config?.include_internal_notes),
+      censor_sensitive_data: Boolean(payload?.transcript_config?.censor_sensitive_data),
+      generated_at: now,
+      generated_by_id: auth.user.id,
+      generated_by_name: actorName,
+    },
+    messages: [
+      ...(ticket.messages || []),
+      {
+        id: `msg_${Date.now()}_sys_close`,
+        ticket_id: ticketId,
+        sender_id: auth.user.id,
+        sender_name: actorName,
+        sender_nickname: auth.nickname,
+        sender_role: auth.role,
+        sender_avatar: auth.avatar,
+        content: `🔒 [Encerramento] Chamado finalizado e transcrição web gerada: /ticket/${ticket.id}/transcript/`,
+        is_internal_note: false,
+        created_at: now,
+      },
+    ],
   };
 
   allRawTickets[targetIndex] = updatedTicket;
@@ -6126,6 +6152,51 @@ export async function closeTicket(
   }
 
   return updatedTicket;
+}
+
+export async function updateTicketTranscriptConfig(
+  ticketId: string,
+  config: TicketTranscriptConfig
+): Promise<Ticket> {
+  const auth = await getEffectiveTicketAuth();
+  if (!auth) throw new Error("Usuário não autenticado");
+
+  if (!auth.canManage && !auth.canClose && !auth.isSuperUser) {
+    throw new Error("Permissão insuficiente para configurar a transcrição.");
+  }
+
+  const allRawTickets = await fetchAllRawTickets();
+  const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
+  if (targetIndex === -1) throw new Error("Ticket não encontrado");
+
+  const ticket = allRawTickets[targetIndex];
+  const now = new Date().toISOString();
+
+  const updatedTicket: Ticket = {
+    ...ticket,
+    transcript_config: {
+      ...config,
+      generated_at: ticket.transcript_config?.generated_at || now,
+      generated_by_id: ticket.transcript_config?.generated_by_id || auth.user.id,
+      generated_by_name: ticket.transcript_config?.generated_by_name || auth.nome,
+    },
+    updated_at: now,
+  };
+
+  allRawTickets[targetIndex] = updatedTicket;
+  setLocalTickets(allRawTickets, false);
+  await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: allRawTickets });
+  broadcastTicketsRealtimeUpdate();
+
+  return updatedTicket;
+}
+
+export async function fetchPublicTicketTranscript(ticketId: string): Promise<Ticket | null> {
+  const allRawTickets = await fetchAllRawTickets();
+  const ticket = allRawTickets.find(
+    (t) => t.id === ticketId || String(t.ticket_number) === ticketId
+  );
+  return ticket || null;
 }
 
 export async function reopenTicket(ticketId: string): Promise<Ticket> {

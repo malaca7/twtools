@@ -78,6 +78,18 @@ export interface Ticket {
   closed_by_id?: string | null;
   closed_by_name?: string | null;
   closed_reason?: string | null;
+  transcript_config?: TicketTranscriptConfig | null;
+}
+
+export interface TicketTranscriptConfig {
+  enabled: boolean;
+  has_password?: boolean;
+  password?: string | null;
+  include_internal_notes?: boolean;
+  censor_sensitive_data?: boolean;
+  generated_at?: string;
+  generated_by_id?: string;
+  generated_by_name?: string;
 }
 
 export interface CreateTicketPayload {
@@ -105,6 +117,11 @@ export interface TransferTicketPayload {
 
 export interface CloseTicketPayload {
   reason?: string;
+  transcript_config?: TicketTranscriptConfig | null;
+}
+
+export interface UpdateTicketTranscriptPayload {
+  transcript_config: TicketTranscriptConfig;
 }
 
 export interface AddTicketMemberPayload {

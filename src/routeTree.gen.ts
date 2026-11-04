@@ -98,6 +98,7 @@ import { Route as AuthenticatedProducoesProduzirRouteImport } from './routes/_au
 import { Route as AuthenticatedRankingsTabRouteImport } from './routes/_authenticated/rankings.$tab'
 import { Route as AuthenticatedTicketsTabRouteImport } from './routes/_authenticated/tickets.$tab'
 import { Route as DevmlcDiscordidDiscordIdRouteImport } from './routes/devmlc.discordid.$discordId'
+import { Route as TicketTicketIdTranscriptRouteImport } from './routes/ticket.$ticketId.transcript'
 import { Route as AuthenticatedCeoTabSubtabRouteImport } from './routes/_authenticated/ceo.$tab.$subtab'
 import { Route as AuthenticatedCeoProducoesIndexRouteImport } from './routes/_authenticated/ceo.producoes.index'
 import { Route as AuthenticatedCeoProducoesArmazemRouteImport } from './routes/_authenticated/ceo.producoes.armazem'
@@ -603,6 +604,12 @@ const DevmlcDiscordidDiscordIdRoute =
     path: '/devmlc/discordid/$discordId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const TicketTicketIdTranscriptRoute =
+  TicketTicketIdTranscriptRouteImport.update({
+    id: '/ticket/$ticketId/transcript',
+    path: '/ticket/$ticketId/transcript',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedCeoTabSubtabRoute =
   AuthenticatedCeoTabSubtabRouteImport.update({
     id: '/$subtab',
@@ -785,6 +792,7 @@ export interface FileRoutesByFullPath {
   '/rankings/$tab': typeof AuthenticatedRankingsTabRoute
   '/tickets/$tab': typeof AuthenticatedTicketsTabRoute
   '/devmlc/discordid/$discordId': typeof DevmlcDiscordidDiscordIdRoute
+  '/ticket/$ticketId/transcript': typeof TicketTicketIdTranscriptRoute
   '/dev/': typeof AuthenticatedDevIndexRoute
   '/producoes/': typeof AuthenticatedProducoesIndexRoute
   '/ceo/$tab/$subtab': typeof AuthenticatedCeoTabSubtabRoute
@@ -891,6 +899,7 @@ export interface FileRoutesByTo {
   '/rankings/$tab': typeof AuthenticatedRankingsTabRoute
   '/tickets/$tab': typeof AuthenticatedTicketsTabRoute
   '/devmlc/discordid/$discordId': typeof DevmlcDiscordidDiscordIdRoute
+  '/ticket/$ticketId/transcript': typeof TicketTicketIdTranscriptRoute
   '/dev': typeof AuthenticatedDevIndexRoute
   '/producoes': typeof AuthenticatedProducoesIndexRoute
   '/ceo/$tab/$subtab': typeof AuthenticatedCeoTabSubtabRoute
@@ -999,6 +1008,7 @@ export interface FileRoutesById {
   '/_authenticated/rankings/$tab': typeof AuthenticatedRankingsTabRoute
   '/_authenticated/tickets/$tab': typeof AuthenticatedTicketsTabRoute
   '/devmlc/discordid/$discordId': typeof DevmlcDiscordidDiscordIdRoute
+  '/ticket/$ticketId/transcript': typeof TicketTicketIdTranscriptRoute
   '/_authenticated/dev/': typeof AuthenticatedDevIndexRoute
   '/_authenticated/producoes/': typeof AuthenticatedProducoesIndexRoute
   '/_authenticated/ceo/$tab/$subtab': typeof AuthenticatedCeoTabSubtabRoute
@@ -1107,6 +1117,7 @@ export interface FileRouteTypes {
     | '/rankings/$tab'
     | '/tickets/$tab'
     | '/devmlc/discordid/$discordId'
+    | '/ticket/$ticketId/transcript'
     | '/dev/'
     | '/producoes/'
     | '/ceo/$tab/$subtab'
@@ -1213,6 +1224,7 @@ export interface FileRouteTypes {
     | '/rankings/$tab'
     | '/tickets/$tab'
     | '/devmlc/discordid/$discordId'
+    | '/ticket/$ticketId/transcript'
     | '/dev'
     | '/producoes'
     | '/ceo/$tab/$subtab'
@@ -1320,6 +1332,7 @@ export interface FileRouteTypes {
     | '/_authenticated/rankings/$tab'
     | '/_authenticated/tickets/$tab'
     | '/devmlc/discordid/$discordId'
+    | '/ticket/$ticketId/transcript'
     | '/_authenticated/dev/'
     | '/_authenticated/producoes/'
     | '/_authenticated/ceo/$tab/$subtab'
@@ -1348,6 +1361,7 @@ export interface RootRouteChildren {
   DevDiscordIdRoute: typeof DevDiscordIdRoute
   DevmlcDiscordIdRoute: typeof DevmlcDiscordIdRoute
   DevmlcDiscordidDiscordIdRoute: typeof DevmlcDiscordidDiscordIdRoute
+  TicketTicketIdTranscriptRoute: typeof TicketTicketIdTranscriptRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1975,6 +1989,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DevmlcDiscordidDiscordIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ticket/$ticketId/transcript': {
+      id: '/ticket/$ticketId/transcript'
+      path: '/ticket/$ticketId/transcript'
+      fullPath: '/ticket/$ticketId/transcript'
+      preLoaderRoute: typeof TicketTicketIdTranscriptRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/ceo/$tab/$subtab': {
       id: '/_authenticated/ceo/$tab/$subtab'
       path: '/$subtab'
@@ -2505,6 +2526,7 @@ const rootRouteChildren: RootRouteChildren = {
   DevDiscordIdRoute: DevDiscordIdRoute,
   DevmlcDiscordIdRoute: DevmlcDiscordIdRoute,
   DevmlcDiscordidDiscordIdRoute: DevmlcDiscordidDiscordIdRoute,
+  TicketTicketIdTranscriptRoute: TicketTicketIdTranscriptRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
