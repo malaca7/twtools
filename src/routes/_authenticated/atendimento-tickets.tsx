@@ -1164,7 +1164,7 @@ export function AtendimentoTicketsContent() {
       {/* MODAL DETALHADO DO TICKET (TICKET DETAIL VIEW EXPANDIDO E ELEGANTE) */}
       {selectedTicket && (
         <Dialog open={Boolean(selectedTicket)} onOpenChange={(open) => !open && setSelectedTicketId(null)}>
-          <DialogContent className="max-w-5xl h-[92vh] sm:h-[88vh] p-0 overflow-hidden border-border/80 bg-card/95 backdrop-blur-md shadow-2xl flex flex-col rounded-2xl">
+          <DialogContent className="max-w-7xl w-[96vw] h-[92vh] sm:h-[90vh] p-0 overflow-hidden border-border/80 bg-card/95 backdrop-blur-md shadow-2xl flex flex-col rounded-2xl">
             <TicketDetailView
               ticket={selectedTicket}
               onClose={() => setSelectedTicketId(null)}

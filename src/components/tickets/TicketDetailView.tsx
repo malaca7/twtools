@@ -169,6 +169,7 @@ export function TicketDetailView({
 
   // Dossier state & creator lookup
   const [showDossier, setShowDossier] = useState(false);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const creatorMember = useMemo(
     () => members.find((m) => m.user_id === ticket.user_id),
     [members, ticket.user_id]
@@ -562,40 +563,81 @@ export function TicketDetailView({
       className="flex flex-col h-full bg-card/95 border border-border/80 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-md"
       onPaste={handlePaste}
     >
-      {/* 1. HEADER DO TICKET: Identificação Executiva, Stepper e Metadados */}
-      <div className="border-b border-border/70 bg-gradient-to-b from-secondary/40 to-card/60 p-4 sm:p-5 shrink-0 space-y-3.5">
-        {/* Linha 1: Badges de Identificação, ID Copiável e Botão Fechar Modal */}
-        <div className="flex items-center justify-between gap-2.5 flex-wrap">
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* ID do Chamado com 1-Click Copy */}
-            <button
-              type="button"
-              onClick={handleCopyTicketId}
-              className="group flex items-center gap-1.5 text-xs sm:text-sm font-mono font-black text-amber-300 bg-amber-500/15 hover:bg-amber-500/25 px-2.5 py-1 rounded-lg border border-amber-500/30 transition-all cursor-pointer shadow-xs active:scale-95"
-              title="Copiar número do chamado"
-            >
-              <span>{formatTicketNumber(ticket.ticket_number)}</span>
-              <Copy className="h-3 w-3 opacity-60 group-hover:opacity-100 transition-opacity" />
-            </button>
+      {/* 1. HEADER DO TICKET: Barra Topo Compacta, Informativa e Elegante */}
+      <div className="h-14 px-4 sm:px-5 border-b border-border/70 bg-gradient-to-r from-secondary/50 via-card/60 to-secondary/40 shrink-0 flex items-center justify-between gap-3">
+        {/* Lado Esquerdo da Barra de Topo */}
+        <div className="flex items-center gap-2.5 min-w-0">
+          {/* ID do Chamado com 1-Click Copy */}
+          <button
+            type="button"
+            onClick={handleCopyTicketId}
+            className="group flex items-center gap-1.5 text-xs font-mono font-black text-amber-300 bg-amber-500/15 hover:bg-amber-500/25 px-2 py-1 rounded-lg border border-amber-500/30 transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0"
+            title="Copiar número do chamado"
+          >
+            <span>{formatTicketNumber(ticket.ticket_number)}</span>
+            <Copy className="h-3 w-3 opacity-60 group-hover:opacity-100 transition-opacity" />
+          </button>
+
+          {/* Assunto / Título do Chamado */}
+          <h2 className="text-sm sm:text-base font-bold text-foreground tracking-tight truncate max-w-[180px] sm:max-w-xs md:max-w-md lg:max-w-lg" title={ticket.subject}>
+            {ticket.subject}
+          </h2>
+
+          {/* Badges Essenciais em Topo */}
+          <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+            {/* Status */}
+            <Badge variant="outline" className={cn("text-[11px] font-bold px-2 py-0.5 rounded-lg shadow-2xs", statusInfo.badgeClass)}>
+              {statusInfo.label}
+            </Badge>
 
             {/* Categoria */}
-            <Badge variant="outline" className={cn("text-xs font-semibold gap-1 px-2.5 py-0.5 rounded-lg shadow-xs", catInfo.badgeClass)}>
+            <Badge variant="outline" className={cn("text-[11px] font-semibold gap-1 px-2 py-0.5 rounded-lg shadow-2xs", catInfo.badgeClass)}>
               <span>{catInfo.emoji}</span>
-              <span>{catInfo.label}</span>
+              <span className="hidden md:inline">{catInfo.label}</span>
             </Badge>
 
             {/* Prioridade */}
-            <Badge variant="outline" className={cn("text-xs font-semibold px-2.5 py-0.5 rounded-lg shadow-xs", priorityInfo.badgeClass)}>
-              <span className={cn("h-1.5 w-1.5 rounded-full mr-1.5", priorityInfo.dotClass)} />
+            <Badge variant="outline" className={cn("text-[11px] font-semibold px-2 py-0.5 rounded-lg shadow-2xs hidden lg:inline-flex", priorityInfo.badgeClass)}>
+              <span className={cn("h-1.5 w-1.5 rounded-full mr-1", priorityInfo.dotClass)} />
               Prioridade {priorityInfo.label}
             </Badge>
+          </div>
+        </div>
 
-            {/* Status Atual */}
-            <Badge variant="outline" className={cn("text-xs font-bold px-2.5 py-0.5 rounded-lg shadow-xs", statusInfo.badgeClass)}>
-              {statusInfo.label}
-            </Badge>
+        {/* Lado Direito da Barra de Topo */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Responsável Rápido no Topo */}
+          <div className="hidden xl:flex items-center gap-1.5 text-xs bg-secondary/50 px-2.5 py-1 rounded-lg border border-border/50">
+            <span className="text-muted-foreground text-[11px]">Responsável:</span>
+            {ticket.assigned_to_name ? (
+              <span className="text-sky-300 font-semibold inline-flex items-center gap-1">
+                <Avatar className="h-4 w-4">
+                  <AvatarImage src={ticket.assigned_to_avatar || undefined} />
+                  <AvatarFallback className="text-[8px]">
+                    {(ticket.assigned_to_nickname || ticket.assigned_to_name).slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <span>{ticket.assigned_to_nickname || ticket.assigned_to_name}</span>
+                <VerifiedBadge userId={ticket.assigned_to_id} size="xs" />
+              </span>
+            ) : (
+              <span className="text-amber-400/80 font-mono text-[11px]">Fila Livre</span>
+            )}
           </div>
 
+          {/* Botão de Alternar Sidebar em Mobile */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowMobileSidebar((v) => !v)}
+            className="md:hidden h-8 px-2.5 text-xs gap-1.5 border-border/70 rounded-xl"
+            title="Alternar entre Chat e Opções do Chamado"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5 text-amber-400" />
+            <span>{showMobileSidebar ? "Chat" : "Opções"}</span>
+          </Button>
+
+          {/* Botão Fechar Modal */}
           <Button
             variant="ghost"
             size="icon"
@@ -606,557 +648,16 @@ export function TicketDetailView({
             <X className="h-4 w-4" />
           </Button>
         </div>
-
-        {/* Linha 2: Assunto e Metadados do Autor e Responsável */}
-        <div className="space-y-1.5">
-          <h2 className="text-base sm:text-xl font-black text-foreground tracking-tight leading-snug">
-            {ticket.subject}
-          </h2>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-            <span className="flex items-center gap-1.5 bg-secondary/50 px-2 py-0.5 rounded-md border border-border/40">
-              <Avatar className="h-4 w-4">
-                <AvatarImage src={ticket.creator_avatar || undefined} />
-                <AvatarFallback className="text-[9px]">
-                  {(ticket?.creator_name || ticket?.creator_nickname || "TC").slice(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-foreground font-semibold inline-flex items-center gap-1">
-                <span>{ticket.creator_nickname || ticket.creator_name}</span>
-                <VerifiedBadge userId={ticket.creator_id || ticket.user_id} isVerified={ticket.creator_is_verified} size="xs" />
-              </span>
-              <span className="text-[10px] text-muted-foreground">
-                ({LEVEL_LABEL[ticket.creator_role] || ticket.creator_role})
-              </span>
-            </span>
-
-            <span>•</span>
-            <span className="flex items-center gap-1 font-mono text-[11px]">
-              <Calendar className="h-3 w-3 text-cyan-400" />
-              Aberto em {dateTime(ticket.created_at)}
-            </span>
-
-            <span>•</span>
-            <span className="flex items-center gap-1 text-[11px]">
-              <User className="h-3 w-3 text-sky-400" />
-              Responsável:{" "}
-              {ticket.assigned_to_name ? (
-                <span className="text-sky-300 font-semibold inline-flex items-center gap-1">
-                  <span>{ticket.assigned_to_nickname || ticket.assigned_to_name}</span>
-                  <VerifiedBadge userId={ticket.assigned_to_id} size="xs" />
-                </span>
-              ) : (
-                <span className="text-muted-foreground/80 italic font-mono">Fila Livre</span>
-              )}
-            </span>
-          </div>
-        </div>
-
-        {/* Linha 3: Stepper Visual Operacional */}
-        <div className="pt-2 px-1">
-          <div className="relative flex items-center justify-between">
-            <div className="absolute left-3 right-3 top-1/2 -translate-y-1/2 h-0.5 bg-border/60 z-0" />
-            {TICKET_STATUSES.map((st, idx) => {
-              const currentOrder = statusInfo.order;
-              const isPast = st.order < currentOrder;
-              const isCurrent = st.order === currentOrder;
-              return (
-                <div key={st.id} className="relative z-10 flex flex-col items-center group">
-                  <div
-                    className={cn(
-                      "h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold border transition-all duration-200",
-                      isCurrent
-                        ? "bg-amber-500 text-black border-amber-400 shadow-md shadow-amber-500/40 ring-4 ring-amber-500/20 scale-110"
-                        : isPast
-                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
-                        : "bg-card text-muted-foreground border-border/70"
-                    )}
-                    title={st.label}
-                  >
-                    {isPast ? <Check className="h-3 w-3 stroke-[3]" /> : <span>{idx + 1}</span>}
-                  </div>
-                  <span
-                    className={cn(
-                      "mt-1 text-[10px] font-semibold tracking-tight hidden sm:block whitespace-nowrap transition-colors",
-                      isCurrent
-                        ? "text-amber-400 font-bold"
-                        : isPast
-                        ? "text-emerald-400/90"
-                        : "text-muted-foreground/50"
-                    )}
-                  >
-                    {st.label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Linha 4: Participantes do Chamado */}
-        <div className="flex items-center gap-1.5 pt-2.5 border-t border-border/40 flex-wrap text-xs">
-          <span className="text-[11px] font-bold text-muted-foreground flex items-center gap-1 shrink-0 uppercase tracking-wider">
-            <Users className="h-3.5 w-3.5 text-amber-400" />
-            Participantes:
-          </span>
-
-          {/* Autor */}
-          <div className="flex items-center gap-1.5 bg-secondary/80 border border-border/70 rounded-full pl-1.5 pr-2 py-0.5 shadow-2xs" title="Autor do Chamado">
-            <Avatar className="h-4 w-4">
-              <AvatarImage src={ticket.creator_avatar || undefined} />
-              <AvatarFallback className="text-[8px]">
-                {(ticket?.creator_name || ticket?.creator_nickname || "TC").slice(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <span className="text-[11px] font-semibold text-foreground">
-              {ticket.creator_nickname || ticket.creator_name}
-            </span>
-            <Badge variant="outline" className="text-[8px] py-0 px-1 border-amber-500/30 text-amber-400 bg-amber-500/10 rounded-full font-bold">
-              Autor
-            </Badge>
-          </div>
-
-          {/* Responsável Atribuído */}
-          {ticket.assigned_to_name && (
-            <div className="flex items-center gap-1.5 bg-secondary/80 border border-sky-500/30 rounded-full pl-1.5 pr-2 py-0.5 shadow-2xs" title="Responsável Atribuído">
-              <Avatar className="h-4 w-4">
-                <AvatarImage src={ticket.assigned_to_avatar || undefined} />
-                <AvatarFallback className="text-[8px]">
-                  {(ticket?.assigned_to_name || ticket?.assigned_to_nickname || "TC").slice(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-[11px] font-semibold text-sky-300">
-                {ticket.assigned_to_nickname || ticket.assigned_to_name}
-              </span>
-              <Badge variant="outline" className="text-[8px] py-0 px-1 border-sky-500/30 text-sky-400 bg-sky-500/10 rounded-full font-bold">
-                Atendente
-              </Badge>
-            </div>
-          )}
-
-          {/* Membros Adicionados */}
-          {(ticket.members || []).map((m) => (
-            <div
-              key={m.user_id}
-              className="group flex items-center gap-1.5 bg-secondary/70 border border-border/70 rounded-full pl-1.5 pr-1 py-0.5 hover:border-border transition-colors shadow-2xs"
-              title={`Adicionado por ${m.added_by_name}`}
-            >
-              <Avatar className="h-4 w-4">
-                <AvatarImage src={m.avatar || undefined} />
-                <AvatarFallback className="text-[8px]">
-                  {(m?.name || m?.nickname || "MB").slice(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-[11px] font-medium text-foreground">
-                {m.nickname || m.name}
-              </span>
-              {canManageMembers && !isClosed && (
-                <button
-                  type="button"
-                  onClick={() => removeMemberMutation.mutate({ ticketId: ticket.id, memberUserId: m.user_id })}
-                  disabled={removeMemberMutation.isPending}
-                  className="ml-0.5 text-muted-foreground hover:text-rose-400 p-0.5 rounded-full transition-colors"
-                  title="Remover membro do chamado"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              )}
-            </div>
-          ))}
-
-          {/* Botão Adicionar Membro */}
-          {canManageMembers && !isClosed && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setMemberSearchTerm("");
-                setMemberDialogOpen(true);
-              }}
-              className="h-6 text-[11px] px-2.5 gap-1 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 rounded-full border border-dashed border-amber-500/30"
-            >
-              <UserPlus className="h-3 w-3" />
-              <span>Adicionar Membro</span>
-            </Button>
-          )}
-        </div>
-
-        {/* Linha 5: Toolbar Operacional Organizada por Grupos Funcionais */}
-        {(canClaim || canTransfer || canChangeStatus || canChangePriority || canChangeCategory || canClose || canReopen || canDelete || !isMemberPortal) && (
-          <div className="flex items-center gap-2 pt-2.5 border-t border-border/50 flex-wrap justify-between">
-            {/* GRUPO 1: TRIAGEM & CLASSIFICAÇÃO */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {/* Alterar Prioridade */}
-              {canChangePriority && !isClosed && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={updatePriorityMutation.isPending}
-                      className="h-7 text-xs gap-1.5 border-border/70 rounded-lg hover:bg-secondary/70"
-                    >
-                      <span className={cn("h-1.5 w-1.5 rounded-full", priorityInfo.dotClass)} />
-                      <span className="font-semibold">{priorityInfo.label}</span>
-                      <ChevronDown className="h-3 w-3 opacity-60" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="bg-popover border-border">
-                    <DropdownMenuLabel className="text-xs">Definir Prioridade</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {TICKET_PRIORITIES.map((p) => {
-                      const pInfo = getPriorityInfo(p.id);
-                      return (
-                        <DropdownMenuItem
-                          key={p.id}
-                          onClick={() =>
-                            updatePriorityMutation.mutate({ ticketId: ticket.id, priority: p.id })
-                          }
-                          className={cn(
-                            "text-xs cursor-pointer flex items-center justify-between gap-3",
-                            p.id === ticket.priority && "font-bold text-amber-400"
-                          )}
-                        >
-                          <span className="flex items-center gap-2">
-                            <span className={cn("h-2 w-2 rounded-full", pInfo.dotClass)} />
-                            {pInfo.label}
-                          </span>
-                          {p.id === ticket.priority && <Check className="h-3.5 w-3.5 text-amber-400" />}
-                        </DropdownMenuItem>
-                      );
-                    })}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-
-              {/* Reclassificar Categoria */}
-              {canChangeCategory && !isClosed && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={updateCategoryMutation.isPending}
-                      className="h-7 text-xs gap-1.5 border-border/70 rounded-lg hover:bg-secondary/70"
-                    >
-                      <span>{catInfo.emoji}</span>
-                      <span className="font-semibold">{catInfo.label}</span>
-                      <ChevronDown className="h-3 w-3 opacity-60" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="bg-popover border-border">
-                    <DropdownMenuLabel className="text-xs">Reclassificar Categoria</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {TICKET_CATEGORIES.map((c) => (
-                      <DropdownMenuItem
-                        key={c.id}
-                        onClick={() =>
-                          updateCategoryMutation.mutate({ ticketId: ticket.id, category: c.id })
-                        }
-                        className={cn(
-                          "text-xs cursor-pointer flex items-center justify-between gap-3",
-                          c.id === ticket.category && "font-bold text-cyan-400"
-                        )}
-                      >
-                        <span className="flex items-center gap-2">
-                          <span>{c.emoji}</span>
-                          {c.label}
-                        </span>
-                        {c.id === ticket.category && <Check className="h-3.5 w-3.5 text-cyan-400" />}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-
-              {/* Alterar Status (Dropdown Completo) */}
-              {canChangeStatus && !isClosed && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 border-border/70 rounded-lg hover:bg-secondary/70">
-                      <SlidersHorizontal className="h-3.5 w-3.5" />
-                      Status
-                      <ChevronDown className="h-3 w-3 opacity-60" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="bg-popover border-border">
-                    <DropdownMenuLabel className="text-xs">Definir Novo Status</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {TICKET_STATUSES.filter((s) => s.id !== "fechado").map((s) => (
-                      <DropdownMenuItem
-                        key={s.id}
-                        onClick={() =>
-                          updateStatusMutation.mutate({ ticketId: ticket.id, status: s.id })
-                        }
-                        className={cn("text-xs cursor-pointer", s.id === ticket.status && "font-bold text-amber-400")}
-                      >
-                        {s.label}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-
-              {/* Ações Rápidas de Status em 1 Clique */}
-              {canChangeStatus && !isClosed && (
-                <div className="flex items-center gap-1">
-                  {ticket.status !== "aguardando" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        updateStatusMutation.mutate({ ticketId: ticket.id, status: "aguardando" })
-                      }
-                      disabled={updateStatusMutation.isPending}
-                      className="h-7 text-[11px] px-2 gap-1 border-amber-500/30 text-amber-400 bg-amber-500/5 hover:bg-amber-500/15 rounded-lg"
-                      title="Definir status como 'Aguardando Membro'"
-                    >
-                      <Clock className="h-3 w-3" />
-                      <span className="hidden lg:inline">Aguardar Membro</span>
-                    </Button>
-                  )}
-
-                  {ticket.status !== "em_atendimento" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        updateStatusMutation.mutate({ ticketId: ticket.id, status: "em_atendimento" })
-                      }
-                      disabled={updateStatusMutation.isPending}
-                      className="h-7 text-[11px] px-2 gap-1 border-cyan-500/30 text-cyan-400 bg-cyan-500/5 hover:bg-cyan-500/15 rounded-lg"
-                      title="Definir status como 'Em Atendimento'"
-                    >
-                      <Headphones className="h-3 w-3" />
-                      <span className="hidden lg:inline">Atendendo</span>
-                    </Button>
-                  )}
-
-                  {ticket.status !== "resolvido" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        updateStatusMutation.mutate({ ticketId: ticket.id, status: "resolvido" })
-                      }
-                      disabled={updateStatusMutation.isPending}
-                      className="h-7 text-[11px] px-2 gap-1 border-emerald-500/30 text-emerald-400 bg-emerald-500/5 hover:bg-emerald-500/15 rounded-lg"
-                      title="Definir chamado como 'Resolvido'"
-                    >
-                      <CheckCircle2 className="h-3 w-3" />
-                      <span className="hidden lg:inline">Resolver</span>
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* GRUPO 2: ATENDIMENTO & GESTÃO DO CHAMADO */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {/* Dossiê do Jogador Toggle */}
-              {!isMemberPortal && canViewDossier && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowDossier((prev) => !prev)}
-                  className={cn(
-                    "h-7 text-xs gap-1.5 transition-all rounded-lg",
-                    showDossier
-                      ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-xs"
-                      : "border-border/70 text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-                  )}
-                  title="Visualizar dossiê do jogador com ID, telefone, Discord e histórico de chamados"
-                >
-                  <IdCard className="h-3.5 w-3.5 text-cyan-400" />
-                  <span>{showDossier ? "Ocultar Dossiê" : "Dossiê"}</span>
-                </Button>
-              )}
-
-              {/* Copiar Transcrição do Discord */}
-              {!isMemberPortal && canExportTranscript && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const transcript = generateTicketDiscordTranscript(ticket, canViewInternalNotes);
-                    navigator.clipboard.writeText(transcript);
-                    toast.success("Transcrição completa copiada para colar no Discord!");
-                  }}
-                  className="h-7 text-xs gap-1.5 border-border/70 text-muted-foreground hover:text-foreground hover:bg-secondary/60 rounded-lg"
-                  title="Copiar histórico de atendimento formatado para o Discord"
-                >
-                  <FileText className="h-3.5 w-3.5 text-indigo-400" />
-                  <span className="hidden sm:inline">Transcrição</span>
-                </Button>
-              )}
-
-              {/* Atender / Assumir */}
-              {canClaim && ticket.assigned_to_id !== user?.id && !isClosed && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => claimMutation.mutate(ticket.id)}
-                  disabled={claimMutation.isPending}
-                  className="h-7 text-xs gap-1.5 border-sky-500/35 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 rounded-lg font-semibold"
-                >
-                  <UserCheck className="h-3.5 w-3.5" />
-                  <span>Assumir Chamado</span>
-                </Button>
-              )}
-
-              {/* Devolver para Fila (Desatribuir) */}
-              {canUnassign && isAssigned && !isClosed && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => unassignMutation.mutate(ticket.id)}
-                  disabled={unassignMutation.isPending}
-                  className="h-7 text-xs gap-1.5 border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 rounded-lg"
-                  title="Devolver chamado para a fila sem atendente"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Devolver p/ Fila</span>
-                </Button>
-              )}
-
-              {/* Transferir */}
-              {canTransfer && !isClosed && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setSelectedNewAssigneeId("");
-                    setTransferNote("");
-                    setTransferSearchTerm("");
-                    setTransferDialogOpen(true);
-                  }}
-                  className="h-7 text-xs gap-1.5 border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 rounded-lg font-medium"
-                >
-                  <ArrowRightLeft className="h-3.5 w-3.5" />
-                  <span>Transferir</span>
-                </Button>
-              )}
-
-              {/* Fechar Ticket */}
-              {!isClosed && canClose && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setCloseReason("");
-                    setCloseDialogOpen(true);
-                  }}
-                  className="h-7 text-xs gap-1.5 border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 rounded-lg font-semibold"
-                >
-                  <Lock className="h-3.5 w-3.5" />
-                  <span>{isCreator && !effectiveCanManage ? "Encerrar Chamado" : "Fechar"}</span>
-                </Button>
-              )}
-
-              {/* Transcrição Web Oficial (Chamado Fechado) */}
-              {isClosed && (
-                <>
-                  <a
-                    href={`/ticket/${ticket.id}/transcript/`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="h-7 text-xs px-2.5 inline-flex items-center gap-1.5 border border-cyan-500/35 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 rounded-lg font-semibold transition-all shadow-xs"
-                    title="Abrir transcrição oficial na web"
-                  >
-                    <Globe className="h-3.5 w-3.5 text-cyan-400" />
-                    <span className="hidden sm:inline">Transcrição Web</span>
-                    <ExternalLink className="h-3 w-3 opacity-70" />
-                  </a>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      navigator.clipboard.writeText(getTranscriptUrl(ticket.id));
-                      toast.success("Link oficial da transcrição copiado!");
-                    }}
-                    className="h-7 text-xs gap-1 border-border/70 rounded-lg text-muted-foreground hover:text-foreground"
-                    title="Copiar link da transcrição web"
-                  >
-                    <Share2 className="h-3.5 w-3.5 text-cyan-400" />
-                    <span className="hidden sm:inline">Copiar Link</span>
-                  </Button>
-
-                  {effectiveCanManage && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const curCfg = ticket.transcript_config;
-                        setCfgEnabled(curCfg?.enabled ?? true);
-                        setCfgRequirePassword(Boolean(curCfg?.has_password && curCfg?.password));
-                        setCfgPassword(curCfg?.password || "");
-                        setCfgIncludeNotes(Boolean(curCfg?.include_internal_notes));
-                        setCfgCensorSensitive(Boolean(curCfg?.censor_sensitive_data));
-                        setTranscriptSettingsOpen(true);
-                      }}
-                      className="h-7 text-xs gap-1 border-border/70 rounded-lg text-muted-foreground hover:text-foreground"
-                      title="Configurar senha e opções da transcrição"
-                    >
-                      <Settings2 className="h-3.5 w-3.5 text-amber-400" />
-                      <span className="hidden sm:inline">Opções Transcrição</span>
-                    </Button>
-                  )}
-                </>
-              )}
-
-              {/* Reabrir Ticket */}
-              {isClosed && (
-                canReopen ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => reopenMutation.mutate(ticket.id)}
-                    disabled={reopenMutation.isPending}
-                    className="h-7 text-xs gap-1.5 border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 rounded-lg cursor-pointer font-semibold"
-                  >
-                    <RefreshCw className={cn("h-3.5 w-3.5", reopenMutation.isPending && "animate-spin")} />
-                    <span>Reabrir Chamado</span>
-                  </Button>
-                ) : (
-                  <div
-                    className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground/70 px-2.5 py-1 rounded-lg bg-secondary/30 border border-border/40 cursor-help"
-                    title="Apenas integrantes com a permissão 'Reabrir Chamados Fechados' atribuída ao seu cargo ou tag podem reabrir chamados."
-                  >
-                    <Lock className="h-3 w-3 text-amber-400/70" />
-                    <span>Reabertura restrita</span>
-                  </div>
-                )
-              )}
-
-              {/* Excluir Chamado */}
-              {canDelete && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setDeleteDialogOpen(true)}
-                  className="h-7 text-xs gap-1.5 border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 rounded-lg"
-                  title="Excluir chamado permanentemente"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Dossiê do Jogador (Drawer Colapsável de Inteligência) */}
-      {showDossier && !isMemberPortal && (
-        <div className="border-b border-border/80 bg-secondary/20 p-3 sm:p-4 shrink-0 max-h-80 overflow-y-auto animate-in slide-in-from-top-2 duration-200">
-          <TicketMemberDossier
-            ticket={ticket}
-            allTickets={allTickets}
-            memberProfile={creatorMember}
-          />
-        </div>
-      )}
-
-      {/* 2. ÁREA DE MENSAGENS / CONVERSAÇÃO / TIMELINE */}
+      {/* 2. CORPO PRINCIPAL EM 2 COLUNAS: CHAT NA ESQUERDA + OPÇÕES NA DIREITA */}
+      <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden relative">
+        {/* COLUNA ESQUERDA: O CHAT & RESPOSTAS */}
+        <div className={cn(
+          "flex-1 min-w-0 flex flex-col h-full bg-background/40 relative",
+          showMobileSidebar ? "hidden md:flex" : "flex"
+        )}>
+          {/* 2. ÁREA DE MENSAGENS / CONVERSAÇÃO / TIMELINE */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
         {/* Card da Descrição Inicial ("Solicitação Genesis") */}
         <div className="rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-500/5 via-secondary/30 to-secondary/20 p-4 sm:p-5 space-y-3.5 shadow-sm border-l-4 border-l-cyan-500">
@@ -1657,6 +1158,636 @@ export function TicketDetailView({
               : "Apenas membros autorizados com a permissão 'Reabrir Chamados Fechados' podem reabri-lo."}
           </span>
         </div>
+      )}
+
+              </div>
+
+        {/* COLUNA DIREITA: OPÇÕES, AÇÕES E METADADOS DO CHAMADO */}
+        <div
+          className={cn(
+            "w-full md:w-80 lg:w-88 shrink-0 border-l border-border/70 bg-card/75 backdrop-blur-md flex flex-col h-full overflow-y-auto divide-y divide-border/60",
+            showMobileSidebar ? "flex" : "hidden md:flex"
+          )}
+        >
+          {/* 1. AÇÕES RÁPIDAS DO CHAMADO */}
+          {(canClaim || canTransfer || canClose || canReopen || canDelete || canUnassign) && (
+            <div className="p-4 space-y-2.5">
+              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <Zap className="h-3.5 w-3.5 text-amber-400" />
+                Ações Rápidas
+              </span>
+
+              <div className="flex flex-col gap-1.5">
+                {/* Assumir Chamado */}
+                {canClaim && ticket.assigned_to_id !== user?.id && !isClosed && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => claimMutation.mutate(ticket.id)}
+                    disabled={claimMutation.isPending}
+                    className="h-8 text-xs gap-2 border-sky-500/40 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 rounded-xl font-bold justify-start shadow-2xs"
+                  >
+                    <UserCheck className="h-4 w-4 text-sky-400 shrink-0" />
+                    <span>Assumir Atendimento</span>
+                  </Button>
+                )}
+
+                {/* Devolver para Fila */}
+                {canUnassign && isAssigned && !isClosed && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => unassignMutation.mutate(ticket.id)}
+                    disabled={unassignMutation.isPending}
+                    className="h-8 text-xs gap-2 border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 rounded-xl justify-start"
+                    title="Devolver para a fila livre sem atendente"
+                  >
+                    <RotateCcw className="h-4 w-4 text-amber-400 shrink-0" />
+                    <span>Devolver para a Fila</span>
+                  </Button>
+                )}
+
+                {/* Transferir */}
+                {canTransfer && !isClosed && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedNewAssigneeId("");
+                      setTransferNote("");
+                      setTransferSearchTerm("");
+                      setTransferDialogOpen(true);
+                    }}
+                    className="h-8 text-xs gap-2 border-purple-500/30 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 rounded-xl justify-start"
+                  >
+                    <ArrowRightLeft className="h-4 w-4 text-purple-400 shrink-0" />
+                    <span>Transferir Chamado</span>
+                  </Button>
+                )}
+
+                {/* Fechar / Encerrar Chamado */}
+                {!isClosed && canClose && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setCloseReason("");
+                      setCloseDialogOpen(true);
+                    }}
+                    className="h-8 text-xs gap-2 border-rose-500/40 bg-rose-500/15 text-rose-300 hover:bg-rose-500/25 rounded-xl font-bold justify-start shadow-2xs"
+                  >
+                    <Lock className="h-4 w-4 text-rose-400 shrink-0" />
+                    <span>{isCreator && !effectiveCanManage ? "Encerrar Chamado" : "Finalizar Chamado"}</span>
+                  </Button>
+                )}
+
+                {/* Reabrir Chamado */}
+                {isClosed && (
+                  canReopen ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => reopenMutation.mutate(ticket.id)}
+                      disabled={reopenMutation.isPending}
+                      className="h-8 text-xs gap-2 border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 rounded-xl font-bold justify-start"
+                    >
+                      <RefreshCw className={cn("h-4 w-4 shrink-0", reopenMutation.isPending && "animate-spin")} />
+                      <span>Reabrir Chamado</span>
+                    </Button>
+                  ) : (
+                    <div className="p-2 rounded-xl bg-secondary/30 border border-border/40 text-[11px] text-muted-foreground flex items-center gap-1.5">
+                      <Lock className="h-3.5 w-3.5 text-amber-400/60 shrink-0" />
+                      <span>Reabertura restrita à liderança</span>
+                    </div>
+                  )
+                )}
+
+                {/* Excluir Chamado */}
+                {canDelete && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDeleteDialogOpen(true)}
+                    className="h-8 text-xs gap-2 border-rose-500/30 text-rose-400 hover:bg-rose-500/15 rounded-xl justify-start"
+                  >
+                    <Trash2 className="h-4 w-4 shrink-0" />
+                    <span>Excluir Chamado</span>
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 2. FLUXO & STATUS DO CHAMADO */}
+          <div className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-cyan-400" />
+                Fluxo & Status
+              </span>
+              <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5 shadow-2xs", statusInfo.badgeClass)}>
+                {statusInfo.label}
+              </Badge>
+            </div>
+
+            {/* Stepper visual compacto */}
+            <div className="relative flex items-center justify-between pt-1 px-1">
+              <div className="absolute left-2.5 right-2.5 top-1/2 -translate-y-1/2 h-0.5 bg-border/60 z-0" />
+              {TICKET_STATUSES.map((st, idx) => {
+                const currentOrder = statusInfo.order;
+                const isPast = st.order < currentOrder;
+                const isCurrent = st.order === currentOrder;
+                return (
+                  <div key={st.id} className="relative z-10 flex flex-col items-center group" title={st.label}>
+                    <div
+                      className={cn(
+                        "h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-bold border transition-all duration-200",
+                        isCurrent
+                          ? "bg-amber-500 text-black border-amber-400 shadow-md shadow-amber-500/40 ring-2 ring-amber-500/30 scale-110"
+                          : isPast
+                          ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                          : "bg-card text-muted-foreground border-border/70"
+                      )}
+                    >
+                      {isPast ? <Check className="h-2.5 w-2.5 stroke-[3]" /> : <span>{idx + 1}</span>}
+                    </div>
+                    <span className={cn(
+                      "text-[9px] font-semibold mt-1 transition-colors text-center hidden xl:block",
+                      isCurrent ? "text-amber-400 font-bold" : isPast ? "text-emerald-400/90" : "text-muted-foreground/40"
+                    )}>
+                      {st.label.split(" ")[0]}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Transições Rápidas de Status */}
+            {canChangeStatus && !isClosed && (
+              <div className="space-y-1.5 pt-1">
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                  Alterar Status:
+                </span>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {ticket.status !== "aguardando" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => updateStatusMutation.mutate({ ticketId: ticket.id, status: "aguardando" })}
+                      disabled={updateStatusMutation.isPending}
+                      className="h-7 text-[11px] px-2 gap-1.5 border-amber-500/30 text-amber-400 bg-amber-500/5 hover:bg-amber-500/15 rounded-lg justify-start"
+                      title="Aguardar retorno do membro"
+                    >
+                      <Clock className="h-3 w-3 shrink-0" />
+                      <span className="truncate">Aguardar</span>
+                    </Button>
+                  )}
+
+                  {ticket.status !== "em_atendimento" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => updateStatusMutation.mutate({ ticketId: ticket.id, status: "em_atendimento" })}
+                      disabled={updateStatusMutation.isPending}
+                      className="h-7 text-[11px] px-2 gap-1.5 border-cyan-500/30 text-cyan-400 bg-cyan-500/5 hover:bg-cyan-500/15 rounded-lg justify-start"
+                      title="Definir em atendimento"
+                    >
+                      <Headphones className="h-3 w-3 shrink-0" />
+                      <span className="truncate">Atendendo</span>
+                    </Button>
+                  )}
+
+                  {ticket.status !== "resolvido" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => updateStatusMutation.mutate({ ticketId: ticket.id, status: "resolvido" })}
+                      disabled={updateStatusMutation.isPending}
+                      className="h-7 text-[11px] px-2 gap-1.5 border-emerald-500/30 text-emerald-400 bg-emerald-500/5 hover:bg-emerald-500/15 rounded-lg justify-start"
+                      title="Marcar como resolvido"
+                    >
+                      <CheckCircle2 className="h-3 w-3 shrink-0" />
+                      <span className="truncate">Resolver</span>
+                    </Button>
+                  )}
+
+                  {/* Dropdown com todos os status */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-[11px] px-2 gap-1 border-border/70 rounded-lg justify-between"
+                      >
+                        <span className="truncate">Outro status</span>
+                        <ChevronDown className="h-3 w-3 opacity-60 shrink-0" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="bg-popover border-border">
+                      <DropdownMenuLabel className="text-xs">Definir Novo Status</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {TICKET_STATUSES.filter((s) => s.id !== "fechado").map((s) => (
+                        <DropdownMenuItem
+                          key={s.id}
+                          onClick={() => updateStatusMutation.mutate({ ticketId: ticket.id, status: s.id })}
+                          className={cn("text-xs cursor-pointer", s.id === ticket.status && "font-bold text-amber-400")}
+                        >
+                          {s.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 3. CLASSIFICAÇÃO */}
+          <div className="p-4 space-y-2.5">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+              <SlidersHorizontal className="h-3.5 w-3.5 text-cyan-400" />
+              Classificação
+            </span>
+
+            <div className="space-y-2 text-xs">
+              {/* Prioridade */}
+              <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-secondary/30 border border-border/50">
+                <span className="text-muted-foreground text-[11px]">Prioridade:</span>
+                {canChangePriority && !isClosed ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={updatePriorityMutation.isPending}
+                        className="h-6 text-[11px] gap-1 px-2 border-border/70 rounded-lg hover:bg-secondary/70"
+                      >
+                        <span className={cn("h-1.5 w-1.5 rounded-full", priorityInfo.dotClass)} />
+                        <span className="font-semibold">{priorityInfo.label}</span>
+                        <ChevronDown className="h-3 w-3 opacity-60" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="bg-popover border-border">
+                      <DropdownMenuLabel className="text-xs">Definir Prioridade</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {TICKET_PRIORITIES.map((p) => {
+                        const pInfo = getPriorityInfo(p.id);
+                        return (
+                          <DropdownMenuItem
+                            key={p.id}
+                            onClick={() => updatePriorityMutation.mutate({ ticketId: ticket.id, priority: p.id })}
+                            className={cn("text-xs cursor-pointer flex items-center justify-between gap-3", p.id === ticket.priority && "font-bold text-amber-400")}
+                          >
+                            <span className="flex items-center gap-2">
+                              <span className={cn("h-2 w-2 rounded-full", pInfo.dotClass)} />
+                              {pInfo.label}
+                            </span>
+                            {p.id === ticket.priority && <Check className="h-3.5 w-3.5 text-amber-400" />}
+                          </DropdownMenuItem>
+                        );
+                      })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <Badge variant="outline" className={cn("text-[10px] font-semibold px-2 py-0.5", priorityInfo.badgeClass)}>
+                    <span className={cn("h-1.5 w-1.5 rounded-full mr-1", priorityInfo.dotClass)} />
+                    {priorityInfo.label}
+                  </Badge>
+                )}
+              </div>
+
+              {/* Categoria */}
+              <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-secondary/30 border border-border/50">
+                <span className="text-muted-foreground text-[11px]">Categoria:</span>
+                {canChangeCategory && !isClosed ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={updateCategoryMutation.isPending}
+                        className="h-6 text-[11px] gap-1 px-2 border-border/70 rounded-lg hover:bg-secondary/70"
+                      >
+                        <span>{catInfo.emoji}</span>
+                        <span className="font-semibold truncate max-w-[120px]">{catInfo.label}</span>
+                        <ChevronDown className="h-3 w-3 opacity-60" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="bg-popover border-border">
+                      <DropdownMenuLabel className="text-xs">Reclassificar Categoria</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {TICKET_CATEGORIES.map((c) => (
+                        <DropdownMenuItem
+                          key={c.id}
+                          onClick={() => updateCategoryMutation.mutate({ ticketId: ticket.id, category: c.id })}
+                          className={cn("text-xs cursor-pointer flex items-center justify-between gap-3", c.id === ticket.category && "font-bold text-cyan-400")}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span>{c.emoji}</span>
+                            {c.label}
+                          </span>
+                          {c.id === ticket.category && <Check className="h-3.5 w-3.5 text-cyan-400" />}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <Badge variant="outline" className={cn("text-[10px] font-semibold gap-1 px-2 py-0.5", catInfo.badgeClass)}>
+                    <span>{catInfo.emoji}</span>
+                    <span className="truncate max-w-[120px]">{catInfo.label}</span>
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 4. PARTICIPANTES */}
+          <div className="p-4 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5 text-amber-400" />
+                Participantes
+              </span>
+              {canManageMembers && !isClosed && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setMemberSearchTerm("");
+                    setMemberDialogOpen(true);
+                  }}
+                  className="h-6 text-[10px] px-2 gap-1 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 rounded-md border border-dashed border-amber-500/30"
+                >
+                  <UserPlus className="h-3 w-3" />
+                  <span>Adicionar</span>
+                </Button>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              {/* Autor */}
+              <div className="flex items-center justify-between p-2 rounded-xl bg-secondary/30 border border-border/40 text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Avatar className="h-6 w-6 shrink-0">
+                    <AvatarImage src={ticket.creator_avatar || undefined} />
+                    <AvatarFallback className="text-[9px]">
+                      {(ticket?.creator_name || ticket?.creator_nickname || "TC").slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1">
+                      <span className="text-foreground font-semibold text-xs truncate">
+                        {ticket.creator_nickname || ticket.creator_name}
+                      </span>
+                      <VerifiedBadge userId={ticket.creator_id || ticket.user_id} isVerified={ticket.creator_is_verified} size="xs" />
+                    </div>
+                    <span className="text-[10px] text-muted-foreground block truncate">
+                      {LEVEL_LABEL[ticket.creator_role] || ticket.creator_role}
+                    </span>
+                  </div>
+                </div>
+                <Badge variant="outline" className="text-[9px] py-0 px-1.5 border-amber-500/30 text-amber-400 bg-amber-500/10 rounded-full font-bold shrink-0">
+                  Autor
+                </Badge>
+              </div>
+
+              {/* Responsável Atribuído */}
+              {ticket.assigned_to_name ? (
+                <div className="flex items-center justify-between p-2 rounded-xl bg-secondary/30 border border-sky-500/30 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Avatar className="h-6 w-6 shrink-0">
+                      <AvatarImage src={ticket.assigned_to_avatar || undefined} />
+                      <AvatarFallback className="text-[9px]">
+                        {(ticket?.assigned_to_name || ticket?.assigned_to_nickname || "TC").slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1">
+                        <span className="text-sky-300 font-semibold text-xs truncate">
+                          {ticket.assigned_to_nickname || ticket.assigned_to_name}
+                        </span>
+                        <VerifiedBadge userId={ticket.assigned_to_id} size="xs" />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground block">
+                        Atendente
+                      </span>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="text-[9px] py-0 px-1.5 border-sky-500/30 text-sky-400 bg-sky-500/10 rounded-full font-bold shrink-0">
+                    Atendente
+                  </Badge>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between p-2 rounded-xl bg-secondary/20 border border-dashed border-border/60 text-xs">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <User className="h-4 w-4 opacity-60" />
+                    <span className="text-xs italic">Fila Livre (Sem atendente)</span>
+                  </div>
+                  {canClaim && !isClosed && (
+                    <button
+                      type="button"
+                      onClick={() => claimMutation.mutate(ticket.id)}
+                      disabled={claimMutation.isPending}
+                      className="text-[10px] font-bold text-sky-400 hover:text-sky-300 underline"
+                    >
+                      Assumir
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Membros Convidados */}
+              {(ticket.members || []).map((m) => (
+                <div
+                  key={m.user_id}
+                  className="flex items-center justify-between p-2 rounded-xl bg-secondary/25 border border-border/40 text-xs hover:border-border transition-colors"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Avatar className="h-6 w-6 shrink-0">
+                      <AvatarImage src={m.avatar || undefined} />
+                      <AvatarFallback className="text-[9px]">
+                        {(m?.name || m?.nickname || "MB").slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-foreground text-xs font-medium truncate">
+                      {m.nickname || m.name}
+                    </span>
+                  </div>
+                  {canManageMembers && !isClosed && (
+                    <button
+                      type="button"
+                      onClick={() => removeMemberMutation.mutate({ ticketId: ticket.id, memberUserId: m.user_id })}
+                      disabled={removeMemberMutation.isPending}
+                      className="text-muted-foreground hover:text-rose-400 p-1 rounded-md transition-colors"
+                      title="Remover participante"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 5. FERRAMENTAS & TRANSCRIÇÃO */}
+          {(!isMemberPortal || isClosed) && (
+            <div className="p-4 space-y-2.5">
+              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-indigo-400" />
+                Ferramentas & Transcrição
+              </span>
+
+              <div className="space-y-1.5">
+                {/* Dossiê do Jogador */}
+                {!isMemberPortal && canViewDossier && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowDossier(true)}
+                    className="w-full h-8 text-xs gap-2 border-cyan-500/35 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 rounded-xl justify-start font-semibold"
+                  >
+                    <IdCard className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                    <span>Abrir Dossiê do Jogador</span>
+                  </Button>
+                )}
+
+                {/* Copiar Transcrição Discord */}
+                {!isMemberPortal && canExportTranscript && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const transcript = generateTicketDiscordTranscript(ticket, canViewInternalNotes);
+                      navigator.clipboard.writeText(transcript);
+                      toast.success("Transcrição completa copiada para colar no Discord!");
+                    }}
+                    className="w-full h-8 text-xs gap-2 border-border/70 text-muted-foreground hover:text-foreground hover:bg-secondary/60 rounded-xl justify-start"
+                  >
+                    <FileText className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+                    <span>Copiar Transcrição Discord</span>
+                  </Button>
+                )}
+
+                {/* Chamado Fechado: Transcrição Web Oficial */}
+                {isClosed && (
+                  <div className="pt-1.5 space-y-1.5 border-t border-border/40">
+                    <a
+                      href={`/ticket/${ticket.id}/transcript/`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="w-full h-8 text-xs px-3 inline-flex items-center justify-between border border-cyan-500/35 bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25 rounded-xl font-bold transition-all shadow-xs"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Globe className="h-3.5 w-3.5 text-cyan-400" />
+                        <span>Transcrição Web Oficial</span>
+                      </span>
+                      <ExternalLink className="h-3 w-3 opacity-70" />
+                    </a>
+
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(getTranscriptUrl(ticket.id));
+                          toast.success("Link oficial da transcrição copiado!");
+                        }}
+                        className="h-7 text-[11px] gap-1 border-border/70 rounded-lg text-muted-foreground hover:text-foreground"
+                      >
+                        <Share2 className="h-3 w-3 text-cyan-400" />
+                        <span>Copiar Link</span>
+                      </Button>
+
+                      {effectiveCanManage && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const curCfg = ticket.transcript_config;
+                            setCfgEnabled(curCfg?.enabled ?? true);
+                            setCfgRequirePassword(Boolean(curCfg?.has_password && curCfg?.password));
+                            setCfgPassword(curCfg?.password || "");
+                            setCfgIncludeNotes(Boolean(curCfg?.include_internal_notes));
+                            setCfgCensorSensitive(Boolean(curCfg?.censor_sensitive_data));
+                            setTranscriptSettingsOpen(true);
+                          }}
+                          className="h-7 text-[11px] gap-1 border-border/70 rounded-lg text-muted-foreground hover:text-foreground"
+                        >
+                          <Settings2 className="h-3 w-3 text-amber-400" />
+                          <span>Configurar</span>
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 6. DETALHES TÉCNICOS & METADADOS */}
+          <div className="p-4 space-y-2 text-xs text-muted-foreground">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+              <Info className="h-3.5 w-3.5 text-cyan-400" />
+              Detalhes do Chamado
+            </span>
+
+            <div className="space-y-1.5 font-mono text-[11px]">
+              <div className="flex items-center justify-between">
+                <span>Aberto em:</span>
+                <span className="text-foreground">{dateTime(ticket.created_at)}</span>
+              </div>
+              {ticket.closed_at && (
+                <div className="flex items-center justify-between">
+                  <span>Encerrado em:</span>
+                  <span className="text-foreground">{dateTime(ticket.closed_at)}</span>
+                </div>
+              )}
+              {ticket.closed_by_name && (
+                <div className="flex items-center justify-between">
+                  <span>Encerrado por:</span>
+                  <span className="text-foreground truncate max-w-[130px]">{ticket.closed_by_name}</span>
+                </div>
+              )}
+              {ticket.closed_reason && (
+                <div className="pt-1 border-t border-border/30">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                    Motivo de Encerramento:
+                  </span>
+                  <p className="text-foreground font-sans font-medium italic mt-0.5 leading-snug">
+                    "{ticket.closed_reason}"
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* MODAL 0: DOSSIÊ COMPLETO DO JOGADOR */}
+      {!isMemberPortal && canViewDossier && (
+        <Dialog open={showDossier} onOpenChange={setShowDossier}>
+          <DialogContent className="max-w-2xl bg-card/95 border-border/80 backdrop-blur-xl rounded-2xl shadow-2xl p-5">
+            <DialogHeader>
+              <DialogTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+                <span className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                  <IdCard className="h-4 w-4" />
+                </span>
+                <span>Dossiê Completo do Jogador</span>
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Histórico operacional, dados do jogo, Discord e métricas de chamados do autor.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="pt-2">
+              <TicketMemberDossier
+                ticket={ticket}
+                allTickets={allTickets}
+                memberProfile={creatorMember}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* MODAL 1: TRANSFERIR RESPONSÁVEL COM BUSCA E NOTA */}
