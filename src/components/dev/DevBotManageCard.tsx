@@ -610,14 +610,12 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
           "Foto de perfil do bot salva com sucesso!"
         );
 
-        const currentToken = config.botToken || tokenInput;
-        if (currentToken) {
-          const res = await updateDiscordBotProfile(currentToken, { avatarUrlOrFile: croppedFile });
-          if (res.success) {
-            toast.success("Foto de perfil sincronizada no Discord!", { id: toastId });
-          } else {
-            toast.info(`Avatar salvo no painel! (${res.error || "Sincronizado"})`, { id: toastId });
-          }
+        const currentToken = config.botToken || tokenInput || "";
+        const res = await updateDiscordBotProfile(currentToken, { avatarUrlOrFile: croppedFile });
+        if (res.success) {
+          toast.success("Foto de perfil sincronizada no Discord com sucesso!", { id: toastId });
+        } else {
+          toast.warning(`Avatar salvo no painel! (${res.error || "Sincronização em segundo plano"})`, { id: toastId });
         }
         setIsAvatarModalOpen(false);
       } else {
@@ -629,14 +627,12 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
           "Banner do bot salvo com sucesso!"
         );
 
-        const currentToken = config.botToken || tokenInput;
-        if (currentToken) {
-          const res = await updateDiscordBotProfile(currentToken, { bannerUrlOrFile: croppedFile });
-          if (res.success) {
-            toast.success("Banner salvo e sincronizado no Discord!", { id: toastId });
-          } else {
-            toast.info("Banner salvo no painel!", { id: toastId });
-          }
+        const currentToken = config.botToken || tokenInput || "";
+        const res = await updateDiscordBotProfile(currentToken, { bannerUrlOrFile: croppedFile });
+        if (res.success) {
+          toast.success("Banner salvo e sincronizado no Discord com sucesso!", { id: toastId });
+        } else {
+          toast.info(`Banner salvo no painel! (${res.error || "Salvo localmente"})`, { id: toastId });
         }
         setIsBannerModalOpen(false);
       }
@@ -665,14 +661,12 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
         "Banner do bot atualizado com sucesso!"
       );
 
-      const currentToken = config.botToken || tokenInput;
-      if (currentToken) {
-        const res = await updateDiscordBotProfile(currentToken, { bannerUrlOrFile: cleanUrl });
-        if (res.success) {
-          toast.success("Banner sincronizado no Discord com sucesso!", { id: toastId });
-        } else {
-          toast.info("Banner salvo no painel!", { id: toastId });
-        }
+      const currentToken = config.botToken || tokenInput || "";
+      const res = await updateDiscordBotProfile(currentToken, { bannerUrlOrFile: cleanUrl });
+      if (res.success) {
+        toast.success("Banner sincronizado no Discord com sucesso!", { id: toastId });
+      } else {
+        toast.info(`Banner salvo no painel! (${res.error || "Salvo localmente"})`, { id: toastId });
       }
       setIsBannerModalOpen(false);
     } catch (err: any) {
@@ -697,16 +691,12 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
         "Nome do bot atualizado no painel!"
       );
 
-      const currentToken = config.botToken || tokenInput;
-      if (currentToken) {
-        const res = await updateDiscordBotProfile(currentToken, { username: cleanName });
-        if (res.success) {
-          toast.success("Nome do bot atualizado no Discord com sucesso!", { id: toastId });
-        } else {
-          toast.info(`Nome salvo na plataforma! (${res.error || "O Discord limita a 2 alterações por hora"})`, { id: toastId });
-        }
+      const currentToken = config.botToken || tokenInput || "";
+      const res = await updateDiscordBotProfile(currentToken, { username: cleanName });
+      if (res.success) {
+        toast.success("Nome do bot atualizado no Discord com sucesso!", { id: toastId });
       } else {
-        toast.success("Nome do bot atualizado!", { id: toastId });
+        toast.warning(`Nome salvo na plataforma! (${res.error || "O Discord limita a 2 alterações por hora"})`, { id: toastId });
       }
       setIsNameModalOpen(false);
     } catch (err: any) {
@@ -731,16 +721,12 @@ export function DevBotManageCard({ isCeoView: isCeoViewProp }: DevBotManageCardP
         "Avatar do bot atualizado no painel!"
       );
 
-      const currentToken = config.botToken || tokenInput;
-      if (currentToken) {
-        const res = await updateDiscordBotProfile(currentToken, { avatarUrlOrFile: cleanUrl });
-        if (res.success) {
-          toast.success("Foto de perfil sincronizada no Discord com sucesso!", { id: toastId });
-        } else {
-          toast.info(`Avatar salvo no painel! (${res.error || "Sincronização em background"})`, { id: toastId });
-        }
+      const currentToken = config.botToken || tokenInput || "";
+      const res = await updateDiscordBotProfile(currentToken, { avatarUrlOrFile: cleanUrl });
+      if (res.success) {
+        toast.success("Foto de perfil sincronizada no Discord com sucesso!", { id: toastId });
       } else {
-        toast.success("Avatar do bot atualizado!", { id: toastId });
+        toast.warning(`Avatar salvo no painel! (${res.error || "Sincronização em background"})`, { id: toastId });
       }
       setIsAvatarModalOpen(false);
     } catch (err: any) {

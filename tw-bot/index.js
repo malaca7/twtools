@@ -275,7 +275,7 @@ let lastProfileUpdateTimestamp = 0;
  * Atualiza Avatar e/ou Banner do Bot oficial diretamente na API oficial do Discord (/users/@me).
  * Suporta links do Postimages (https://i.postimg.cc/...), URLs externas e Base64.
  */
-async function syncDiscordBotProfile(avatarUrl, bannerUrl, force = false) {
+async function syncDiscordBotProfile(avatarUrl, bannerUrl, force = false, username = null) {
   if (!client || !client.isReady() || !client.user || !client.token) {
     console.warn("⚠️ [BOT PROFILE] Cliente Discord não está pronto para atualizar perfil.");
     return { success: false, error: "Bot não está conectado ao Discord" };
@@ -290,6 +290,16 @@ async function syncDiscordBotProfile(avatarUrl, bannerUrl, force = false) {
   const body = {};
   let avatarChanged = false;
   let bannerChanged = false;
+  let usernameChanged = false;
+
+  // 0. Processa Nome do Bot (username)
+  if (username && typeof username === "string" && username.trim()) {
+    const cleanUser = username.trim();
+    if (cleanUser !== client.user.username) {
+      body.username = cleanUser;
+      usernameChanged = true;
+    }
+  }
 
   // 1. Processa Avatar do Bot
   if (avatarUrl && typeof avatarUrl === "string" && avatarUrl.trim()) {
@@ -373,12 +383,13 @@ async function syncDiscordBotProfile(avatarUrl, bannerUrl, force = false) {
     }
   }
 
-  if (!avatarChanged && !bannerChanged) {
-    return { success: true, message: "Avatar e banner já estão sincronizados com o Discord." };
+  if (!avatarChanged && !bannerChanged && !usernameChanged) {
+    return { success: true, message: "Avatar, banner e nome já estão sincronizados com o Discord." };
   }
 
   try {
     console.log("🚀 [BOT PROFILE] Enviando PATCH /users/@me para o Discord:", {
+      username: usernameChanged ? body.username : "inalterado",
       avatar: avatarChanged ? "atualizando" : "inalterado",
       banner: bannerChanged ? "atualizando" : "inalterado",
     });
@@ -388,20 +399,23 @@ async function syncDiscordBotProfile(avatarUrl, bannerUrl, force = false) {
       try {
         result = await client.rest.patch("/users/@me", { body });
       } catch (combinedErr) {
-        console.warn("⚠️ PATCH /users/@me com banner falhou (provável restrição Discord em contas de bot). Tentando atualizar apenas avatar:", combinedErr.message);
-        result = await client.rest.patch("/users/@me", { body: { avatar: body.avatar } });
+        console.warn("⚠️ PATCH /users/@me com banner falhou (provável restrição Discord em contas de bot). Tentando atualizar sem banner:", combinedErr.message);
+        const fallbackBody = { ...body };
+        delete fallbackBody.banner;
+        result = await client.rest.patch("/users/@me", { body: fallbackBody });
         bannerChanged = false;
       }
     } else {
       try {
         result = await client.rest.patch("/users/@me", { body });
       } catch (patchErr) {
-        if (bannerChanged && !avatarChanged) {
+        if (bannerChanged && !avatarChanged && !usernameChanged) {
           console.warn("⚠️ Discord rejeitou alteração de banner para conta de bot:", patchErr.message);
           return {
             success: true,
             avatarUpdated: false,
             bannerUpdated: false,
+            usernameUpdated: false,
             message: "Discord não permite customização de banner nesta conta de bot, mas foi salvo no painel.",
           };
         }
@@ -415,24 +429,31 @@ async function syncDiscordBotProfile(avatarUrl, bannerUrl, force = false) {
     if (bannerChanged) lastAppliedBotBannerUrl = bannerUrl;
 
     console.log("✅ [BOT PROFILE] Perfil do bot atualizado com sucesso no Discord!", {
+      username: result?.username,
       avatarHash: result?.avatar,
       bannerHash: result?.banner,
     });
 
     return {
       success: true,
+      usernameUpdated: usernameChanged,
       avatarUpdated: avatarChanged,
       bannerUpdated: bannerChanged,
+      username: result?.username || client.user.username,
       avatarHash: result?.avatar,
       bannerHash: result?.banner,
+      message: "Perfil do bot sincronizado com sucesso no Discord!",
     };
   } catch (discordErr) {
     console.error("❌ [BOT PROFILE] Erro na API do Discord ao atualizar perfil:", discordErr.message, discordErr.rawError);
+    let errMsg = discordErr.message || "Erro na API do Discord ao atualizar perfil";
+    if (discordErr.rawError?.message) errMsg = discordErr.rawError.message;
     return {
       success: false,
-      error: discordErr.message || "Erro na API do Discord ao atualizar perfil",
+      error: errMsg,
     };
   }
+}
 }
 
 /**
@@ -3109,19 +3130,24 @@ const server = http.createServer(async (req, res) => {
     let bodyStr = "";
     req.on("data", (chunk) => {
       bodyStr += chunk;
-      if (bodyStr.length > 1024 * 512) req.destroy();
+      if (bodyStr.length > 1024 * 1024 * 10) req.destroy();
     });
 
     req.on("end", async () => {
       try {
         const payload = JSON.parse(bodyStr || "{}");
-        const { botAvatarUrl, botBannerUrl, force } = payload;
+        const { botAvatarUrl, botBannerUrl, username, force } = payload;
 
         if (botAvatarUrl) discordConfig.botAvatarUrl = botAvatarUrl;
         if (botBannerUrl) discordConfig.botBannerUrl = botBannerUrl;
+        if (username) discordConfig.botUsername = username;
 
-        console.log("⚡ [API UPDATE-BOT-PROFILE] Solicitando atualização imediata do perfil do bot no Discord:", { botAvatarUrl, botBannerUrl });
-        const result = await syncDiscordBotProfile(botAvatarUrl, botBannerUrl, !!force);
+        console.log("⚡ [API UPDATE-BOT-PROFILE] Solicitando atualização imediata do perfil do bot no Discord:", {
+          botAvatarUrl: botAvatarUrl ? botAvatarUrl.slice(0, 60) : undefined,
+          botBannerUrl: botBannerUrl ? botBannerUrl.slice(0, 60) : undefined,
+          username,
+        });
+        const result = await syncDiscordBotProfile(botAvatarUrl, botBannerUrl, !!force, username);
         res.setHeader("Access-Control-Allow-Origin", "*");
         res.writeHead(result.success ? 200 : 400, { "Content-Type": "application/json" });
         return res.end(JSON.stringify(result));
@@ -3521,50 +3547,92 @@ const server = http.createServer(async (req, res) => {
     let bodyStr = "";
     req.on("data", (chunk) => {
       bodyStr += chunk;
-      if (bodyStr.length > 1024 * 512) req.destroy();
+      if (bodyStr.length > 1024 * 1024 * 2) req.destroy();
     });
 
     req.on("end", async () => {
       try {
         const data = JSON.parse(bodyStr || "{}");
-        if (!data.userId) {
+        const rawId = String(data.userId || data.discordUserId || data.targetDiscordId || "").trim();
+        const cleanTargetId = rawId.replace(/[<@!>]/g, "").trim();
+
+        if (!cleanTargetId || cleanTargetId.length < 5) {
           res.writeHead(400, { "Content-Type": "application/json" });
-          return res.end(JSON.stringify({ success: false, error: "userId do Discord é obrigatório." }));
+          return res.end(JSON.stringify({ success: false, error: "ID do Discord do usuário é obrigatório ou inválido." }));
         }
 
-        const targetUser =
-          client.users.cache.get(data.userId) ||
-          (await client.users.fetch(data.userId).catch(() => null));
+        let targetUser = client.users.cache.get(cleanTargetId);
+        if (!targetUser) {
+          try {
+            targetUser = await client.users.fetch(cleanTargetId);
+          } catch (fetchErr) {
+            console.warn(`⚠️ [API SEND-DM] client.users.fetch(${cleanTargetId}) falhou:`, fetchErr.message);
+          }
+        }
+
+        if (!targetUser) {
+          for (const guild of client.guilds.cache.values()) {
+            const member = guild.members.cache.get(cleanTargetId);
+            if (member?.user) {
+              targetUser = member.user;
+              break;
+            }
+          }
+        }
 
         if (!targetUser) {
           res.writeHead(404, { "Content-Type": "application/json" });
-          return res.end(JSON.stringify({ success: false, error: `Usuário Discord ${data.userId} não encontrado.` }));
+          return res.end(JSON.stringify({
+            success: false,
+            error: `Usuário Discord (${cleanTargetId}) não foi encontrado ou não está presente nos servidores compartilhados com o bot.`
+          }));
         }
 
         const msgOptions = {};
         if (data.content && data.content.trim()) msgOptions.content = data.content.trim();
         if (data.embed && typeof data.embed === "object") {
           const eb = new EmbedBuilder();
-          if (data.embed.title) eb.setTitle(data.embed.title);
+          if (data.embed.title) eb.setTitle(String(data.embed.title).slice(0, 256));
           if (data.embed.url) eb.setURL(data.embed.url);
-          if (data.embed.description) eb.setDescription(data.embed.description);
+          if (data.embed.description) eb.setDescription(String(data.embed.description).slice(0, 4096));
           if (data.embed.color) {
             const c = typeof data.embed.color === "string" ? hexToInt(data.embed.color) : data.embed.color;
             eb.setColor(c);
           }
           if (data.embed.fields && Array.isArray(data.embed.fields)) {
-            for (const f of data.embed.fields) {
-              if (f.name && f.value) eb.addFields({ name: f.name, value: f.value, inline: Boolean(f.inline) });
+            for (const f of data.embed.fields.slice(0, 25)) {
+              if (f.name && f.value) {
+                eb.addFields({
+                  name: String(f.name).slice(0, 256),
+                  value: String(f.value).slice(0, 1024),
+                  inline: Boolean(f.inline),
+                });
+              }
             }
           }
-          if (data.embed.footer?.text) eb.setFooter({ text: data.embed.footer.text });
+          if (data.embed.footer?.text) eb.setFooter({ text: String(data.embed.footer.text).slice(0, 2048) });
           if (data.embed.timestamp) eb.setTimestamp(new Date(data.embed.timestamp));
           msgOptions.embeds = [eb];
         }
 
-        await targetUser.send(msgOptions);
-        res.writeHead(200, { "Content-Type": "application/json" });
-        return res.end(JSON.stringify({ success: true, message: `DM enviada com sucesso para ${targetUser.tag}!` }));
+        try {
+          await targetUser.send(msgOptions);
+          const userTag = targetUser.tag || targetUser.username || cleanTargetId;
+          console.log(`✉️ [API SEND-DM] DM entregue com sucesso para @${userTag} (${cleanTargetId})`);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({
+            success: true,
+            message: `DM enviada com sucesso no Discord para @${userTag}!`
+          }));
+        } catch (sendErr) {
+          console.warn(`⚠️ [API SEND-DM] Falha ao enviar DM para ${cleanTargetId}:`, sendErr.message);
+          let friendlyError = sendErr.message || "Erro desconhecido ao enviar DM.";
+          if (sendErr.code === 50007) {
+            friendlyError = `O usuário @${targetUser.username} desativou o recebimento de mensagens diretas (DMs) de membros do servidor no Discord.`;
+          }
+          res.writeHead(400, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({ success: false, error: friendlyError }));
+        }
       } catch (err) {
         console.error("❌ [SEND-DM HTTP ERROR]:", err);
         res.writeHead(500, { "Content-Type": "application/json" });

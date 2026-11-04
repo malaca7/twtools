@@ -422,30 +422,53 @@ export function TicketDetailView({
     (hasPermission("alert_ticket_members" as Permission) || effectiveCanManage || ticket.assigned_to_id === user?.id);
 
   // Localiza o Discord ID de um participante no cadastro de membros ou metadados
-  const findMemberDiscordId = (userId?: string | null, userName?: string | null): string => {
-    if (!userId && !userName) return "";
+  const findMemberDiscordId = (userId?: string | null, userName?: string | null, userAvatar?: string | null): string => {
+    if (!userId && !userName && !userAvatar) return "";
     const cleanId = (userId || "").trim().toLowerCase();
     const cleanName = (userName || "").trim().toLowerCase();
 
-    // 1. Procura na lista de membros da organização
+    // 1. Tenta extrair do avatar do Discord se for URL oficial do cdn.discordapp.com
+    if (userAvatar && userAvatar.includes("cdn.discordapp.com/avatars/")) {
+      const match = userAvatar.match(/\/avatars\/(\d{17,20})\//);
+      if (match && match[1]) return match[1];
+    }
+    const isCreator =
+      cleanId === (ticket.creator_id || "").toLowerCase() ||
+      cleanId === (ticket.user_id || "").toLowerCase() ||
+      (cleanName && (cleanName === (ticket.creator_name || "").toLowerCase() || cleanName === (ticket.creator_nickname || "").toLowerCase()));
+
+    if (isCreator && ticket.creator_avatar && ticket.creator_avatar.includes("cdn.discordapp.com/avatars/")) {
+      const match = ticket.creator_avatar.match(/\/avatars\/(\d{17,20})\//);
+      if (match && match[1]) return match[1];
+    }
+
+    // 2. Procura na lista de membros da organização
     const foundMem = members.find((m) => {
       const mId = (m.id || "").trim().toLowerCase();
       const mUserId = (m.user_id || "").trim().toLowerCase();
-      const mDiscordId = ((m as any).discord_id || "").trim().toLowerCase();
+      const mDiscordId = String((m as any).discord_id || "").trim().toLowerCase();
       const mName = (m.nome || "").trim().toLowerCase();
       const mNick = (m.nickname || "").trim().toLowerCase();
       return (
         (cleanId && (mId === cleanId || mUserId === cleanId || mDiscordId === cleanId)) ||
-        (cleanName && (mName === cleanName || mNick === cleanName))
+        (cleanName && (mName === cleanName || mNick === cleanName || cleanName.includes(mName) || mName.includes(cleanName)))
       );
     });
 
-    if ((foundMem as any)?.discord_id) return (foundMem as any).discord_id;
-    if ((foundMem as any)?.discordId) return (foundMem as any).discordId;
+    if ((foundMem as any)?.discord_id) return String((foundMem as any).discord_id).trim();
+    if ((foundMem as any)?.discordId) return String((foundMem as any).discordId).trim();
 
-    // 2. Procura nos dados do ticket se for o criador
-    if (ticket.creator_id && (cleanId === ticket.creator_id.toLowerCase() || (cleanName && cleanName === (ticket.creator_nickname || ticket.creator_name || "").toLowerCase()))) {
-      if ((ticket as any).creator_discord_id) return (ticket as any).creator_discord_id;
+    // 3. Procura nos membros específicos do chamado
+    const foundInTicket = (ticket.members || []).find((m) => {
+      const mUid = (m.user_id || "").trim().toLowerCase();
+      const mName = (m.name || m.nickname || "").trim().toLowerCase();
+      return (cleanId && mUid === cleanId) || (cleanName && (mName === cleanName || cleanName.includes(mName)));
+    });
+    if ((foundInTicket as any)?.discord_id) return String((foundInTicket as any).discord_id).trim();
+
+    // 4. Procura nos dados do criador
+    if (isCreator && (ticket as any).creator_discord_id) {
+      return String((ticket as any).creator_discord_id).trim();
     }
 
     return "";
@@ -453,7 +476,7 @@ export function TicketDetailView({
 
   const handleOpenPokeDialog = (target: { id: string; name: string; avatar?: string }) => {
     setMemberToPoke(target);
-    const discId = findMemberDiscordId(target.id, target.name);
+    const discId = findMemberDiscordId(target.id, target.name, target.avatar);
     setPokeDiscordId(discId);
     setPokeMessage("");
     setPokeUrgency("normal");
@@ -710,7 +733,10 @@ export function TicketDetailView({
   const handleConfirmPokeMember = async () => {
     if (!memberToPoke || !pokeMessage.trim()) return;
     try {
-      const targetDiscordId = pokeDiscordId.trim() || findMemberDiscordId(memberToPoke.id, memberToPoke.name) || null;
+      const targetDiscordId =
+        pokeDiscordId.trim() ||
+        findMemberDiscordId(memberToPoke.id, memberToPoke.name, memberToPoke.avatar) ||
+        null;
 
       await pokeMemberMutation.mutateAsync({
         ticketId: ticket.id,
@@ -3362,23 +3388,30 @@ export function TicketDetailView({
                   </div>
                   {pokeDiscordId.trim() ? (
                     <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-emerald-500/15 text-emerald-300 border-emerald-500/30 font-medium">
-                      ● ID Vinculado
+                      ● ID Detectado
                     </Badge>
                   ) : (
                     <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-amber-500/15 text-amber-300 border-amber-500/30 font-medium">
-                      Manual / Opcional
+                      ⚠️ ID não vinculado
                     </Badge>
                   )}
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-snug">
-                  O bot oficial do Discord (<strong className="text-indigo-200">twin</strong>) enviará uma DM privada personalizada com o alerta e link direto do chamado.
+                  {pokeDiscordId.trim()
+                    ? "O bot oficial do Discord (twin) enviará uma DM privada automática com alerta e link direto:"
+                    : "Para enviar uma DM privada no Discord pelo bot (twin), confirme ou informe o ID numérico do usuário abaixo:"}
                 </p>
                 <Input
                   value={pokeDiscordId}
                   onChange={(e) => setPokeDiscordId(e.target.value.trim())}
-                  placeholder="ID do Discord (ex: 284128919028400128)"
+                  placeholder="ID do Discord (ex: 722320491767136346)"
                   className="h-8 text-xs font-mono bg-secondary/50 border-border/70 rounded-lg"
                 />
+                {!pokeDiscordId.trim() && (
+                  <p className="text-[10px] text-amber-400/90 leading-tight">
+                    * Se deixar vazio, o alerta será registrado no chamado, mas a DM externa não será disparada.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">

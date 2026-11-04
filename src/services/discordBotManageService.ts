@@ -438,8 +438,8 @@ export async function fileOrUrlToBase64DataUrl(fileOrUrl: File | Blob | string):
  * Executa a requisição REST PATCH /users/@me com o token do bot e sincroniza com o backend.
  */
 export async function updateDiscordBotProfile(
-  token: string,
-  updates: {
+  token?: string,
+  updates?: {
     username?: string;
     avatarUrlOrFile?: File | Blob | string;
     bannerUrlOrFile?: File | Blob | string;
@@ -450,64 +450,67 @@ export async function updateDiscordBotProfile(
   message: string;
   error?: string;
 }> {
-  const cleanToken = token ? token.trim().replace(/^Bot\s+/i, "") : "";
-  if (!cleanToken || cleanToken.length < 20) {
-    return {
-      success: false,
-      message: "Token do Discord não configurado ou inválido.",
-      error: "Token do Discord ausente.",
-    };
-  }
+  const safeUpdates = updates || {};
+  let avatarBase64OrUrl: string | undefined = undefined;
+  let bannerBase64OrUrl: string | undefined = undefined;
 
-  const body: any = {};
-
-  if (updates.username && updates.username.trim()) {
-    body.username = updates.username.trim();
-  }
-
-  if (updates.avatarUrlOrFile) {
-    try {
-      body.avatar = await fileOrUrlToBase64DataUrl(updates.avatarUrlOrFile);
-    } catch (e: any) {
-      console.warn("Erro ao converter avatar para base64:", e);
+  if (safeUpdates.avatarUrlOrFile) {
+    if (typeof safeUpdates.avatarUrlOrFile === "string") {
+      avatarBase64OrUrl = safeUpdates.avatarUrlOrFile.trim();
+    } else {
+      try {
+        avatarBase64OrUrl = await fileOrUrlToBase64DataUrl(safeUpdates.avatarUrlOrFile);
+      } catch (e: any) {
+        console.warn("Erro ao converter avatar para base64:", e);
+      }
     }
   }
 
-  if (updates.bannerUrlOrFile) {
-    try {
-      body.banner = await fileOrUrlToBase64DataUrl(updates.bannerUrlOrFile);
-    } catch (e: any) {
-      console.warn("Erro ao converter banner para base64:", e);
+  if (safeUpdates.bannerUrlOrFile) {
+    if (typeof safeUpdates.bannerUrlOrFile === "string") {
+      bannerBase64OrUrl = safeUpdates.bannerUrlOrFile.trim();
+    } else {
+      try {
+        bannerBase64OrUrl = await fileOrUrlToBase64DataUrl(safeUpdates.bannerUrlOrFile);
+      } catch (e: any) {
+        console.warn("Erro ao converter banner para base64:", e);
+      }
     }
   }
 
-  if (Object.keys(body).length === 0) {
-    return { success: true, message: "Nenhuma alteração a sincronizar." };
-  }
+  const cleanUsername = safeUpdates.username?.trim();
 
+  // 1. Chamada Primária Direta ao Servidor do Bot na Discloud (evita restrições CORS de navegadores)
   try {
-    const res = await fetch("https://discord.com/api/v10/users/@me", {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bot ${cleanToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+    const res = await fetch("https://twin.discloud.app/api/update-bot-profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        botAvatarUrl: avatarBase64OrUrl,
+        botBannerUrl: bannerBase64OrUrl,
+        username: cleanUsername,
+        force: true,
+      }),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
-    if (res.ok) {
-      const userData = await res.json();
+    const data = await res.json().catch(() => ({}));
 
-      // Emite broadcast para sincronizar em tempo real com o backend do bot
+    if (res.ok && data.success) {
+      // Emite broadcast para sincronizar componentes da interface
       try {
         const controlChannel = supabase.channel("system-discord-bot-control");
         await controlChannel.send({
           type: "broadcast",
           event: "bot_profile_updated",
           payload: {
-            username: userData.username,
-            avatar: userData.avatar,
-            banner: userData.banner,
+            username: cleanUsername || data.username,
+            avatarHash: data.avatarHash,
+            bannerHash: data.bannerHash,
             timestamp: Date.now(),
           },
         });
@@ -515,29 +518,43 @@ export async function updateDiscordBotProfile(
 
       return {
         success: true,
-        user: userData,
-        message: "Perfil do bot atualizado com sucesso no Discord!",
+        user: data,
+        message: data.message || "Perfil do bot atualizado com sucesso no Discord!",
       };
-    } else {
-      const errJson = await res.json().catch(() => ({}));
-      let msg = errJson.message || `Código de status HTTP ${res.status}`;
-      if (errJson.username) {
-        msg = `Nome: ${Array.isArray(errJson.username) ? errJson.username.join(", ") : errJson.username}`;
-      }
-      if (errJson.avatar) {
-        msg = `Avatar: ${Array.isArray(errJson.avatar) ? errJson.avatar.join(", ") : errJson.avatar}`;
-      }
+    } else if (res.status === 400 || (data && !data.success)) {
       return {
         success: false,
-        error: msg,
-        message: `Discord recusou a alteração: ${msg}`,
+        error: data.error || `Erro HTTP ${res.status}`,
+        message: data.error || "O Discord recusou a alteração do perfil do bot.",
       };
     }
+  } catch (backendErr: any) {
+    console.warn("Falha ao chamar endpoint /api/update-bot-profile na Discloud:", backendErr);
+  }
+
+  // 2. Fallback de Contingência: Realtime Broadcast
+  try {
+    const controlChannel = supabase.channel("system-discord-bot-control");
+    await controlChannel.send({
+      type: "broadcast",
+      event: "sync_bot_profile",
+      payload: {
+        botAvatarUrl: avatarBase64OrUrl,
+        botBannerUrl: bannerBase64OrUrl,
+        username: cleanUsername,
+        timestamp: Date.now(),
+      },
+    });
+
+    return {
+      success: true,
+      message: "Alterações enviadas para sincronização com o bot!",
+    };
   } catch (err: any) {
     return {
       success: false,
       error: err?.message || "Erro de conexão",
-      message: `Falha ao conectar com a API do Discord: ${err?.message || "Erro de rede"}`,
+      message: `Falha ao sincronizar com o Discord: ${err?.message || "Erro de rede"}`,
     };
   }
 }
@@ -910,84 +927,64 @@ export async function sendDiscordDirectMessage({
   content?: string;
   embed?: any;
   senderName?: string;
-}): Promise<{ success: boolean; directSent: boolean; message: string }> {
-  if (!discordUserId) {
-    return { success: false, directSent: false, message: "ID do Discord do destinatário não informado." };
+}): Promise<{ success: boolean; directSent: boolean; message: string; error?: string }> {
+  const cleanId = String(discordUserId || "").replace(/[<@!>]/g, "").trim();
+  if (!cleanId || cleanId.length < 5) {
+    return {
+      success: false,
+      directSent: false,
+      message: "ID do Discord do destinatário não informado ou inválido.",
+      error: "ID ausente",
+    };
   }
 
   let directSent = false;
+  let resultMsg = "";
   let errorMsg = "";
 
-  // 1. Envio REST direto caso haja botToken configurado
+  // 1. Envio HTTP direto ao servidor oficial do bot no Discloud (sem CORS de navegador)
   try {
-    const config = await getDiscordBotConfig().catch(() => null);
-    const cleanToken = config?.botToken?.replace(/^Bot\s+/i, "").trim();
-    if (cleanToken) {
-      const dmChannelRes = await fetch("https://discord.com/api/v10/users/@me/channels", {
-        method: "POST",
-        headers: {
-          Authorization: `Bot ${cleanToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ recipient_id: discordUserId }),
-      });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      if (dmChannelRes.ok) {
-        const dmChannel = await dmChannelRes.json();
-        const msgPayload: any = {};
-        if (content) msgPayload.content = content;
-        if (embed) msgPayload.embeds = [embed];
+    const res = await fetch("https://twin.discloud.app/api/send-dm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: cleanId,
+        sender: senderName || "Central de Atendimento",
+        content: content || "",
+        embed: embed || null,
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
 
-        const sendRes = await fetch(`https://discord.com/api/v10/channels/${dmChannel.id}/messages`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bot ${cleanToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(msgPayload),
-        });
-
-        if (sendRes.ok) {
-          directSent = true;
-        } else {
-          const errData = await sendRes.json().catch(() => ({}));
-          errorMsg = errData.message || `HTTP ${sendRes.status}`;
-        }
-      }
+    const resJson = await res.json().catch(() => ({}));
+    if (res.ok && resJson.success) {
+      directSent = true;
+      resultMsg = resJson.message || "DM enviada com sucesso no Discord!";
+      return {
+        success: true,
+        directSent: true,
+        message: resultMsg,
+      };
+    } else {
+      errorMsg = resJson.error || `Erro HTTP ${res.status}`;
     }
-  } catch (e: any) {
-    errorMsg = e?.message || "Erro na conexão REST do Discord";
+  } catch (httpErr: any) {
+    errorMsg = httpErr?.message || "Erro de conexão com o bot do Discord";
+    console.warn("Discloud send-dm HTTP error:", httpErr);
   }
 
-  // 2. Envio HTTP direto ao servidor do bot no Discloud (https://twin.discloud.app/api/send-dm)
-  if (!directSent) {
-    try {
-      const res = await fetch("https://twin.discloud.app/api/send-dm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: discordUserId,
-          sender: senderName || "Central de Atendimento",
-          content: content || "",
-          embed: embed || null,
-        }),
-      });
-      if (res.ok) {
-        directSent = true;
-      }
-    } catch (httpErr) {
-      console.warn("Discloud send-dm HTTP error:", httpErr);
-    }
-  }
-
-  // 3. Emite broadcast no Supabase Realtime (canal system-discord-bot-control)
+  // 2. Broadcast Realtime como contingência para sincronização se o HTTP falhar
   try {
     const controlChannel = supabase.channel("system-discord-bot-control");
     await controlChannel.send({
       type: "broadcast",
       event: "send_dm",
       payload: {
-        userId: discordUserId,
+        userId: cleanId,
         sender: senderName || "Central de Atendimento",
         content: content || "",
         embed: embed || null,
@@ -999,11 +996,14 @@ export async function sendDiscordDirectMessage({
   }
 
   return {
-    success: true,
+    success: directSent,
     directSent,
     message: directSent
-      ? "DM enviada com sucesso no Discord!"
-      : `Alerta transmitido ao bot do Discord (${errorMsg || "Aguardando entrega"})`,
+      ? resultMsg || "DM enviada com sucesso no Discord!"
+      : errorMsg
+      ? `Falha ao enviar DM: ${errorMsg}`
+      : "Alerta transmitido ao bot do Discord",
+    error: errorMsg || undefined,
   };
 }
 

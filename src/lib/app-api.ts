@@ -6964,10 +6964,57 @@ export async function pokeTicketMember(
   }
 
   // 2. Envio de DM Direta no Discord via Bot (se o usuário possuir discord_id)
+  let dmResult: { success: boolean; directSent?: boolean; message: string; error?: string; discordUserId?: string } | null = null;
   try {
     let discordUserId = payload.targetDiscordId || payload.target_discord_id || null;
-    
-    // 2.1 Busca no Supabase profiles se não foi fornecido diretamente
+
+    // 2.1 Verifica se o avatar do criador ou mensagem possui o Discord ID (ex: cdn.discordapp.com/avatars/722320491767136346/...)
+    if (!discordUserId) {
+      const isCreator = ticket.user_id === targetUserId || (ticket as any).creator_id === targetUserId;
+      if (isCreator && ticket.creator_avatar) {
+        const match = ticket.creator_avatar.match(/\/avatars\/(\d{17,20})\//);
+        if (match && match[1]) discordUserId = match[1];
+      }
+    }
+
+    // 2.2 Procura no Firebase RTDB profiles (fonte primária dos cadastros)
+    if (!discordUserId) {
+      try {
+        const fbProfiles = await rtdb.getList<any>("profiles").catch(() => []);
+        if (Array.isArray(fbProfiles) && fbProfiles.length > 0) {
+          const cleanTargetId = targetUserId.toLowerCase().trim();
+          const cleanTargetName = targetName.toLowerCase().trim();
+          const found = fbProfiles.find((p: any) => {
+            if (!p) return false;
+            const pId = String(p.id || "").toLowerCase().trim();
+            const pUid = String(p.user_id || "").toLowerCase().trim();
+            const pNome = String(p.nome || "").toLowerCase().trim();
+            const pNick = String(p.nickname || "").toLowerCase().trim();
+            return (
+              (cleanTargetId && (pId === cleanTargetId || pUid === cleanTargetId)) ||
+              (cleanTargetName && (pNome === cleanTargetName || pNick === cleanTargetName || cleanTargetName.includes(pNome) || pNome.includes(cleanTargetName)))
+            );
+          });
+          if (found?.discord_id) discordUserId = String(found.discord_id).trim();
+        }
+      } catch {}
+    }
+
+    // 2.3 Busca nos participantes do chamado ou dados do criador
+    if (!discordUserId) {
+      const foundInMembers = (ticket.members || []).find((m) => {
+        const mUid = String(m.user_id || "").toLowerCase().trim();
+        const mName = String(m.name || m.nickname || "").toLowerCase().trim();
+        return (targetUserId && mUid === targetUserId.toLowerCase()) || (targetName && mName === targetName.toLowerCase());
+      });
+      if ((foundInMembers as any)?.discord_id) discordUserId = String((foundInMembers as any).discord_id).trim();
+    }
+
+    if (!discordUserId && (ticket as any).creator_discord_id) {
+      discordUserId = String((ticket as any).creator_discord_id).trim();
+    }
+
+    // 2.4 Fallback: Busca no Supabase profiles
     if (!discordUserId && targetUserId) {
       try {
         const { data: prof } = await supabase
@@ -6979,31 +7026,8 @@ export async function pokeTicketMember(
       } catch {}
     }
 
-    // 2.2 Busca na tabela members pelo targetUserId
-    if (!discordUserId && targetUserId) {
-      try {
-        const { data: mem } = await supabase
-          .from("members")
-          .select("discord_id")
-          .or(`id.eq.${targetUserId},user_id.eq.${targetUserId}`)
-          .maybeSingle();
-        if (mem?.discord_id) discordUserId = mem.discord_id;
-      } catch {}
-    }
-
-    // 2.3 Busca na tabela members pelo nome ou nickname
-    if (!discordUserId && targetName) {
-      try {
-        const { data: memByName } = await supabase
-          .from("members")
-          .select("discord_id")
-          .or(`nome.ilike.%${targetName}%,nickname.ilike.%${targetName}%`)
-          .maybeSingle();
-        if (memByName?.discord_id) discordUserId = memByName.discord_id;
-      } catch {}
-    }
-
     if (discordUserId) {
+      const cleanDiscId = String(discordUserId).replace(/[<@!>]/g, "").trim();
       const siteUrl = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://twtools.site";
       const ticketUrl = `${siteUrl}/ticket/${ticket.id}/`;
       const numFmt = String(ticket.ticket_number).padStart(3, "0");
@@ -7013,33 +7037,61 @@ export async function pokeTicketMember(
       const embed = {
         title: `🔔 Alerta de Atendimento — Chamado #${numFmt}`,
         url: ticketUrl,
-        description: `Olá **${targetName}**! Você recebeu uma notificação de **${actorName}** referente ao chamado **"${ticket.subject}"**.`,
+        description: `Olá **${targetName}**! Você recebeu um alerta prioritário de **${actorName}** referente ao chamado **"${ticket.subject}"**.`,
         color: embedColor,
         fields: [
           { name: "💬 Mensagem do Alerta", value: reason },
           { name: "⚡ Nível de Urgência", value: urgencyBadge, inline: true },
-          { name: "👤 Solicitante / Atendente", value: actorName, inline: true },
+          { name: "👤 Atendente / Solicitante", value: actorName, inline: true },
           { name: "🔗 Link do Chamado", value: `[Clique aqui para abrir na Web](${ticketUrl})`, inline: false },
         ],
         footer: { text: "Twin Wheels RP • Atendimento Ticket" },
         timestamp: now,
       };
 
-      // Dispara o envio multi-estratégia (REST Oficial + Bot HTTP Discloud + Realtime Broadcast)
+      // Dispara envio direto via Bot no Discloud (sem restrições CORS)
       const { sendDiscordDirectMessage } = await import("@/services/discordBotManageService");
-      await sendDiscordDirectMessage({
-        discordUserId,
+      const sendRes = await sendDiscordDirectMessage({
+        discordUserId: cleanDiscId,
         content: `🔔 **Atenção:** Você recebeu uma notificação prioritária no chamado **#${numFmt}**!`,
         embed,
         senderName: actorName,
       });
-      console.log(`✉️ [POKE BOT DM] DM disparada via sendDiscordDirectMessage para usuário Discord ${discordUserId}`);
+
+      dmResult = {
+        success: sendRes.success && sendRes.directSent,
+        directSent: sendRes.directSent,
+        message: sendRes.message,
+        error: sendRes.error,
+        discordUserId: cleanDiscId,
+      };
+
+      pokeEntry.target_discord_id = cleanDiscId;
+      pokeEntry.dm_sent = sendRes.directSent;
+      pokeEntry.dm_status = sendRes.message;
+      console.log(`✉️ [POKE BOT DM] Resultado do envio de DM para usuário Discord ${cleanDiscId}:`, dmResult);
+    } else {
+      dmResult = {
+        success: false,
+        directSent: false,
+        message: "Nenhum ID do Discord encontrado para este membro.",
+        error: "discord_id_missing",
+      };
     }
-  } catch (dmErr) {
+  } catch (dmErr: any) {
     console.warn("⚠️ [POKE BOT DM] Falha ao despachar DM no Discord:", dmErr);
+    dmResult = {
+      success: false,
+      directSent: false,
+      message: dmErr?.message || "Falha na comunicação com o bot do Discord",
+      error: dmErr?.message,
+    };
   }
 
-  return updatedTicket;
+  return {
+    ...updatedTicket,
+    dm_result: dmResult,
+  } as Ticket & { dm_result?: any };
 }
 
 // ==============================================================================

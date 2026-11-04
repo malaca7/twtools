@@ -616,14 +616,25 @@ export function usePokeTicketMember() {
       ticketId: string;
       payload: PokeTicketMemberPayload;
     }) => pokeTicketMember(ticketId, payload),
-    onSuccess: (updatedTicket, vars) => {
+    onSuccess: (updatedTicket: any, vars) => {
       queryClient.setQueryData<Ticket[]>(["tickets"], (old = []) => {
         return old.map((t) => (t.id === updatedTicket.id ? updatedTicket : t));
       });
       void queryClient.invalidateQueries({ queryKey: ["tickets"] });
       broadcastTicketsRealtimeUpdate();
       const targetName = vars.payload.targetName || vars.payload.target_name || "Membro";
-      toast.success(`Alerta enviado para ${targetName}! 🔔`);
+      const dm = updatedTicket?.dm_result;
+      if (dm) {
+        if (dm.success) {
+          toast.success(`Alerta e DM no Discord enviados com sucesso para ${targetName}! 🔔`, { duration: 4500 });
+        } else if (dm.error === "discord_id_missing") {
+          toast.info(`Alerta registrado no chamado! (${targetName} não possui ID do Discord informado para envio de DM)`, { duration: 5000 });
+        } else {
+          toast.warning(`Alerta registrado no chamado, mas o bot informou: ${dm.message || dm.error}`, { duration: 5500 });
+        }
+      } else {
+        toast.success(`Alerta enviado para ${targetName}! 🔔`);
+      }
     },
     onError: (err: any) => {
       toast.error(err?.message || "Erro ao alertar membro.");
