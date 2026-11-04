@@ -204,6 +204,11 @@ export type Permission =
   | "send_ticket_internal_notes"
   | "internal_notes_tickets"
   | "manage_ticket_members"
+  | "manage_ticket_messages"
+  | "edit_ticket_messages"
+  | "delete_ticket_messages"
+  | "mute_ticket_members"
+  | "alert_ticket_members"
   | "close_tickets"
   | "close_ticket"
   | "reopen_tickets"
@@ -544,6 +549,11 @@ export const ALL_PERMISSIONS: Permission[] = [
   "send_ticket_internal_notes",
   "internal_notes_tickets",
   "manage_ticket_members",
+  "manage_ticket_messages",
+  "edit_ticket_messages",
+  "delete_ticket_messages",
+  "mute_ticket_members",
+  "alert_ticket_members",
   "close_tickets",
   "close_ticket",
   "reopen_tickets",
@@ -936,6 +946,11 @@ const OFFICER: Permission[] = [
   "send_ticket_internal_notes",
   "internal_notes_tickets",
   "manage_ticket_members",
+  "manage_ticket_messages",
+  "edit_ticket_messages",
+  "delete_ticket_messages",
+  "mute_ticket_members",
+  "alert_ticket_members",
   "close_tickets",
   "close_ticket",
   "reopen_tickets",
@@ -1138,6 +1153,11 @@ const MANAGER: Permission[] = [
   "send_ticket_internal_notes",
   "internal_notes_tickets",
   "manage_ticket_members",
+  "manage_ticket_messages",
+  "edit_ticket_messages",
+  "delete_ticket_messages",
+  "mute_ticket_members",
+  "alert_ticket_members",
   "close_tickets",
   "close_ticket",
   "reopen_tickets",
@@ -1373,11 +1393,24 @@ export function satisfiesPermission(
       permission === "reopen_ticket" ||
       permission === "internal_notes_tickets" ||
       permission === "manage_ticket_members" ||
+      permission === "manage_ticket_messages" ||
+      permission === "edit_ticket_messages" ||
+      permission === "delete_ticket_messages" ||
+      permission === "mute_ticket_members" ||
+      permission === "alert_ticket_members" ||
       permission === "delete_tickets" ||
       permission === "delete_ticket"
     ) {
       return true;
     }
+  }
+
+  // Gerenciar / Editar / Apagar Mensagens (100% granular)
+  if (
+    (permission === "edit_ticket_messages" || permission === "delete_ticket_messages") &&
+    (list.includes("manage_ticket_messages") || list.includes("manage_tickets"))
+  ) {
+    return true;
   }
 
   // Visualizar / Enviar Notas Internas Privadas (Compatibilidade com pacote legado internal_notes_tickets)
@@ -2834,11 +2867,24 @@ export function can(
       permission === "reopen_ticket" ||
       permission === "internal_notes_tickets" ||
       permission === "manage_ticket_members" ||
+      permission === "manage_ticket_messages" ||
+      permission === "edit_ticket_messages" ||
+      permission === "delete_ticket_messages" ||
+      permission === "mute_ticket_members" ||
+      permission === "alert_ticket_members" ||
       permission === "delete_tickets" ||
       permission === "delete_ticket"
     ) {
       return true;
     }
+  }
+
+  // Gerenciar / Editar / Apagar Mensagens (100% granular)
+  if (
+    (permission === "edit_ticket_messages" || permission === "delete_ticket_messages") &&
+    (list.includes("manage_ticket_messages") || list.includes("manage_tickets"))
+  ) {
+    return true;
   }
 
   // Visualizar / Enviar Notas Internas Privadas (Compatibilidade com pacote legado internal_notes_tickets)

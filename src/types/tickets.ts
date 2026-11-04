@@ -38,6 +38,29 @@ export interface TicketMessage {
   is_internal_note: boolean;
   attachments?: TicketAttachment[];
   created_at: string;
+  edited_at?: string | null;
+  edited_by_name?: string | null;
+}
+
+export interface TicketMutedMember {
+  user_id: string;
+  name: string;
+  nickname?: string | null;
+  muted_at: string;
+  muted_by_id: string;
+  muted_by_name: string;
+  reason?: string | null;
+  expires_at?: string | null; // ISO string ou null para indeterminado
+}
+
+export interface TicketPoke {
+  id: string;
+  target_user_id: string;
+  target_name: string;
+  poked_by_id: string;
+  poked_by_name: string;
+  reason: string;
+  created_at: string;
 }
 
 export interface TicketMember {
@@ -79,6 +102,8 @@ export interface Ticket {
   closed_by_name?: string | null;
   closed_reason?: string | null;
   transcript_config?: TicketTranscriptConfig | null;
+  muted_members?: TicketMutedMember[];
+  pokes?: TicketPoke[];
 }
 
 export interface TicketTranscriptConfig {
@@ -130,6 +155,38 @@ export interface AddTicketMemberPayload {
   nickname?: string | null;
   role?: AppLevel | null;
   avatar?: string | null;
+}
+
+export interface EditTicketMessagePayload {
+  ticketId: string;
+  messageId: string;
+  content: string;
+}
+
+export interface DeleteTicketMessagePayload {
+  ticketId: string;
+  messageId: string;
+}
+
+export interface MuteTicketMemberPayload {
+  ticketId: string;
+  targetUserId: string;
+  targetName: string;
+  targetNickname?: string | null;
+  reason?: string | null;
+  durationMinutes?: number | null;
+}
+
+export interface UnmuteTicketMemberPayload {
+  ticketId: string;
+  targetUserId: string;
+}
+
+export interface PokeTicketMemberPayload {
+  ticketId: string;
+  targetUserId: string;
+  targetName: string;
+  reason: string;
 }
 
 export const TICKET_CATEGORIES: {

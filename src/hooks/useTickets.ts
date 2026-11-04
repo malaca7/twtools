@@ -16,6 +16,11 @@ import {
   deleteTicket,
   addTicketMember,
   removeTicketMember,
+  editTicketMessage,
+  deleteTicketMessage,
+  muteTicketMember,
+  unmuteTicketMember,
+  pokeTicketMember,
   updateTicketTranscriptConfig,
   broadcastTicketsRealtimeUpdate,
   getTicketsRealtimeChannel,
@@ -29,6 +34,11 @@ import type {
   CloseTicketPayload,
   TicketTranscriptConfig,
   AddTicketMemberPayload,
+  EditTicketMessagePayload,
+  DeleteTicketMessagePayload,
+  MuteTicketMemberPayload,
+  UnmuteTicketMemberPayload,
+  PokeTicketMemberPayload,
   TicketStatus,
   TicketPriority,
   TicketCategory,
@@ -490,6 +500,131 @@ export function useRemoveTicketMember() {
     },
     onError: (err: any) => {
       toast.error(err?.message || "Erro ao remover membro do chamado.");
+    },
+  });
+}
+
+export function useEditTicketMessage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      ticketId,
+      payload,
+    }: {
+      ticketId: string;
+      payload: EditTicketMessagePayload;
+    }) => editTicketMessage(ticketId, payload),
+    onSuccess: (updatedTicket) => {
+      queryClient.setQueryData<Ticket[]>(["tickets"], (old = []) => {
+        return old.map((t) => (t.id === updatedTicket.id ? updatedTicket : t));
+      });
+      void queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      broadcastTicketsRealtimeUpdate();
+      toast.success("Mensagem editada com sucesso!");
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Erro ao editar mensagem.");
+    },
+  });
+}
+
+export function useDeleteTicketMessage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      ticketId,
+      payload,
+    }: {
+      ticketId: string;
+      payload: DeleteTicketMessagePayload;
+    }) => deleteTicketMessage(ticketId, payload),
+    onSuccess: (updatedTicket) => {
+      queryClient.setQueryData<Ticket[]>(["tickets"], (old = []) => {
+        return old.map((t) => (t.id === updatedTicket.id ? updatedTicket : t));
+      });
+      void queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      broadcastTicketsRealtimeUpdate();
+      toast.success("Mensagem excluída com sucesso.");
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Erro ao excluir mensagem.");
+    },
+  });
+}
+
+export function useMuteTicketMember() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      ticketId,
+      payload,
+    }: {
+      ticketId: string;
+      payload: MuteTicketMemberPayload;
+    }) => muteTicketMember(ticketId, payload),
+    onSuccess: (updatedTicket, vars) => {
+      queryClient.setQueryData<Ticket[]>(["tickets"], (old = []) => {
+        return old.map((t) => (t.id === updatedTicket.id ? updatedTicket : t));
+      });
+      void queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      broadcastTicketsRealtimeUpdate();
+      toast.success(`${vars.payload.user_name} foi silenciado(a) no chamado.`);
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Erro ao silenciar membro.");
+    },
+  });
+}
+
+export function useUnmuteTicketMember() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      ticketId,
+      payload,
+    }: {
+      ticketId: string;
+      payload: UnmuteTicketMemberPayload;
+    }) => unmuteTicketMember(ticketId, payload),
+    onSuccess: (updatedTicket) => {
+      queryClient.setQueryData<Ticket[]>(["tickets"], (old = []) => {
+        return old.map((t) => (t.id === updatedTicket.id ? updatedTicket : t));
+      });
+      void queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      broadcastTicketsRealtimeUpdate();
+      toast.success("Membro desilenciado com sucesso.");
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Erro ao remover silêncio.");
+    },
+  });
+}
+
+export function usePokeTicketMember() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      ticketId,
+      payload,
+    }: {
+      ticketId: string;
+      payload: PokeTicketMemberPayload;
+    }) => pokeTicketMember(ticketId, payload),
+    onSuccess: (updatedTicket, vars) => {
+      queryClient.setQueryData<Ticket[]>(["tickets"], (old = []) => {
+        return old.map((t) => (t.id === updatedTicket.id ? updatedTicket : t));
+      });
+      void queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      broadcastTicketsRealtimeUpdate();
+      toast.success(`Alerta enviado para ${vars.payload.target_name}! 🔔`);
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Erro ao alertar membro.");
     },
   });
 }

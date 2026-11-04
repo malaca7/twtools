@@ -44,6 +44,12 @@ import {
   Globe,
   Settings2,
   EyeOff,
+  Bell,
+  BellRing,
+  VolumeX,
+  Volume2,
+  Pencil,
+  MoreVertical,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -96,6 +102,11 @@ import {
   useDeleteTicket,
   useAddTicketMember,
   useRemoveTicketMember,
+  useEditTicketMessage,
+  useDeleteTicketMessage,
+  useMuteTicketMember,
+  useUnmuteTicketMember,
+  usePokeTicketMember,
   useUpdateTicketPriority,
   useUpdateTicketCategory,
   useUnassignTicket,
@@ -121,6 +132,11 @@ const QUICK_CLOSE_REASONS = [
   "🤝 Acordo Formalizado",
 ];
 
+function isPokeMessage(content: string): boolean {
+  if (!content) return false;
+  return content.trim().startsWith("🔔 [Alerta ao Membro]");
+}
+
 function isSystemEventMessage(content: string): boolean {
   if (!content) return false;
   const trimmed = content.trim();
@@ -131,7 +147,9 @@ function isSystemEventMessage(content: string): boolean {
     trimmed.startsWith("👥") ||
     trimmed.startsWith("🔀") ||
     trimmed.startsWith("📌") ||
-    trimmed.startsWith("⚠️ [Sistema]")
+    trimmed.startsWith("⚠️ [Sistema]") ||
+    trimmed.startsWith("🔇 [Moderação]") ||
+    trimmed.startsWith("🔊 [Moderação]")
   );
 }
 
@@ -154,6 +172,11 @@ export function TicketDetailView({
 
   // Mutations
   const addMessageMutation = useAddTicketMessage();
+  const editMessageMutation = useEditTicketMessage();
+  const deleteMessageMutation = useDeleteTicketMessage();
+  const muteMemberMutation = useMuteTicketMember();
+  const unmuteMemberMutation = useUnmuteTicketMember();
+  const pokeMemberMutation = usePokeTicketMember();
   const claimMutation = useClaimTicket();
   const transferMutation = useTransferTicket();
   const updateStatusMutation = useUpdateTicketStatus();
@@ -250,6 +273,25 @@ export function TicketDetailView({
     } catch {}
   };
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  // Modais e Estados de Gestão de Mensagens (Editar e Apagar)
+  const [editMsgDialogOpen, setEditMsgDialogOpen] = useState(false);
+  const [msgToEdit, setMsgToEdit] = useState<TicketMessage | null>(null);
+  const [editMsgContent, setEditMsgContent] = useState("");
+
+  const [deleteMsgDialogOpen, setDeleteMsgDialogOpen] = useState(false);
+  const [msgToDelete, setMsgToDelete] = useState<TicketMessage | null>(null);
+
+  // Modais e Estados de Silenciamento (Mute) e Alertas (Poke)
+  const [muteDialogOpen, setMuteDialogOpen] = useState(false);
+  const [memberToMute, setMemberToMute] = useState<{ id: string; name: string; avatar?: string } | null>(null);
+  const [muteDuration, setMuteDuration] = useState<number>(60);
+  const [muteReason, setMuteReason] = useState("");
+
+  const [pokeDialogOpen, setPokeDialogOpen] = useState(false);
+  const [memberToPoke, setMemberToPoke] = useState<{ id: string; name: string; avatar?: string } | null>(null);
+  const [pokeMessage, setPokeMessage] = useState("");
+  const [pokeUrgency, setPokeUrgency] = useState<"baixa" | "normal" | "alta" | "urgente">("normal");
 
   const [memberDialogOpen, setMemberDialogOpen] = useState(false);
   const [memberSearchTerm, setMemberSearchTerm] = useState("");
@@ -353,22 +395,216 @@ export function TicketDetailView({
     hasPermission("reply_ticket" as Permission) ||
     effectiveCanManage;
 
-  // Lista de membros do grupo disponíveis para adicionar (não criador e ainda não participante)
+  // Novas permissões granulares de Gestão de Mensagens, Silenciamento e Alertas Poke
+  const canManageTicketMessages =
+    !isMemberPortal &&
+    (hasPermission("manage_ticket_messages" as Permission) || effectiveCanManage);
+
+  const canEditTicketMessages =
+    !isMemberPortal &&
+    (hasPermission("edit_ticket_messages" as Permission) ||
+      canManageTicketMessages ||
+      effectiveCanManage);
+
+  const canDeleteTicketMessages =
+    !isMemberPortal &&
+    (hasPermission("delete_ticket_messages" as Permission) ||
+      canManageTicketMessages ||
+      effectiveCanManage);
+
+  const canMuteTicketMembers =
+    !isMemberPortal &&
+    (hasPermission("mute_ticket_members" as Permission) || effectiveCanManage);
+
+  const canAlertTicketMembers =
+    !isMemberPortal &&
+    (hasPermission("alert_ticket_members" as Permission) || effectiveCanManage);
+
+  // Verificações de Silenciamento de Membros
+  const isMemberMuted = (userId?: string | null, userName?: string | null) => {
+    if (!ticket.muted_members || ticket.muted_members.length === 0) return false;
+    const now = new Date();
+    const uid = (userId || "").trim().toLowerCase();
+    const uname = (userName || "").trim().toLowerCase();
+    return ticket.muted_members.some((m) => {
+      const targetId = (m.user_id || "").trim().toLowerCase();
+      const targetName = (m.user_name || "").trim().toLowerCase();
+      const match = (uid && targetId === uid) || (uname && targetName === uname);
+      if (!match) return false;
+      if (!m.expires_at) return true;
+      return new Date(m.expires_at) > now;
+    });
+  };
+
+  const getMemberMute = (userId?: string | null, userName?: string | null) => {
+    if (!ticket.muted_members || ticket.muted_members.length === 0) return null;
+    const now = new Date();
+    const uid = (userId || "").trim().toLowerCase();
+    const uname = (userName || "").trim().toLowerCase();
+    return (
+      ticket.muted_members.find((m) => {
+        const targetId = (m.user_id || "").trim().toLowerCase();
+        const targetName = (m.user_name || "").trim().toLowerCase();
+        const match = (uid && targetId === uid) || (uname && targetName === uname);
+        if (!match) return false;
+        if (!m.expires_at) return true;
+        return new Date(m.expires_at) > now;
+      }) || null
+    );
+  };
+
+  const activeUserMute = useMemo(() => {
+    return getMemberMute(user?.id, profile?.nome || profile?.nickname);
+  }, [ticket.muted_members, user?.id, profile?.nome, profile?.nickname]);
+
+  const isUserMuted = Boolean(activeUserMute);
+
+  // Lista de membros do grupo disponíveis para adicionar (não criador, não atendente e ainda não participante)
   const availableMembersToAdd = useMemo(() => {
-    const existingIds = new Set<string>([
-      ticket.user_id,
-      ...(ticket.members || []).map((m) => m.user_id),
-    ]);
+    const existingIdentifiers = new Set<string>();
+
+    const addId = (val?: string | null) => {
+      if (!val) return;
+      const s = String(val).trim().toLowerCase();
+      if (s) existingIdentifiers.add(s);
+    };
+
+    // Criador do chamado
+    addId(ticket.user_id);
+    addId(ticket.user_name);
+    addId((ticket as any).creator_id);
+    addId(ticket.creator_name);
+    addId(ticket.creator_nickname);
+
+    // Atendente responsável
+    addId(ticket.assigned_to_id);
+    addId(ticket.assigned_to_name);
+    addId(ticket.assigned_to_nickname);
+
+    // Participantes já adicionados
+    (ticket.members || []).forEach((m) => {
+      addId(m.user_id);
+      addId((m as any).id);
+      addId(m.name);
+      addId(m.nickname);
+      addId((m as any).discord_id);
+    });
+
     const term = memberSearchTerm.toLowerCase().trim();
+
     return members
-      .filter((m) => !existingIds.has(m.user_id))
+      .filter((m) => {
+        const uid = (m.user_id || "").trim().toLowerCase();
+        const id = (m.id || "").trim().toLowerCase();
+        const discId = ((m as any).discord_id || "").trim().toLowerCase();
+        const nome = (m.nome || "").trim().toLowerCase();
+        const nick = (m.nickname || "").trim().toLowerCase();
+
+        if (uid && existingIdentifiers.has(uid)) return false;
+        if (id && existingIdentifiers.has(id)) return false;
+        if (discId && existingIdentifiers.has(discId)) return false;
+        if (nome && existingIdentifiers.has(nome)) return false;
+        if (nick && existingIdentifiers.has(nick)) return false;
+
+        return true;
+      })
       .filter((m) => {
         if (!term) return true;
         const name = (m.nome || "").toLowerCase();
         const nick = (m.nickname || "").toLowerCase();
         return name.includes(term) || nick.includes(term);
       });
-  }, [members, ticket.user_id, ticket.members, memberSearchTerm]);
+  }, [
+    members,
+    ticket.user_id,
+    ticket.user_name,
+    (ticket as any).creator_id,
+    ticket.creator_name,
+    ticket.creator_nickname,
+    ticket.assigned_to_id,
+    ticket.assigned_to_name,
+    ticket.assigned_to_nickname,
+    ticket.members,
+    memberSearchTerm,
+  ]);
+
+  // Ações de Gestão de Mensagens, Silenciamento e Poke
+  const handleConfirmEditMessage = async () => {
+    if (!msgToEdit || !editMsgContent.trim()) return;
+    try {
+      await editMessageMutation.mutateAsync({
+        ticketId: ticket.id,
+        payload: {
+          message_id: msgToEdit.id,
+          content: editMsgContent.trim(),
+        },
+      });
+      setEditMsgDialogOpen(false);
+      setMsgToEdit(null);
+      setEditMsgContent("");
+    } catch {}
+  };
+
+  const handleConfirmDeleteMessage = async () => {
+    if (!msgToDelete) return;
+    try {
+      await deleteMessageMutation.mutateAsync({
+        ticketId: ticket.id,
+        payload: {
+          message_id: msgToDelete.id,
+        },
+      });
+      setDeleteMsgDialogOpen(false);
+      setMsgToDelete(null);
+    } catch {}
+  };
+
+  const handleConfirmMuteMember = async () => {
+    if (!memberToMute) return;
+    try {
+      await muteMemberMutation.mutateAsync({
+        ticketId: ticket.id,
+        payload: {
+          user_id: memberToMute.id,
+          user_name: memberToMute.name,
+          reason: muteReason.trim() || undefined,
+          duration_minutes: muteDuration === 0 ? null : muteDuration,
+        },
+      });
+      setMuteDialogOpen(false);
+      setMemberToMute(null);
+      setMuteReason("");
+    } catch {}
+  };
+
+  const handleUnmuteMember = async (userId: string) => {
+    try {
+      await unmuteMemberMutation.mutateAsync({
+        ticketId: ticket.id,
+        payload: {
+          user_id: userId,
+        },
+      });
+    } catch {}
+  };
+
+  const handleConfirmPokeMember = async () => {
+    if (!memberToPoke || !pokeMessage.trim()) return;
+    try {
+      await pokeMemberMutation.mutateAsync({
+        ticketId: ticket.id,
+        payload: {
+          target_id: memberToPoke.id,
+          target_name: memberToPoke.name,
+          message: pokeMessage.trim(),
+          urgency: pokeUrgency,
+        },
+      });
+      setPokeDialogOpen(false);
+      setMemberToPoke(null);
+      setPokeMessage("");
+    } catch {}
+  };
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -397,6 +633,10 @@ export function TicketDetailView({
   };
 
   const handleImageFile = async (file: File) => {
+    if (isUserMuted) {
+      toast.error("Você está silenciado(a) neste chamado.");
+      return;
+    }
     if (!canReply) {
       toast.error("Você não possui a permissão 'Responder e Enviar Mensagens nos Chamados'.");
       return;
@@ -428,7 +668,7 @@ export function TicketDetailView({
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
-    if (!canReply || !canSendAttachments) return;
+    if (isUserMuted || !canReply || !canSendAttachments) return;
     const items = e.clipboardData?.items;
     if (!items) return;
     for (let i = 0; i < items.length; i++) {
@@ -443,6 +683,10 @@ export function TicketDetailView({
   };
 
   const handleSendReply = async () => {
+    if (isUserMuted) {
+      toast.error("Você está silenciado(a) neste chamado e não pode enviar novas mensagens.");
+      return;
+    }
     if (!canReply) {
       toast.error("Você não possui a permissão 'Responder e Enviar Mensagens nos Chamados'.");
       return;
@@ -739,7 +983,31 @@ export function TicketDetailView({
                 return null;
               }
 
-              // SE FOR EVENTO DE SISTEMA (Claim, Transfer, Fechamento, etc.)
+              // SE FOR ALERTA DE MEMBRO / POKE (Destaque visual vibrante e profissional)
+              if (isPokeMessage(msg.content)) {
+                return (
+                  <div key={msg.id} className="w-full my-3 px-1 sm:px-2">
+                    <div className="rounded-2xl border border-amber-500/50 bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-amber-500/15 p-3.5 sm:p-4 shadow-md space-y-2">
+                      <div className="flex items-center justify-between gap-2 border-b border-amber-500/30 pb-2">
+                        <div className="flex items-center gap-2 text-xs font-black text-amber-400">
+                          <span className="p-1.5 rounded-lg bg-amber-500/20 border border-amber-500/35 text-amber-300 animate-pulse">
+                            <BellRing className="h-4 w-4" />
+                          </span>
+                          <span className="tracking-wider uppercase text-[11px]">ALERTA PRIORITÁRIO NO ATENDIMENTO (POKE)</span>
+                        </div>
+                        <span className="text-[10px] text-amber-300/80 font-mono">
+                          {formatTimeOnly(msg.created_at)}
+                        </span>
+                      </div>
+                      <p className="text-xs sm:text-sm text-foreground/95 font-medium leading-relaxed pl-1">
+                        {msg.content.replace(/^🔔\s*\[Alerta ao Membro\]\s*/i, "")}
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
+
+              // SE FOR EVENTO DE SISTEMA (Claim, Transfer, Fechamento, Mute, etc.)
               if (isSystem) {
                 return (
                   <div key={msg.id} className="flex items-center gap-3 my-3 px-2">
@@ -767,7 +1035,7 @@ export function TicketDetailView({
                 >
                   {/* Se for NOTA INTERNA PRIVADA (Dossiê Confidencial) */}
                   {isNote ? (
-                    <div className="w-full rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-amber-500/10 p-4 space-y-2.5 shadow-sm">
+                    <div className="w-full rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-amber-500/10 p-4 space-y-2.5 shadow-sm group">
                       <div className="flex items-center justify-between border-b border-amber-500/25 pb-2">
                         <div className="flex items-center gap-2 text-xs font-black text-amber-400">
                           <span className="p-1 rounded-md bg-amber-500/20 border border-amber-500/30">
@@ -775,9 +1043,75 @@ export function TicketDetailView({
                           </span>
                           <span>NOTA INTERNA PRIVADA — CONFIDENCIAL</span>
                         </div>
-                        <span className="text-[10px] text-amber-300/80 font-mono">
-                          {dateTime(msg.created_at)}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {msg.edited_at && (
+                            <span
+                              className="text-[10px] text-amber-300/80 italic font-sans"
+                              title={`Editada por ${msg.edited_by_name || "Usuário"} em ${dateTime(msg.edited_at)}`}
+                            >
+                              (editada)
+                            </span>
+                          )}
+                          <span className="text-[10px] text-amber-300/80 font-mono">
+                            {dateTime(msg.created_at)}
+                          </span>
+
+                          {/* Ações da Nota */}
+                          <div className="flex items-center gap-0.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(msg.content);
+                                toast.success("Nota copiada!");
+                              }}
+                              className="p-1 rounded-md text-amber-400/70 hover:text-amber-300 hover:bg-amber-500/20 transition-colors"
+                              title="Copiar texto"
+                            >
+                              <Copy className="h-3 w-3" />
+                            </button>
+
+                            {((canEditTicketMessages && (isMe || canManageTicketMessages)) || canDeleteTicketMessages) && !isClosed && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="p-1 rounded-md text-amber-400/70 hover:text-amber-300 hover:bg-amber-500/20 transition-colors"
+                                    title="Opções da nota"
+                                  >
+                                    <MoreVertical className="h-3 w-3" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="bg-popover border-border min-w-[140px]">
+                                  {canEditTicketMessages && (isMe || canManageTicketMessages) && (
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setMsgToEdit(msg);
+                                        setEditMsgContent(msg.content);
+                                        setEditMsgDialogOpen(true);
+                                      }}
+                                      className="text-xs cursor-pointer gap-2"
+                                    >
+                                      <Pencil className="h-3.5 w-3.5 text-cyan-400" />
+                                      <span>Editar</span>
+                                    </DropdownMenuItem>
+                                  )}
+                                  {canDeleteTicketMessages && (
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setMsgToDelete(msg);
+                                        setDeleteMsgDialogOpen(true);
+                                      }}
+                                      className="text-xs cursor-pointer gap-2 text-rose-400 focus:text-rose-400"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5 text-rose-400" />
+                                      <span>Apagar</span>
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+                          </div>
+                        </div>
                       </div>
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <Avatar className="h-5 w-5">
@@ -818,7 +1152,7 @@ export function TicketDetailView({
                     /* Mensagem Normal de Chat */
                     <div
                       className={cn(
-                        "rounded-2xl p-3.5 sm:p-4 text-xs sm:text-sm space-y-2 shadow-sm border transition-all",
+                        "rounded-2xl p-3.5 sm:p-4 text-xs sm:text-sm space-y-2 shadow-sm border transition-all group",
                         isMe
                           ? "bg-amber-500/15 border-amber-500/35 text-foreground rounded-br-xs"
                           : "bg-secondary/70 border-border/80 text-foreground rounded-bl-xs"
@@ -841,9 +1175,76 @@ export function TicketDetailView({
                         >
                           {LEVEL_LABEL[msg.sender_role] || msg.sender_role}
                         </Badge>
-                        <span className="text-[10px] text-muted-foreground ml-auto font-mono">
-                          {formatTimeOnly(msg.created_at)}
-                        </span>
+
+                        <div className="flex items-center gap-1 ml-auto">
+                          {msg.edited_at && (
+                            <span
+                              className="text-[10px] text-amber-400/90 italic font-sans"
+                              title={`Editada por ${msg.edited_by_name || "Usuário"} em ${dateTime(msg.edited_at)}`}
+                            >
+                              (editada)
+                            </span>
+                          )}
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            {formatTimeOnly(msg.created_at)}
+                          </span>
+
+                          {/* Ações da Mensagem */}
+                          <div className="flex items-center gap-0.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(msg.content);
+                                toast.success("Mensagem copiada!");
+                              }}
+                              className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                              title="Copiar texto da mensagem"
+                            >
+                              <Copy className="h-3 w-3" />
+                            </button>
+
+                            {((canEditTicketMessages && (isMe || canManageTicketMessages)) || canDeleteTicketMessages) && !isClosed && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                                    title="Mais opções da mensagem"
+                                  >
+                                    <MoreVertical className="h-3 w-3" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="bg-popover border-border min-w-[140px]">
+                                  {canEditTicketMessages && (isMe || canManageTicketMessages) && (
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setMsgToEdit(msg);
+                                        setEditMsgContent(msg.content);
+                                        setEditMsgDialogOpen(true);
+                                      }}
+                                      className="text-xs cursor-pointer gap-2"
+                                    >
+                                      <Pencil className="h-3.5 w-3.5 text-cyan-400" />
+                                      <span>Editar</span>
+                                    </DropdownMenuItem>
+                                  )}
+                                  {canDeleteTicketMessages && (
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setMsgToDelete(msg);
+                                        setDeleteMsgDialogOpen(true);
+                                      }}
+                                      className="text-xs cursor-pointer gap-2 text-rose-400 focus:text-rose-400"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5 text-rose-400" />
+                                      <span>Apagar</span>
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+                          </div>
+                        </div>
                       </div>
 
                       <div className="whitespace-pre-wrap leading-relaxed text-foreground/95">{msg.content}</div>
@@ -1100,42 +1501,58 @@ export function TicketDetailView({
               </div>
             )}
 
-            {/* Textarea e Botão Enviar */}
-            <div className="flex gap-2 items-end">
-              <Textarea
-                ref={replyTextareaRef}
-                value={replyContent}
-                onChange={(e) => setReplyContent(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onPaste={handlePaste}
-                placeholder={
-                  isInternalNote
-                    ? "🔒 Digite uma nota interna confidencial (visível apenas para a gerência)..."
-                    : "Escreva uma resposta para o chamado..."
-                }
-                rows={2}
-                className={cn(
-                  "resize-none text-xs sm:text-sm bg-card border-border/80 focus-visible:ring-2 rounded-xl transition-all",
-                  isInternalNote
-                    ? "border-amber-500/60 bg-amber-500/5 focus-visible:ring-amber-500/60 text-amber-100 placeholder:text-amber-400/50"
-                    : "focus-visible:ring-cyan-500/50"
-                )}
-              />
-              <Button
-                type="button"
-                onClick={handleSendReply}
-                disabled={addMessageMutation.isPending}
-                className={cn(
-                  "h-10 px-4 shrink-0 font-bold gap-1.5 text-xs text-black rounded-xl shadow-sm transition-all active:scale-95",
-                  isInternalNote
-                    ? "bg-amber-400 hover:bg-amber-500"
-                    : "bg-cyan-500 hover:bg-cyan-600"
-                )}
-              >
-                <Send className="h-3.5 w-3.5" />
-                <span>{isInternalNote ? "Salvar Nota" : "Responder"}</span>
-              </Button>
-            </div>
+            {/* Textarea e Botão Enviar ou Banner de Silenciamento */}
+            {isUserMuted ? (
+              <div className="flex flex-col items-center justify-center gap-1.5 p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs text-center shadow-xs">
+                <div className="flex items-center gap-2 font-bold text-rose-400">
+                  <VolumeX className="h-4 w-4 animate-pulse shrink-0" />
+                  <span>Você está temporariamente silenciado(a) neste chamado</span>
+                </div>
+                <p className="text-[11px] text-rose-200/90 max-w-md leading-relaxed">
+                  Motivo: <strong className="text-white">"{activeUserMute?.reason || "Conduta no atendimento"}"</strong>
+                  {activeUserMute?.expires_at ? ` • Expira em ${dateTime(activeUserMute.expires_at)}` : " • Silenciamento permanente"}
+                </p>
+                <p className="text-[10px] text-muted-foreground pt-0.5">
+                  Você pode acompanhar a conversa, mas o envio de novas mensagens está restrito.
+                </p>
+              </div>
+            ) : (
+              <div className="flex gap-2 items-end">
+                <Textarea
+                  ref={replyTextareaRef}
+                  value={replyContent}
+                  onChange={(e) => setReplyContent(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onPaste={handlePaste}
+                  placeholder={
+                    isInternalNote
+                      ? "🔒 Digite uma nota interna confidencial (visível apenas para a gerência)..."
+                      : "Escreva uma resposta para o chamado..."
+                  }
+                  rows={2}
+                  className={cn(
+                    "resize-none text-xs sm:text-sm bg-card border-border/80 focus-visible:ring-2 rounded-xl transition-all",
+                    isInternalNote
+                      ? "border-amber-500/60 bg-amber-500/5 focus-visible:ring-amber-500/60 text-amber-100 placeholder:text-amber-400/50"
+                      : "focus-visible:ring-cyan-500/50"
+                  )}
+                />
+                <Button
+                  type="button"
+                  onClick={handleSendReply}
+                  disabled={addMessageMutation.isPending}
+                  className={cn(
+                    "h-10 px-4 shrink-0 font-bold gap-1.5 text-xs text-black rounded-xl shadow-sm transition-all active:scale-95",
+                    isInternalNote
+                      ? "bg-amber-400 hover:bg-amber-500"
+                      : "bg-cyan-500 hover:bg-cyan-600"
+                  )}
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  <span>{isInternalNote ? "Salvar Nota" : "Responder"}</span>
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="border-t border-border/70 bg-gradient-to-r from-amber-500/5 via-secondary/20 to-amber-500/5 p-3.5 sm:p-4 text-center text-xs text-muted-foreground flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-2.5 shrink-0">
@@ -1526,30 +1943,93 @@ export function TicketDetailView({
 
             <div className="space-y-1.5">
               {/* Autor */}
-              <div className="flex items-center justify-between p-2 rounded-xl bg-secondary/30 border border-border/40 text-xs">
-                <div className="flex items-center gap-2 min-w-0">
-                  <Avatar className="h-6 w-6 shrink-0">
-                    <AvatarImage src={ticket.creator_avatar || undefined} />
-                    <AvatarFallback className="text-[9px]">
-                      {(ticket?.creator_name || ticket?.creator_nickname || "TC").slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1">
-                      <span className="text-foreground font-semibold text-xs truncate">
-                        {ticket.creator_nickname || ticket.creator_name}
-                      </span>
-                      <VerifiedBadge userId={ticket.creator_id || ticket.user_id} isVerified={ticket.creator_is_verified} size="xs" />
+              {(() => {
+                const authorId = ticket.creator_id || ticket.user_id;
+                const authorName = ticket.creator_nickname || ticket.creator_name;
+                const authorMuted = isMemberMuted(authorId, authorName);
+                const isNotMe = authorId !== user?.id;
+
+                return (
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-secondary/30 border border-border/40 text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Avatar className="h-6 w-6 shrink-0">
+                        <AvatarImage src={ticket.creator_avatar || undefined} />
+                        <AvatarFallback className="text-[9px]">
+                          {(authorName || "TC").slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1">
+                          <span className="text-foreground font-semibold text-xs truncate">
+                            {authorName}
+                          </span>
+                          <VerifiedBadge userId={authorId} isVerified={ticket.creator_is_verified} size="xs" />
+                        </div>
+                        <span className="text-[10px] text-muted-foreground block truncate">
+                          {LEVEL_LABEL[ticket.creator_role] || ticket.creator_role}
+                        </span>
+                      </div>
                     </div>
-                    <span className="text-[10px] text-muted-foreground block truncate">
-                      {LEVEL_LABEL[ticket.creator_role] || ticket.creator_role}
-                    </span>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      {authorMuted ? (
+                        <Badge variant="outline" className="text-[9px] py-0 px-1.5 border-rose-500/40 text-rose-400 bg-rose-500/10 rounded-full font-bold">
+                          🔇 Silenciado
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[9px] py-0 px-1.5 border-amber-500/30 text-amber-400 bg-amber-500/10 rounded-full font-bold">
+                          Autor
+                        </Badge>
+                      )}
+
+                      {/* Botão de Pokar / Alertar */}
+                      {canAlertTicketMembers && isNotMe && !isClosed && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMemberToPoke({ id: authorId, name: authorName, avatar: ticket.creator_avatar || undefined });
+                            setPokeMessage("");
+                            setPokeUrgency("normal");
+                            setPokeDialogOpen(true);
+                          }}
+                          className="p-1 rounded-md text-amber-400/80 hover:text-amber-300 hover:bg-amber-500/20 transition-colors"
+                          title="Alertar / Dar Poke no autor"
+                        >
+                          <BellRing className="h-3 w-3" />
+                        </button>
+                      )}
+
+                      {/* Botão de Silenciar / Desilenciar */}
+                      {canMuteTicketMembers && isNotMe && !isClosed && (
+                        authorMuted ? (
+                          <button
+                            type="button"
+                            onClick={() => handleUnmuteMember(authorId)}
+                            className="p-1 rounded-md text-emerald-400/80 hover:text-emerald-300 hover:bg-emerald-500/20 transition-colors"
+                            title="Remover silêncio do autor"
+                          >
+                            <Volume2 className="h-3 w-3" />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMemberToMute({ id: authorId, name: authorName, avatar: ticket.creator_avatar || undefined });
+                              setMuteReason("");
+                              setMuteDuration(60);
+                              setMuteDialogOpen(true);
+                            }}
+                            className="p-1 rounded-md text-rose-400/80 hover:text-rose-300 hover:bg-rose-500/20 transition-colors"
+                            title="Silenciar autor no chamado"
+                          >
+                            <VolumeX className="h-3 w-3" />
+                          </button>
+                        )
+                      )}
+                    </div>
                   </div>
-                </div>
-                <Badge variant="outline" className="text-[9px] py-0 px-1.5 border-amber-500/30 text-amber-400 bg-amber-500/10 rounded-full font-bold shrink-0">
-                  Autor
-                </Badge>
-              </div>
+                );
+              })()}
 
               {/* Responsável Atribuído */}
               {ticket.assigned_to_name ? (
@@ -1573,9 +2053,32 @@ export function TicketDetailView({
                       </span>
                     </div>
                   </div>
-                  <Badge variant="outline" className="text-[9px] py-0 px-1.5 border-sky-500/30 text-sky-400 bg-sky-500/10 rounded-full font-bold shrink-0">
-                    Atendente
-                  </Badge>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Badge variant="outline" className="text-[9px] py-0 px-1.5 border-sky-500/30 text-sky-400 bg-sky-500/10 rounded-full font-bold shrink-0">
+                      Atendente
+                    </Badge>
+
+                    {/* Botão de Pokar / Alertar Atendente */}
+                    {canAlertTicketMembers && ticket.assigned_to_id !== user?.id && !isClosed && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMemberToPoke({
+                            id: ticket.assigned_to_id!,
+                            name: ticket.assigned_to_nickname || ticket.assigned_to_name!,
+                            avatar: ticket.assigned_to_avatar || undefined,
+                          });
+                          setPokeMessage("");
+                          setPokeUrgency("normal");
+                          setPokeDialogOpen(true);
+                        }}
+                        className="p-1 rounded-md text-amber-400/80 hover:text-amber-300 hover:bg-amber-500/20 transition-colors"
+                        title="Alertar / Dar Poke no atendente"
+                      >
+                        <BellRing className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="flex items-center justify-between p-2 rounded-xl bg-secondary/20 border border-dashed border-border/60 text-xs">
@@ -1597,35 +2100,95 @@ export function TicketDetailView({
               )}
 
               {/* Membros Convidados */}
-              {(ticket.members || []).map((m) => (
-                <div
-                  key={m.user_id}
-                  className="flex items-center justify-between p-2 rounded-xl bg-secondary/25 border border-border/40 text-xs hover:border-border transition-colors"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Avatar className="h-6 w-6 shrink-0">
-                      <AvatarImage src={m.avatar || undefined} />
-                      <AvatarFallback className="text-[9px]">
-                        {(m?.name || m?.nickname || "MB").slice(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-foreground text-xs font-medium truncate">
-                      {m.nickname || m.name}
-                    </span>
+              {(ticket.members || []).map((m) => {
+                const memberMuted = isMemberMuted(m.user_id, m.nickname || m.name);
+                const isNotMe = m.user_id !== user?.id;
+
+                return (
+                  <div
+                    key={m.user_id}
+                    className="flex items-center justify-between p-2 rounded-xl bg-secondary/25 border border-border/40 text-xs hover:border-border transition-colors"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Avatar className="h-6 w-6 shrink-0">
+                        <AvatarImage src={m.avatar || undefined} />
+                        <AvatarFallback className="text-[9px]">
+                          {(m?.name || m?.nickname || "MB").slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <span className="text-foreground text-xs font-medium truncate block">
+                          {m.nickname || m.name}
+                        </span>
+                        {memberMuted && (
+                          <span className="text-[9px] text-rose-400 font-bold block">
+                            🔇 Silenciado
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      {/* Botão de Pokar / Alertar Membro Convidado */}
+                      {canAlertTicketMembers && isNotMe && !isClosed && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMemberToPoke({ id: m.user_id, name: m.nickname || m.name, avatar: m.avatar });
+                            setPokeMessage("");
+                            setPokeUrgency("normal");
+                            setPokeDialogOpen(true);
+                          }}
+                          className="p-1 rounded-md text-amber-400/80 hover:text-amber-300 hover:bg-amber-500/20 transition-colors"
+                          title="Alertar / Dar Poke no membro"
+                        >
+                          <BellRing className="h-3 w-3" />
+                        </button>
+                      )}
+
+                      {/* Botão de Silenciar / Desilenciar */}
+                      {canMuteTicketMembers && isNotMe && !isClosed && (
+                        memberMuted ? (
+                          <button
+                            type="button"
+                            onClick={() => handleUnmuteMember(m.user_id)}
+                            className="p-1 rounded-md text-emerald-400/80 hover:text-emerald-300 hover:bg-emerald-500/20 transition-colors"
+                            title="Remover silêncio do membro"
+                          >
+                            <Volume2 className="h-3 w-3" />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMemberToMute({ id: m.user_id, name: m.nickname || m.name, avatar: m.avatar });
+                              setMuteReason("");
+                              setMuteDuration(60);
+                              setMuteDialogOpen(true);
+                            }}
+                            className="p-1 rounded-md text-rose-400/80 hover:text-rose-300 hover:bg-rose-500/20 transition-colors"
+                            title="Silenciar membro no chamado"
+                          >
+                            <VolumeX className="h-3 w-3" />
+                          </button>
+                        )
+                      )}
+
+                      {canManageMembers && !isClosed && (
+                        <button
+                          type="button"
+                          onClick={() => removeMemberMutation.mutate({ ticketId: ticket.id, memberUserId: m.user_id })}
+                          disabled={removeMemberMutation.isPending}
+                          className="text-muted-foreground hover:text-rose-400 p-1 rounded-md transition-colors"
+                          title="Remover participante"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  {canManageMembers && !isClosed && (
-                    <button
-                      type="button"
-                      onClick={() => removeMemberMutation.mutate({ ticketId: ticket.id, memberUserId: m.user_id })}
-                      disabled={removeMemberMutation.isPending}
-                      className="text-muted-foreground hover:text-rose-400 p-1 rounded-md transition-colors"
-                      title="Remover participante"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -2397,6 +2960,297 @@ export function TicketDetailView({
               className="text-xs bg-cyan-500 hover:bg-cyan-600 text-black font-bold rounded-xl shadow-xs"
             >
               Salvar Alterações
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL 7: EDITAR MENSAGEM DO CHAMADO */}
+      <Dialog open={editMsgDialogOpen} onOpenChange={setEditMsgDialogOpen}>
+        <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-md border-border/80 rounded-2xl shadow-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-2 text-cyan-400">
+              <span className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                <Pencil className="h-4 w-4" />
+              </span>
+              <DialogTitle className="text-base font-bold">Editar Mensagem</DialogTitle>
+            </div>
+            <DialogDescription className="text-xs text-muted-foreground pt-1">
+              Atualize o conteúdo da mensagem. Uma indicação "(editada)" será exibida a todos os participantes.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 pt-2">
+            <Textarea
+              value={editMsgContent}
+              onChange={(e) => setEditMsgContent(e.target.value)}
+              rows={4}
+              placeholder="Digite o novo conteúdo da mensagem..."
+              className="text-xs sm:text-sm bg-secondary/40 border-border/70 rounded-xl"
+              autoFocus
+            />
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setEditMsgDialogOpen(false)}
+              className="rounded-xl text-xs"
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleConfirmEditMessage}
+              disabled={editMessageMutation.isPending || !editMsgContent.trim()}
+              className="bg-cyan-500 hover:bg-cyan-600 text-black font-bold text-xs rounded-xl"
+            >
+              {editMessageMutation.isPending ? "Salvando..." : "Salvar Alterações"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL 8: APAGAR MENSAGEM DO CHAMADO */}
+      <Dialog open={deleteMsgDialogOpen} onOpenChange={setDeleteMsgDialogOpen}>
+        <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-md border-border/80 rounded-2xl shadow-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-2 text-rose-400">
+              <span className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                <Trash2 className="h-4 w-4" />
+              </span>
+              <DialogTitle className="text-base font-bold">Excluir Mensagem</DialogTitle>
+            </div>
+            <DialogDescription className="text-xs text-muted-foreground pt-1">
+              Tem certeza que deseja apagar permanentemente esta mensagem do chamado?
+            </DialogDescription>
+          </DialogHeader>
+
+          {msgToDelete && (
+            <div className="p-3 rounded-xl bg-secondary/40 border border-border/60 text-xs text-muted-foreground italic line-clamp-3">
+              "{msgToDelete.content}"
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setDeleteMsgDialogOpen(false)}
+              className="rounded-xl text-xs"
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={handleConfirmDeleteMessage}
+              disabled={deleteMessageMutation.isPending}
+              className="font-bold text-xs rounded-xl"
+            >
+              {deleteMessageMutation.isPending ? "Excluindo..." : "Apagar Mensagem"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL 9: SILENCIAR MEMBRO (MUTE) */}
+      <Dialog open={muteDialogOpen} onOpenChange={setMuteDialogOpen}>
+        <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-md border-border/80 rounded-2xl shadow-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-2 text-rose-400">
+              <span className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                <VolumeX className="h-4 w-4" />
+              </span>
+              <DialogTitle className="text-base font-bold">Silenciar Membro no Chamado</DialogTitle>
+            </div>
+            <DialogDescription className="text-xs text-muted-foreground pt-1">
+              O participante ficará impedido de enviar mensagens neste chamado enquanto durar o silenciamento.
+            </DialogDescription>
+          </DialogHeader>
+
+          {memberToMute && (
+            <div className="space-y-3.5 pt-2">
+              <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-secondary/40 border border-border/50">
+                <Avatar className="h-8 w-8 rounded-lg">
+                  <AvatarImage src={memberToMute.avatar} />
+                  <AvatarFallback className="text-xs font-bold">
+                    {memberToMute.name.slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-xs font-bold text-foreground">{memberToMute.name}</p>
+                  <p className="text-[10px] text-muted-foreground">Participante do Chamado</p>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-foreground">Duração do Silenciamento:</Label>
+                <div className="grid grid-cols-3 gap-1.5 text-xs">
+                  {[
+                    { label: "15 min", val: 15 },
+                    { label: "1 hora", val: 60 },
+                    { label: "6 horas", val: 360 },
+                    { label: "24 horas", val: 1440 },
+                    { label: "Permanente", val: 0 },
+                  ].map((d) => (
+                    <button
+                      key={d.val}
+                      type="button"
+                      onClick={() => setMuteDuration(d.val)}
+                      className={cn(
+                        "px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-all",
+                        muteDuration === d.val
+                          ? "bg-rose-500/20 border-rose-500/50 text-rose-300 shadow-2xs font-bold"
+                          : "bg-secondary/30 border-border/60 text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+                      )}
+                    >
+                      {d.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-foreground">Motivo do Silenciamento:</Label>
+                <Input
+                  value={muteReason}
+                  onChange={(e) => setMuteReason(e.target.value)}
+                  placeholder="Ex: Desacato, flood de mensagens, conduta inadequada..."
+                  className="text-xs bg-secondary/40 border-border/70 rounded-xl"
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setMuteDialogOpen(false)}
+              className="rounded-xl text-xs"
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleConfirmMuteMember}
+              disabled={muteMemberMutation.isPending}
+              className="bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs rounded-xl"
+            >
+              {muteMemberMutation.isPending ? "Silenciando..." : "Confirmar Silenciamento"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL 10: ALERTAR MEMBRO (POKE 🔔) */}
+      <Dialog open={pokeDialogOpen} onOpenChange={setPokeDialogOpen}>
+        <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-md border-border/80 rounded-2xl shadow-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-2 text-amber-400">
+              <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                <BellRing className="h-4 w-4" />
+              </span>
+              <DialogTitle className="text-base font-bold">Alertar Membro (Poke 🔔)</DialogTitle>
+            </div>
+            <DialogDescription className="text-xs text-muted-foreground pt-1">
+              Envie um alerta sonoro e visual para chamar a atenção imediata do participante no chamado.
+            </DialogDescription>
+          </DialogHeader>
+
+          {memberToPoke && (
+            <div className="space-y-3.5 pt-2">
+              <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-secondary/40 border border-border/50">
+                <Avatar className="h-8 w-8 rounded-lg">
+                  <AvatarImage src={memberToPoke.avatar} />
+                  <AvatarFallback className="text-xs font-bold">
+                    {memberToPoke.name.slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-xs font-bold text-foreground">{memberToPoke.name}</p>
+                  <p className="text-[10px] text-muted-foreground">Destinatário do Alerta</p>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-foreground">Mensagens Rápidas de Alerta:</Label>
+                <div className="flex flex-col gap-1.5">
+                  {[
+                    "⏰ Aguardando seu retorno com urgência no chamado.",
+                    "📝 Por favor, forneça as informações solicitadas para prosseguirmos.",
+                    "🔔 Notificação de prioridade: favor conferir o andamento do ticket.",
+                    "⚠️ Último aviso antes do encerramento do chamado por inatividade.",
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setPokeMessage(preset)}
+                      className="text-left text-xs p-2 rounded-xl bg-secondary/30 hover:bg-amber-500/15 border border-border/50 hover:border-amber-500/40 text-muted-foreground hover:text-amber-200 transition-all font-medium"
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-foreground">Mensagem Personalizada do Alerta:</Label>
+                <Textarea
+                  value={pokeMessage}
+                  onChange={(e) => setPokeMessage(e.target.value)}
+                  placeholder="Digite a mensagem de alerta..."
+                  rows={2}
+                  className="text-xs bg-secondary/40 border-border/70 rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-foreground">Nível de Urgência:</Label>
+                <div className="grid grid-cols-3 gap-1.5 text-xs">
+                  {[
+                    { label: "Normal", val: "normal" as const },
+                    { label: "Alta", val: "alta" as const },
+                    { label: "Urgente", val: "urgente" as const },
+                  ].map((u) => (
+                    <button
+                      key={u.val}
+                      type="button"
+                      onClick={() => setPokeUrgency(u.val)}
+                      className={cn(
+                        "px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-all",
+                        pokeUrgency === u.val
+                          ? "bg-amber-500/20 border-amber-500/50 text-amber-300 shadow-2xs font-bold"
+                          : "bg-secondary/30 border-border/60 text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+                      )}
+                    >
+                      {u.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPokeDialogOpen(false)}
+              className="rounded-xl text-xs"
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleConfirmPokeMember}
+              disabled={pokeMemberMutation.isPending || !pokeMessage.trim()}
+              className="bg-amber-500 hover:bg-amber-600 text-black font-bold text-xs rounded-xl gap-1.5"
+            >
+              <Bell className="h-3.5 w-3.5" />
+              <span>{pokeMemberMutation.isPending ? "Enviando..." : "Enviar Alerta (Poke)"}</span>
             </Button>
           </DialogFooter>
         </DialogContent>

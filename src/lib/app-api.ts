@@ -51,6 +51,13 @@ import type {
   CloseTicketPayload,
   AddTicketMemberPayload,
   TicketTranscriptConfig,
+  TicketMutedMember,
+  TicketPoke,
+  EditTicketMessagePayload,
+  DeleteTicketMessagePayload,
+  MuteTicketMemberPayload,
+  UnmuteTicketMemberPayload,
+  PokeTicketMemberPayload,
 } from "@/types/tickets";
 import { getCategoryInfo, getStatusInfo } from "@/types/tickets";
 import { createNotification } from "./notifications-api";
@@ -5019,6 +5026,11 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
           const canViewDossier = isSuper || canManage || checkSimPerm("view_ticket_dossier" as Permission);
           const canExportTranscript = isSuper || canManage || checkSimPerm("export_ticket_transcript" as Permission);
           const canUseMacros = isSuper || canManage || checkSimPerm("use_ticket_macros" as Permission);
+          const canManageMessages = isSuper || canManage || checkSimPerm("manage_ticket_messages" as Permission);
+          const canEditMessages = isSuper || canManageMessages || checkSimPerm("edit_ticket_messages" as Permission);
+          const canDeleteMessages = isSuper || canManageMessages || checkSimPerm("delete_ticket_messages" as Permission);
+          const canMuteMembers = isSuper || canManage || checkSimPerm("mute_ticket_members" as Permission);
+          const canAlertMembers = isSuper || canManage || checkSimPerm("alert_ticket_members" as Permission);
           const canView = isSuper || canViewAll || checkSimPerm("view_tickets") || checkSimPerm("atendimento_tickets.view" as Permission) || checkSimPerm("view_atendimento_tickets" as Permission);
 
           return {
@@ -5049,6 +5061,11 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
             canViewDossier,
             canExportTranscript,
             canUseMacros,
+            canManageMessages,
+            canEditMessages,
+            canDeleteMessages,
+            canMuteMembers,
+            canAlertMembers,
             isSuperUser: isSuper,
           };
         }
@@ -5128,6 +5145,11 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
           const canViewDossier = isSuper || canManage || checkDevPerm("view_ticket_dossier" as Permission);
           const canExportTranscript = isSuper || canManage || checkDevPerm("export_ticket_transcript" as Permission);
           const canUseMacros = isSuper || canManage || checkDevPerm("use_ticket_macros" as Permission);
+          const canManageMessages = isSuper || canManage || checkDevPerm("manage_ticket_messages" as Permission);
+          const canEditMessages = isSuper || canManageMessages || checkDevPerm("edit_ticket_messages" as Permission);
+          const canDeleteMessages = isSuper || canManageMessages || checkDevPerm("delete_ticket_messages" as Permission);
+          const canMuteMembers = isSuper || canManage || checkDevPerm("mute_ticket_members" as Permission);
+          const canAlertMembers = isSuper || canManage || checkDevPerm("alert_ticket_members" as Permission);
           const canView = isSuper || canViewAll || checkDevPerm("view_tickets") || checkDevPerm("atendimento_tickets.view" as Permission) || checkDevPerm("view_atendimento_tickets" as Permission);
 
           return {
@@ -5158,6 +5180,11 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
             canViewDossier,
             canExportTranscript,
             canUseMacros,
+            canManageMessages,
+            canEditMessages,
+            canDeleteMessages,
+            canMuteMembers,
+            canAlertMembers,
             isSuperUser: isSuper,
           };
         }
@@ -5377,6 +5404,11 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
   const canViewDossier = isSuperUser || canManage || checkPerm("view_ticket_dossier" as Permission);
   const canExportTranscript = isSuperUser || canManage || checkPerm("export_ticket_transcript" as Permission);
   const canUseMacros = isSuperUser || canManage || checkPerm("use_ticket_macros" as Permission);
+  const canManageMessages = isSuperUser || canManage || checkPerm("manage_ticket_messages" as Permission);
+  const canEditMessages = isSuperUser || canManageMessages || checkPerm("edit_ticket_messages" as Permission);
+  const canDeleteMessages = isSuperUser || canManageMessages || checkPerm("delete_ticket_messages" as Permission);
+  const canMuteMembers = isSuperUser || canManage || checkPerm("mute_ticket_members" as Permission);
+  const canAlertMembers = isSuperUser || canManage || checkPerm("alert_ticket_members" as Permission);
   const canView = isSuperUser || canViewAll || checkPerm("view_tickets") || checkPerm("atendimento_tickets.view" as Permission) || checkPerm("view_atendimento_tickets" as Permission);
 
   const nome = p?.nome || "Membro";
@@ -5411,6 +5443,11 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
     canViewDossier,
     canExportTranscript,
     canUseMacros,
+    canManageMessages,
+    canEditMessages,
+    canDeleteMessages,
+    canMuteMembers,
+    canAlertMembers,
     isSuperUser,
   };
 }
@@ -5568,6 +5605,17 @@ export async function addTicketMessage(
 
   if (!canReply) {
     throw new Error("Você não possui permissão para responder ou enviar mensagens neste chamado.");
+  }
+
+  // Verificação de silenciamento ativo no chamado
+  const nowMs = Date.now();
+  const isMuted = (ticket.muted_members || []).some((m) => {
+    if (m.user_id !== auth.user.id) return false;
+    if (!m.expires_at) return true;
+    return new Date(m.expires_at).getTime() > nowMs;
+  });
+  if (isMuted && !auth.canManage && !auth.isSuperUser) {
+    throw new Error("Você está silenciado temporariamente pela moderação neste chamado.");
   }
 
   // Verificação estrita de permissão para Nota Interna Privada:
@@ -6509,6 +6557,344 @@ export async function removeTicketMember(
     category: "warning",
     user_id: memberUserId,
     link: "/tickets",
+    sender_id: auth.user.id,
+    sender_name: actorName,
+  });
+
+  return updatedTicket;
+}
+
+/**
+ * Edita o conteúdo de uma mensagem existente no chamado.
+ */
+export async function editTicketMessage(
+  ticketId: string,
+  messageId: string,
+  content: string
+): Promise<Ticket> {
+  const auth = await getEffectiveTicketAuth();
+  if (!auth) throw new Error("Usuário não autenticado");
+
+  const trimmed = content.trim();
+  if (!trimmed) throw new Error("O conteúdo da mensagem não pode ficar vazio");
+
+  const allRawTickets = await fetchAllRawTickets();
+  const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
+  if (targetIndex === -1) throw new Error("Ticket não encontrado");
+
+  const ticket = allRawTickets[targetIndex];
+  const msgIndex = (ticket.messages || []).findIndex((m) => m.id === messageId);
+  if (msgIndex === -1) throw new Error("Mensagem não encontrada");
+
+  const targetMsg = ticket.messages[msgIndex];
+  const isOwner = targetMsg.sender_id === auth.user.id;
+  const canEdit = isOwner || (auth as any).canEditMessages || auth.canManage || auth.isSuperUser;
+  if (!canEdit) {
+    throw new Error("Você não possui permissão para editar esta mensagem");
+  }
+
+  const now = new Date().toISOString();
+  const actorName = auth.nickname || auth.nome || "Atendente";
+
+  const updatedMessages = [...ticket.messages];
+  updatedMessages[msgIndex] = {
+    ...targetMsg,
+    content: trimmed,
+    edited_at: now,
+    edited_by_name: actorName,
+  };
+
+  const updatedTicket: Ticket = {
+    ...ticket,
+    messages: updatedMessages,
+    updated_at: now,
+  };
+
+  allRawTickets[targetIndex] = updatedTicket;
+  setLocalTickets(allRawTickets, false);
+  await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: allRawTickets });
+  broadcastTicketsRealtimeUpdate();
+
+  void logAuditAction(
+    "edit_ticket_message",
+    "tickets",
+    {
+      ticket_id: ticket.id,
+      ticket_number: ticket.ticket_number,
+      message_id: messageId,
+      edited_by: actorName,
+    },
+    undefined,
+    ticket.id
+  );
+
+  return updatedTicket;
+}
+
+/**
+ * Remove/apaga uma mensagem do chamado.
+ */
+export async function deleteTicketMessage(
+  ticketId: string,
+  messageId: string
+): Promise<Ticket> {
+  const auth = await getEffectiveTicketAuth();
+  if (!auth) throw new Error("Usuário não autenticado");
+
+  const allRawTickets = await fetchAllRawTickets();
+  const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
+  if (targetIndex === -1) throw new Error("Ticket não encontrado");
+
+  const ticket = allRawTickets[targetIndex];
+  const targetMsg = (ticket.messages || []).find((m) => m.id === messageId);
+  if (!targetMsg) throw new Error("Mensagem não encontrada");
+
+  const isOwner = targetMsg.sender_id === auth.user.id;
+  const canDelete = (auth as any).canDeleteMessages || auth.canManage || auth.isSuperUser || (isOwner && (auth as any).canDeleteMessages);
+  if (!canDelete) {
+    throw new Error("Você não possui permissão para apagar mensagens neste chamado");
+  }
+
+  const now = new Date().toISOString();
+  const actorName = auth.nickname || auth.nome || "Atendente";
+
+  const updatedMessages = ticket.messages.filter((m) => m.id !== messageId);
+  const updatedTicket: Ticket = {
+    ...ticket,
+    messages: updatedMessages,
+    updated_at: now,
+  };
+
+  allRawTickets[targetIndex] = updatedTicket;
+  setLocalTickets(allRawTickets, false);
+  await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: allRawTickets });
+  broadcastTicketsRealtimeUpdate();
+
+  void logAuditAction(
+    "delete_ticket_message",
+    "tickets",
+    {
+      ticket_id: ticket.id,
+      ticket_number: ticket.ticket_number,
+      message_id: messageId,
+      deleted_by: actorName,
+    },
+    undefined,
+    ticket.id
+  );
+
+  return updatedTicket;
+}
+
+/**
+ * Silencia um membro participante no chamado.
+ */
+export async function muteTicketMember(
+  ticketId: string,
+  payload: MuteTicketMemberPayload
+): Promise<Ticket> {
+  const auth = await getEffectiveTicketAuth();
+  if (!auth) throw new Error("Usuário não autenticado");
+
+  if (!(auth as any).canMuteMembers && !auth.canManage && !auth.isSuperUser) {
+    throw new Error("Você não possui permissão para silenciar integrantes neste chamado");
+  }
+
+  const allRawTickets = await fetchAllRawTickets();
+  const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
+  if (targetIndex === -1) throw new Error("Ticket não encontrado");
+
+  const ticket = allRawTickets[targetIndex];
+  const now = new Date().toISOString();
+  const actorName = auth.nickname || auth.nome || "Moderação";
+  const targetName = payload.targetNickname || payload.targetName;
+
+  const expiresAt = payload.durationMinutes && payload.durationMinutes > 0
+    ? new Date(Date.now() + payload.durationMinutes * 60 * 1000).toISOString()
+    : null;
+
+  const existingMutes = (ticket.muted_members || []).filter((m) => m.user_id !== payload.targetUserId);
+  const newMute: TicketMutedMember = {
+    user_id: payload.targetUserId,
+    name: payload.targetName,
+    nickname: payload.targetNickname || null,
+    muted_at: now,
+    muted_by_id: auth.user.id,
+    muted_by_name: actorName,
+    reason: payload.reason || "Conduta inadequada",
+    expires_at: expiresAt,
+  };
+
+  const durationLabel = payload.durationMinutes
+    ? `${payload.durationMinutes} minutos`
+    : "Indeterminado";
+
+  const muteSystemMsg: TicketMessage = {
+    id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    ticket_id: ticketId,
+    sender_id: auth.user.id,
+    sender_name: auth.nome,
+    sender_nickname: auth.nickname,
+    sender_role: auth.role,
+    sender_avatar: auth.avatar,
+    content: `🔇 [Silenciamento] ${targetName} foi silenciado(a) por ${actorName}. Motivo: ${payload.reason || "Conduta inadequada"} (${durationLabel}).`,
+    is_internal_note: false,
+    created_at: now,
+  };
+
+  const updatedTicket: Ticket = {
+    ...ticket,
+    muted_members: [...existingMutes, newMute],
+    messages: [...(ticket.messages || []), muteSystemMsg],
+    updated_at: now,
+  };
+
+  allRawTickets[targetIndex] = updatedTicket;
+  setLocalTickets(allRawTickets, false);
+  await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: allRawTickets });
+  broadcastTicketsRealtimeUpdate();
+
+  void createNotification({
+    title: `Silenciado no Chamado #${String(ticket.ticket_number).padStart(3, "0")}`,
+    message: `Você foi silenciado no chamado "${ticket.subject}" por ${actorName}. Motivo: ${payload.reason || "Conduta inadequada"}.`,
+    type: "ticket",
+    category: "warning",
+    user_id: payload.targetUserId,
+    link: `/tickets/${ticket.id}`,
+    sender_id: auth.user.id,
+    sender_name: actorName,
+  });
+
+  return updatedTicket;
+}
+
+/**
+ * Desilencia um membro participante no chamado.
+ */
+export async function unmuteTicketMember(
+  ticketId: string,
+  targetUserId: string
+): Promise<Ticket> {
+  const auth = await getEffectiveTicketAuth();
+  if (!auth) throw new Error("Usuário não autenticado");
+
+  if (!(auth as any).canMuteMembers && !auth.canManage && !auth.isSuperUser) {
+    throw new Error("Você não possui permissão para desilenciar integrantes neste chamado");
+  }
+
+  const allRawTickets = await fetchAllRawTickets();
+  const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
+  if (targetIndex === -1) throw new Error("Ticket não encontrado");
+
+  const ticket = allRawTickets[targetIndex];
+  const targetMute = (ticket.muted_members || []).find((m) => m.user_id === targetUserId);
+  const targetName = targetMute?.nickname || targetMute?.name || "Membro";
+  const now = new Date().toISOString();
+  const actorName = auth.nickname || auth.nome || "Moderação";
+
+  const unmuteSystemMsg: TicketMessage = {
+    id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    ticket_id: ticketId,
+    sender_id: auth.user.id,
+    sender_name: auth.nome,
+    sender_nickname: auth.nickname,
+    sender_role: auth.role,
+    sender_avatar: auth.avatar,
+    content: `🔊 [Desilenciado] ${targetName} teve a fala reativada no chamado por ${actorName}.`,
+    is_internal_note: false,
+    created_at: now,
+  };
+
+  const updatedTicket: Ticket = {
+    ...ticket,
+    muted_members: (ticket.muted_members || []).filter((m) => m.user_id !== targetUserId),
+    messages: [...(ticket.messages || []), unmuteSystemMsg],
+    updated_at: now,
+  };
+
+  allRawTickets[targetIndex] = updatedTicket;
+  setLocalTickets(allRawTickets, false);
+  await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: allRawTickets });
+  broadcastTicketsRealtimeUpdate();
+
+  void createNotification({
+    title: `Fala Reativada no Chamado #${String(ticket.ticket_number).padStart(3, "0")}`,
+    message: `Você foi desilenciado(a) no chamado "${ticket.subject}" por ${actorName}.`,
+    type: "ticket",
+    category: "info",
+    user_id: targetUserId,
+    link: `/tickets/${ticket.id}`,
+    sender_id: auth.user.id,
+    sender_name: actorName,
+  });
+
+  return updatedTicket;
+}
+
+/**
+ * Alerta / dá poke em um membro no chamado.
+ */
+export async function pokeTicketMember(
+  ticketId: string,
+  payload: PokeTicketMemberPayload
+): Promise<Ticket> {
+  const auth = await getEffectiveTicketAuth();
+  if (!auth) throw new Error("Usuário não autenticado");
+
+  if (!(auth as any).canAlertMembers && !auth.canManage && !auth.isSuperUser) {
+    throw new Error("Você não possui permissão para alertar integrantes neste chamado");
+  }
+
+  const allRawTickets = await fetchAllRawTickets();
+  const targetIndex = allRawTickets.findIndex((t) => t.id === ticketId);
+  if (targetIndex === -1) throw new Error("Ticket não encontrado");
+
+  const ticket = allRawTickets[targetIndex];
+  const now = new Date().toISOString();
+  const actorName = auth.nickname || auth.nome || "Atendente";
+
+  const pokeEntry: TicketPoke = {
+    id: `poke_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    target_user_id: payload.targetUserId,
+    target_name: payload.targetName,
+    poked_by_id: auth.user.id,
+    poked_by_name: actorName,
+    reason: payload.reason,
+    created_at: now,
+  };
+
+  const alertSystemMsg: TicketMessage = {
+    id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    ticket_id: ticketId,
+    sender_id: auth.user.id,
+    sender_name: auth.nome,
+    sender_nickname: auth.nickname,
+    sender_role: auth.role,
+    sender_avatar: auth.avatar,
+    content: `🔔 [Alerta ao Membro] ${actorName} alertou ${payload.targetName}: "${payload.reason}".`,
+    is_internal_note: false,
+    created_at: now,
+  };
+
+  const updatedTicket: Ticket = {
+    ...ticket,
+    pokes: [...(ticket.pokes || []), pokeEntry],
+    messages: [...(ticket.messages || []), alertSystemMsg],
+    updated_at: now,
+  };
+
+  allRawTickets[targetIndex] = updatedTicket;
+  setLocalTickets(allRawTickets, false);
+  await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: allRawTickets });
+  broadcastTicketsRealtimeUpdate();
+
+  void createNotification({
+    title: `🔔 Alerta de Atendimento #${String(ticket.ticket_number).padStart(3, "0")}`,
+    message: `${actorName} enviou um alerta no chamado "${ticket.subject}": "${payload.reason}".`,
+    type: "ticket",
+    category: "warning",
+    user_id: payload.targetUserId,
+    link: `/tickets/${ticket.id}`,
     sender_id: auth.user.id,
     sender_name: actorName,
   });

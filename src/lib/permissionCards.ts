@@ -1218,6 +1218,36 @@ export const PAGE_CARDS: PageCardConfig[] = [
         badge: "Participantes",
       },
       {
+        key: "manage_ticket_messages",
+        label: "Gerenciar Mensagens dos Chamados",
+        description: "Permite controle total sobre moderação, edição e exclusão de mensagens no histórico do atendimento.",
+        badge: "Moderação",
+      },
+      {
+        key: "edit_ticket_messages",
+        label: "Editar Mensagens nos Chamados",
+        description: "Permite corrigir ou editar o texto de mensagens enviadas dentro do chamado.",
+        badge: "Mensagens",
+      },
+      {
+        key: "delete_ticket_messages",
+        label: "Apagar / Excluir Mensagens nos Chamados",
+        description: "Permite remover mensagens inadequadas, acidentais ou duplicadas do histórico do atendimento.",
+        badge: "Moderação",
+      },
+      {
+        key: "mute_ticket_members",
+        label: "Silenciar e Desilenciar Integrantes",
+        description: "Permite suspender temporariamente ou reativar o envio de mensagens de integrantes desrespeitosos no chamado.",
+        badge: "Controle / Mute",
+      },
+      {
+        key: "alert_ticket_members",
+        label: "Alertar e Enviar Pokes a Integrantes",
+        description: "Permite enviar avisos sonoros e alertas de atenção/cobrança de retorno para integrantes do chamado.",
+        badge: "Notificação / Poke",
+      },
+      {
         key: "close_tickets",
         label: "Encerrar e Fechar Chamados",
         description: "Permite concluir o atendimento do chamado e registrar a justificativa oficial de encerramento.",
