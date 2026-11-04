@@ -35,6 +35,9 @@ import {
   List,
   RefreshCw,
   Radio,
+  Globe,
+  Lock,
+  ExternalLink,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -410,6 +413,13 @@ export function AtendimentoTicketsContent() {
     }
   };
 
+  const handleCopyTicketId = (ticketNumber: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const formatted = formatTicketNumber(ticketNumber);
+    navigator.clipboard.writeText(formatted);
+    toast.success(`ID ${formatted} copiado para a área de transferência!`);
+  };
+
   return (
     <div className="mx-auto max-w-7xl space-y-6 pb-12 animate-in fade-in duration-300">
       {/* CABEÇALHO PRINCIPAL COM INDICADOR EM TEMPO REAL */}
@@ -601,6 +611,82 @@ export function AtendimentoTicketsContent() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* STATUS OPERACIONAL DA FILA EM TEMPO REAL */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-gradient-to-r from-secondary/40 via-card/60 to-secondary/30 border border-border/70 text-xs shadow-xs backdrop-blur-sm">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <div className={cn(
+            "p-1.5 rounded-xl border flex items-center justify-center",
+            stats.unassigned > 0
+              ? "bg-amber-500/20 text-amber-400 border-amber-500/35 animate-pulse"
+              : stats.urgent > 0
+              ? "bg-rose-500/20 text-rose-400 border-rose-500/35"
+              : "bg-emerald-500/20 text-emerald-400 border-emerald-500/35"
+          )}>
+            {stats.unassigned > 0 ? (
+              <Zap className="h-4 w-4" />
+            ) : stats.urgent > 0 ? (
+              <AlertTriangle className="h-4 w-4" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4" />
+            )}
+          </div>
+
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-bold text-foreground">
+                {stats.unassigned > 0 ? (
+                  <span>
+                    Fila Aberta: <strong className="text-amber-400">{stats.unassigned} chamado(s)</strong> sem atendente atribuído
+                  </span>
+                ) : (
+                  <span className="text-emerald-400 font-semibold">
+                    Fila Aberta Zerada: Todos os chamados possuem atendente atribuído!
+                  </span>
+                )}
+              </span>
+              {stats.urgent > 0 && (
+                <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0 border-rose-500/40 text-rose-300 bg-rose-500/15 animate-pulse">
+                  🚨 {stats.urgent} Urgente(s)
+                </Badge>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground font-mono">
+              Total monitorado: {stats.total} chamados • {stats.inProgress || 0} em atendimento • {stats.closed} finalizados
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          {stats.unassigned > 0 && activeTab !== "unassigned" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setActiveTab("unassigned")}
+              className="h-7 text-[11px] font-bold border-amber-500/40 text-amber-300 bg-amber-500/15 hover:bg-amber-500/25 rounded-xl gap-1 shadow-2xs"
+            >
+              <Zap className="h-3 w-3" />
+              <span>Ver Fila Aberta ({stats.unassigned})</span>
+            </Button>
+          )}
+
+          {stats.urgent > 0 && activeTab !== "urgent" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setActiveTab("urgent")}
+              className="h-7 text-[11px] font-bold border-rose-500/40 text-rose-300 bg-rose-500/15 hover:bg-rose-500/25 rounded-xl gap-1 shadow-2xs"
+            >
+              <AlertTriangle className="h-3 w-3" />
+              <span>Ver Urgentes ({stats.urgent})</span>
+            </Button>
+          )}
+
+          <div className="text-[11px] text-muted-foreground font-mono hidden md:block">
+            {filteredTickets.length} de {stats.total} listados
+          </div>
+        </div>
       </div>
 
       {/* ABAS OPERACIONAIS, CONTROLES DE VISUALIZAÇÃO E FILTROS */}
@@ -860,9 +946,9 @@ export function AtendimentoTicketsContent() {
           />
         ) : viewMode === "table" ? (
           /* MODO TABELA OPERACIONAL DE ALTA DENSIDADE */
-          <div className="rounded-2xl border border-border/70 bg-card/80 backdrop-blur-sm overflow-hidden shadow-xl">
+          <div className="rounded-2xl border border-border/70 bg-card/85 backdrop-blur-sm overflow-hidden shadow-xl">
             <Table>
-              <TableHeader className="bg-secondary/40">
+              <TableHeader className="bg-secondary/50">
                 <TableRow className="border-border/60 hover:bg-transparent text-xs">
                   <TableHead className="w-24 font-bold text-foreground"># Ticket</TableHead>
                   <TableHead className="font-bold text-foreground">Solicitante</TableHead>
@@ -871,7 +957,7 @@ export function AtendimentoTicketsContent() {
                   <TableHead className="w-36 font-bold text-foreground">Status</TableHead>
                   <TableHead className="font-bold text-foreground">Responsável</TableHead>
                   <TableHead className="w-28 font-bold text-foreground">Abertura</TableHead>
-                  <TableHead className="w-32 text-right font-bold text-foreground">Ações</TableHead>
+                  <TableHead className="w-36 text-right font-bold text-foreground">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -889,21 +975,31 @@ export function AtendimentoTicketsContent() {
                       onClick={() => setSelectedTicketId(ticket.id)}
                       className={cn(
                         "cursor-pointer border-border/40 transition-colors hover:bg-cyan-500/5 group text-xs",
-                        isMyAssignment && "bg-primary/5",
-                        ticket.priority === "urgente" && !isClosed && "bg-rose-500/5"
+                        isMyAssignment && !isClosed && "bg-primary/5",
+                        hasNoAssignee && !isClosed && "bg-amber-500/5 hover:bg-amber-500/10",
+                        ticket.priority === "urgente" && !isClosed && "bg-rose-500/5 hover:bg-rose-500/10",
+                        isClosed && "opacity-80 hover:opacity-100 bg-secondary/15"
                       )}
                     >
                       {/* # Ticket */}
                       <TableCell className="font-mono font-bold text-cyan-400">
-                        {formatTicketNumber(ticket.ticket_number)}
+                        <button
+                          type="button"
+                          onClick={(e) => handleCopyTicketId(ticket.ticket_number, e)}
+                          className="group/btn inline-flex items-center gap-1 hover:text-amber-300 transition-colors cursor-pointer"
+                          title="Copiar número do chamado"
+                        >
+                          <span>{formatTicketNumber(ticket.ticket_number)}</span>
+                          <Copy className="h-3 w-3 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
+                        </button>
                       </TableCell>
 
                       {/* Solicitante */}
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <Avatar className="h-6 w-6 border border-border shrink-0">
+                          <Avatar className="h-7 w-7 border border-border shrink-0 shadow-2xs">
                             <AvatarImage src={ticket.creator_avatar || undefined} />
-                            <AvatarFallback className="text-[9px]">
+                            <AvatarFallback className="text-[10px] font-bold bg-secondary">
                               {(ticket.creator_name || ticket.creator_nickname || "MB").slice(0, 2).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
@@ -912,7 +1008,7 @@ export function AtendimentoTicketsContent() {
                               <span>{ticket.creator_nickname || ticket.creator_name}</span>
                               <VerifiedBadge userId={ticket.creator_id} isVerified={ticket.creator_is_verified} size="xs" />
                             </p>
-                            <span className="text-[10px] text-muted-foreground block">
+                            <span className="text-[10px] text-muted-foreground block truncate">
                               {LEVEL_LABEL[ticket.creator_role] || ticket.creator_role}
                             </span>
                           </div>
@@ -922,19 +1018,26 @@ export function AtendimentoTicketsContent() {
                       {/* Assunto & Categoria */}
                       <TableCell>
                         <div className="space-y-0.5">
-                          <p className="font-bold text-foreground group-hover:text-cyan-400 transition-colors line-clamp-1">
+                          <p className="font-bold text-foreground group-hover:text-cyan-400 transition-colors line-clamp-1 max-w-xs" title={ticket.subject}>
                             {ticket.subject}
                           </p>
-                          <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0 font-medium", catInfo?.badgeClass)}>
-                            {catInfo?.emoji} {catInfo?.label || ticket.category}
-                          </Badge>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0 font-medium", catInfo?.badgeClass)}>
+                              {catInfo?.emoji} {catInfo?.label || ticket.category}
+                            </Badge>
+                            {isClosed && ticket.closed_reason && (
+                              <span className="text-[10px] text-muted-foreground italic truncate max-w-[150px]">
+                                • {ticket.closed_reason}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
 
                       {/* Prioridade */}
                       <TableCell>
                         <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5", priorityInfo?.badgeClass)}>
-                          <span className={cn("h-1.5 w-1.5 rounded-full mr-1", priorityInfo?.dotClass)} />
+                          <span className={cn("h-1.5 w-1.5 rounded-full mr-1", priorityInfo?.dotClass, ticket.priority === "urgente" && !isClosed && "animate-ping")} />
                           {priorityInfo?.label || ticket.priority}
                         </Badge>
                       </TableCell>
@@ -949,21 +1052,28 @@ export function AtendimentoTicketsContent() {
                       {/* Responsável */}
                       <TableCell>
                         {ticket.assigned_to_name ? (
-                          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-secondary/60 border border-border/60 text-sky-400 font-medium">
-                            <UserCheck className="h-3 w-3 shrink-0" />
-                            <span className="truncate max-w-[120px]">{ticket.assigned_to_nickname || ticket.assigned_to_name}</span>
+                          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-secondary/60 border border-border/60 text-sky-300 font-medium text-xs">
+                            <Avatar className="h-4 w-4">
+                              <AvatarImage src={ticket.assigned_to_avatar || undefined} />
+                              <AvatarFallback className="text-[8px]">
+                                {(ticket.assigned_to_nickname || ticket.assigned_to_name).slice(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="truncate max-w-[110px]">{ticket.assigned_to_nickname || ticket.assigned_to_name}</span>
                             <VerifiedBadge userId={ticket.assigned_to_id} size="xs" />
                           </div>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-amber-400 font-medium bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
-                            <Zap className="h-3 w-3" /> Fila Aberta
+                          <span className="inline-flex items-center gap-1 text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/25 text-[11px]">
+                            <Zap className="h-3 w-3 animate-pulse" /> Fila Aberta
                           </span>
                         )}
                       </TableCell>
 
                       {/* Tempo */}
-                      <TableCell className="font-mono text-[11px] text-muted-foreground">
-                        {formatRelativeTime(ticket.created_at)}
+                      <TableCell className="font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                        <span title={dateTime(ticket.created_at)}>
+                          {formatRelativeTime(ticket.created_at)}
+                        </span>
                       </TableCell>
 
                       {/* Ações */}
@@ -974,19 +1084,46 @@ export function AtendimentoTicketsContent() {
                               size="sm"
                               variant="secondary"
                               onClick={(e) => handleClaimTicket(ticket.id, e)}
-                              className="h-7 px-2.5 text-[11px] font-bold gap-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 rounded-lg"
+                              className="h-7 px-2.5 text-[11px] font-bold gap-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 rounded-lg shadow-2xs"
+                              title="Assumir este chamado na sua fila"
                             >
                               <Zap className="h-3 w-3" /> Assumir
                             </Button>
                           )}
-                          <Button
-                            size="sm"
-                            onClick={() => setSelectedTicketId(ticket.id)}
-                            className="h-7 px-3 text-[11px] font-bold gap-1 bg-cyan-500 hover:bg-cyan-600 text-black rounded-lg shadow-xs"
-                          >
-                            <span>Atender</span>
-                            <ChevronRight className="h-3 w-3" />
-                          </Button>
+
+                          {isClosed ? (
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setSelectedTicketId(ticket.id)}
+                                className="h-7 px-2.5 text-[11px] font-semibold gap-1.5 border-border/70 bg-secondary/30 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg"
+                                title="Visualizar histórico e detalhes deste chamado encerrado"
+                              >
+                                <Eye className="h-3 w-3 text-cyan-400" />
+                                <span>Ver Chamado</span>
+                              </Button>
+
+                              <a
+                                href={`/ticket/${ticket.id}/transcript/`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="h-7 w-7 inline-flex items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 transition-colors"
+                                title="Abrir Transcrição Web Oficial em nova aba"
+                              >
+                                <Globe className="h-3.5 w-3.5" />
+                              </a>
+                            </div>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => setSelectedTicketId(ticket.id)}
+                              className="h-7 px-3 text-[11px] font-bold gap-1 bg-cyan-500 hover:bg-cyan-600 text-black rounded-lg shadow-xs active:scale-95 transition-all"
+                            >
+                              <span>Atender</span>
+                              <ChevronRight className="h-3 w-3" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1013,11 +1150,13 @@ export function AtendimentoTicketsContent() {
                   key={ticket.id}
                   onClick={() => setSelectedTicketId(ticket.id)}
                   className={cn(
-                    "relative overflow-hidden border border-border/80 rounded-2xl shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between group",
-                    "bg-gradient-to-b from-card/90 to-card/50 backdrop-blur-sm hover:border-cyan-500/50 hover:shadow-cyan-500/10 hover:-translate-y-0.5",
-                    isMyAssignment && "border-l-4 border-l-primary",
-                    hasNoAssignee && !isClosed && "border-l-4 border-l-amber-500",
-                    ticket.priority === "urgente" && !isClosed && "ring-1 ring-rose-500/40"
+                    "relative overflow-hidden border rounded-2xl shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between group",
+                    isClosed
+                      ? "bg-gradient-to-b from-card/75 to-card/45 border-border/60 opacity-85 hover:opacity-100"
+                      : "bg-gradient-to-b from-card/95 to-card/60 backdrop-blur-sm border-border/80 hover:border-cyan-500/50 hover:shadow-cyan-500/10 hover:-translate-y-0.5",
+                    isMyAssignment && !isClosed && "border-l-4 border-l-primary shadow-primary/5",
+                    hasNoAssignee && !isClosed && "border-l-4 border-l-amber-500 shadow-amber-500/5",
+                    ticket.priority === "urgente" && !isClosed && "ring-1 ring-rose-500/50 shadow-rose-500/10"
                   )}
                 >
                   {/* Borda superior de status correspondente */}
@@ -1026,12 +1165,12 @@ export function AtendimentoTicketsContent() {
                       "absolute top-0 left-0 right-0 h-1 transition-all",
                       ticket.priority === "urgente" && !isClosed
                         ? "bg-gradient-to-r from-rose-500 to-red-600"
-                        : isMyAssignment
+                        : isMyAssignment && !isClosed
                         ? "bg-gradient-to-r from-primary to-emerald-500"
                         : hasNoAssignee && !isClosed
                         ? "bg-gradient-to-r from-amber-500 to-yellow-500"
                         : isClosed
-                        ? "bg-gradient-to-r from-purple-500 to-indigo-500"
+                        ? "bg-gradient-to-r from-zinc-600 to-zinc-700"
                         : "bg-gradient-to-r from-cyan-500 to-blue-500"
                     )}
                   />
@@ -1039,23 +1178,30 @@ export function AtendimentoTicketsContent() {
                   <CardContent className="p-4 sm:p-5 space-y-3.5 flex-1 flex flex-col justify-between pt-5">
                     <div>
                       {/* HEADER DO CARD: TICKET NUMBER, BADGES & STATUS */}
-                      <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-xs font-black px-2 py-0.5 rounded-lg bg-cyan-500/10 border border-cyan-500/25 text-cyan-400">
-                            {formatTicketNumber(ticket.ticket_number)}
-                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => handleCopyTicketId(ticket.ticket_number, e)}
+                            className="font-mono text-xs font-black px-2 py-0.5 rounded-lg bg-cyan-500/10 border border-cyan-500/25 text-cyan-400 hover:bg-cyan-500/20 transition-colors inline-flex items-center gap-1 cursor-pointer"
+                            title="Copiar número do chamado"
+                          >
+                            <span>{formatTicketNumber(ticket.ticket_number)}</span>
+                            <Copy className="h-3 w-3 opacity-60" />
+                          </button>
 
                           <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5 rounded-md", catInfo?.badgeClass)}>
                             {catInfo?.emoji} {catInfo?.label || ticket.category}
                           </Badge>
 
                           <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5 rounded-md", priorityInfo?.badgeClass)}>
-                            <span className={cn("h-1.5 w-1.5 rounded-full mr-1", priorityInfo?.dotClass)} />
+                            <span className={cn("h-1.5 w-1.5 rounded-full mr-1", priorityInfo?.dotClass, ticket.priority === "urgente" && !isClosed && "animate-ping")} />
                             {priorityInfo?.label || ticket.priority}
                           </Badge>
 
                           {/* Tempo Relativo */}
-                          <span className="text-[10px] font-mono text-muted-foreground/80 bg-secondary/50 px-1.5 py-0.5 rounded border border-border/40">
+                          <span className="text-[10px] font-mono text-muted-foreground/80 bg-secondary/50 px-1.5 py-0.5 rounded border border-border/40 inline-flex items-center gap-1" title={dateTime(ticket.created_at)}>
+                            <Clock className="h-2.5 w-2.5 text-cyan-400/70" />
                             {formatRelativeTime(ticket.created_at)}
                           </span>
                         </div>
@@ -1074,6 +1220,14 @@ export function AtendimentoTicketsContent() {
                       <p className="text-xs text-muted-foreground/90 line-clamp-2 mt-1 leading-relaxed">
                         {ticket.description}
                       </p>
+
+                      {/* SE FECHADO E COM MOTIVO */}
+                      {isClosed && ticket.closed_reason && (
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-secondary/50 border border-border/50 text-[11px] text-muted-foreground mt-2 font-medium">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                          <span className="truncate italic">Conclusão: "{ticket.closed_reason}"</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* FOOTER DO CARD: AUTOR, ATENDENTE E AÇÕES RÁPIDAS */}
@@ -1101,8 +1255,12 @@ export function AtendimentoTicketsContent() {
                               <span className="truncate max-w-[110px]">{ticket.assigned_to_nickname || ticket.assigned_to_name}</span>
                               <VerifiedBadge userId={ticket.assigned_to_id} size="xs" />
                             </span>
+                          ) : isClosed ? (
+                            <span className="inline-flex items-center gap-1 text-muted-foreground/80 bg-secondary/40 px-2 py-0.5 rounded-md border border-border/40">
+                              <Lock className="h-3 w-3 text-muted-foreground" /> Arquivado
+                            </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 animate-pulse">
+                            <span className="inline-flex items-center gap-1 text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/25 animate-pulse font-bold">
                               <Zap className="h-3 w-3" /> Fila Aberta
                             </span>
                           )}
@@ -1112,9 +1270,9 @@ export function AtendimentoTicketsContent() {
                       {/* BARRINHA DE BOTÕES DE AÇÃO RÁPIDA */}
                       <div className="flex items-center justify-between gap-2 pt-1">
                         <div className="flex items-center gap-3 text-[11px] text-muted-foreground font-mono">
-                          <span className="flex items-center gap-1">
+                          <span className="flex items-center gap-1" title={dateTime(ticket.created_at)}>
                             <Clock className="h-3 w-3 text-cyan-400/80" />
-                            {dateTime(ticket.created_at)}
+                            {dateTime(ticket.created_at).split(" ")[0]}
                           </span>
                           {msgCount > 0 && (
                             <span className="flex items-center gap-1" title={`${msgCount} mensagens trocadas`}>
@@ -1136,20 +1294,46 @@ export function AtendimentoTicketsContent() {
                               size="sm"
                               variant="secondary"
                               onClick={(e) => handleClaimTicket(ticket.id, e)}
-                              className="h-7 px-2.5 text-[11px] font-bold gap-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 rounded-lg shadow-xs"
+                              className="h-7 px-2.5 text-[11px] font-bold gap-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 rounded-lg shadow-2xs"
+                              title="Assumir este chamado na sua fila de atendimento"
                             >
                               <Zap className="h-3 w-3" /> Assumir
                             </Button>
                           )}
 
-                          <Button
-                            size="sm"
-                            onClick={() => setSelectedTicketId(ticket.id)}
-                            className="h-7 px-3 text-[11px] font-bold gap-1 bg-cyan-500 hover:bg-cyan-600 text-black rounded-lg shadow-xs"
-                          >
-                            <span>Atender</span>
-                            <ChevronRight className="h-3 w-3" />
-                          </Button>
+                          {isClosed ? (
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setSelectedTicketId(ticket.id)}
+                                className="h-7 px-2.5 text-[11px] font-semibold gap-1.5 border-border/70 bg-secondary/40 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg"
+                                title="Visualizar histórico e detalhes deste chamado encerrado"
+                              >
+                                <Eye className="h-3 w-3 text-cyan-400" />
+                                <span>Ver Chamado</span>
+                              </Button>
+
+                              <a
+                                href={`/ticket/${ticket.id}/transcript/`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="h-7 w-7 inline-flex items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 transition-colors"
+                                title="Abrir Transcrição Web Oficial em nova aba"
+                              >
+                                <Globe className="h-3.5 w-3.5" />
+                              </a>
+                            </div>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => setSelectedTicketId(ticket.id)}
+                              className="h-7 px-3 text-[11px] font-bold gap-1 bg-cyan-500 hover:bg-cyan-600 text-black rounded-lg shadow-xs active:scale-95 transition-all"
+                            >
+                              <span>Atender</span>
+                              <ChevronRight className="h-3 w-3" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>
