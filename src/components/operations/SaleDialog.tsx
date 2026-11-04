@@ -66,13 +66,8 @@ export function SaleDialog({ trigger }: { trigger: ReactNode }) {
   const { data: products } = useProducts();
   const queryClient = useQueryClient();
 
-  // Filtrar estritamente: ativo, can_be_sold marcado como habilitado na gestão e estoque disponível > 0
-  const activeProducts = (products ?? []).filter((p) => {
-    const isActive = p.ativo !== false;
-    const canBeSold = p.can_be_sold === true;
-    const availableStock = Number(p.sale_available_quantity ?? p.estoque_atual ?? 0);
-    return isActive && canBeSold && availableStock > 0;
-  });
+  // Disponibilizar todos os produtos ativos do catálogo para venda rápida
+  const activeProducts = (products ?? []).filter((p) => p.ativo !== false);
 
   const handleAddItem = () => {
     setItems((prev) => [
@@ -134,23 +129,26 @@ export function SaleDialog({ trigger }: { trigger: ReactNode }) {
     return !item.productId || isNaN(qty) || qty <= 0 || isNaN(price) || price < 0;
   });
 
+  const canSellPermission =
+    isDevMode ||
+    isCeoMode ||
+    hasPermission("create_sale") ||
+    hasPermission("sales.create") ||
+    tagRules?.can_sell !== false;
+
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!hasPermission("create_sale") || (!isDevMode && !isCeoMode && tagRules?.can_sell === false)) {
+      if (!canSellPermission) {
         throw new Error("Você não possui permissão para lançar vendas.");
       }
       if (isDiscountOverLimit) {
         throw new Error(`O desconto máximo permitido para sua tag é de ${maxDiscountPct}% (${currency(maxDiscountAllowed)}).`);
       }
-      if (!buyer.trim()) {
-        throw new Error("Informe o nome do comprador.");
-      }
       if (items.length === 0 || hasInvalidItems) {
         throw new Error("Preencha todos os produtos, quantidades e valores da venda.");
       }
-      if (hasInsufficientStock) {
-        throw new Error("Um ou mais produtos selecionados não possuem estoque suficiente.");
-      }
+
+      const finalBuyer = buyer.trim() || "Balcão / Cliente";
 
       await submitMultiSale({
         data: {
@@ -159,7 +157,7 @@ export function SaleDialog({ trigger }: { trigger: ReactNode }) {
             quantity: parseFloat(i.quantity),
             unitPrice: parseCurrencyInput(i.unitPrice),
           })),
-          buyerName: buyer.trim(),
+          buyerName: finalBuyer,
           paymentMethod: payment,
           notes: notes.trim() || undefined,
           totalDiscount: discountValue,
@@ -296,40 +294,74 @@ export function SaleDialog({ trigger }: { trigger: ReactNode }) {
                       )}
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <div className="space-y-1">
-                        <Label className="text-[11px] font-semibold">Quantidade</Label>
-                        <Input
-                          type="number"
-                          min="1"
-                          step="any"
-                          value={item.quantity}
-                          onChange={(e) => handleUpdateItem(item.rowId, { quantity: e.target.value })}
-                          placeholder="1"
-                          className="h-8 text-xs font-mono"
-                        />
+                    <div className="space-y-1.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div className="space-y-1">
+                          <Label className="text-[11px] font-semibold">Quantidade</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            step="any"
+                            value={item.quantity}
+                            onChange={(e) => handleUpdateItem(item.rowId, { quantity: e.target.value })}
+                            placeholder="1"
+                            className="h-8 text-xs font-mono font-bold"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label className="text-[11px] font-semibold">Preço Unitário (R$)</Label>
+                          <Input
+                            type="text"
+                            value={item.unitPrice}
+                            onChange={(e) =>
+                              handleUpdateItem(item.rowId, {
+                                unitPrice: formatCurrencyInput(e.target.value),
+                              })
+                            }
+                            placeholder="R$ 0,00"
+                            className="h-8 text-xs font-mono font-bold text-emerald-400"
+                          />
+                        </div>
                       </div>
 
-                      <div className="space-y-1">
-                        <Label className="text-[11px] font-semibold">Preço Unitário (R$)</Label>
-                        <Input
-                          type="text"
-                          value={item.unitPrice}
-                          onChange={(e) =>
-                            handleUpdateItem(item.rowId, {
-                              unitPrice: formatCurrencyInput(e.target.value),
-                            })
-                          }
-                          placeholder="R$ 0,00"
-                          className="h-8 text-xs font-mono font-bold text-emerald-400"
-                        />
+                      {/* Botões Rápidos de Quantidade */}
+                      <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                        <span className="text-[10px] text-muted-foreground mr-0.5 font-medium">Qtd rápida:</span>
+                        {[1, 5, 10, 50, 100].map((step) => (
+                          <Button
+                            key={step}
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const curr = parseFloat(item.quantity) || 0;
+                              handleUpdateItem(item.rowId, { quantity: String(Math.max(1, curr + step)) });
+                            }}
+                            className="h-5 px-1.5 text-[10px] font-mono rounded-md border-border/60 hover:bg-emerald-500/10 hover:text-emerald-400 cursor-pointer"
+                          >
+                            +{step}
+                          </Button>
+                        ))}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleUpdateItem(item.rowId, { quantity: "1" })}
+                          className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
+                          title="Definir para 1"
+                        >
+                          Reset (1)
+                        </Button>
                       </div>
                     </div>
 
                     {isOverStock && (
-                      <p className="text-[11px] text-rose-400 flex items-center gap-1 font-medium">
+                      <p className="text-[11px] text-amber-400 flex items-center gap-1 font-medium bg-amber-500/10 p-1.5 rounded-lg border border-amber-500/20">
                         <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                        Quantidade solicitada ({qtyNum}) excede o saldo disponível ({avail} {prod.unidade}).
+                        <span>
+                          Saldo em armazém: <strong>{avail} {prod.unidade}</strong> (menor que o pedido). A venda será registrada normalmente.
+                        </span>
                       </p>
                     )}
 
@@ -348,12 +380,12 @@ export function SaleDialog({ trigger }: { trigger: ReactNode }) {
           {/* DADOS DA TRANSAÇÃO */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-border/40">
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Comprador *</Label>
+              <Label className="text-xs font-semibold">Comprador / Cliente (Opcional)</Label>
               <Input
                 value={buyer}
                 maxLength={80}
                 onChange={(e) => setBuyer(e.target.value)}
-                placeholder="Nome ou passaporte do cliente"
+                placeholder="Balcão / Cliente geral"
                 className="h-9 text-xs"
               />
             </div>
@@ -460,9 +492,9 @@ export function SaleDialog({ trigger }: { trigger: ReactNode }) {
           <Button
             type="button"
             size="sm"
-            disabled={mutation.isPending || hasInsufficientStock || hasInvalidItems || !buyer.trim() || isDiscountOverLimit}
+            disabled={mutation.isPending || hasInvalidItems || items.length === 0 || isDiscountOverLimit}
             onClick={() => mutation.mutate()}
-            className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs gap-1.5"
+            className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs gap-1.5 cursor-pointer"
           >
             {mutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
             <span>Confirmar Venda ({currency(finalTotal)})</span>

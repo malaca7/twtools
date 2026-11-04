@@ -58,8 +58,8 @@ export function VendasPage() {
   const { profile, hasPermission, isDevMode, isCeoMode, tagRules } = useAuth();
   const queryClient = useQueryClient();
   const prefix = isDevMode ? "/dev" : isCeoMode ? "/ceo" : "";
-  const canView = hasPermission("view_sales") || hasPermission("sales.view") || hasPermission("sales.history") || hasPermission("create_sale") || hasPermission("sales.create");
-  const canCreate = (hasPermission("create_sale") || hasPermission("sales.create")) && (isDevMode || isCeoMode || tagRules?.can_sell !== false);
+  const canView = canCreate || hasPermission("view_sales") || hasPermission("sales.view") || hasPermission("sales.history");
+  const canCreate = isDevMode || isCeoMode || hasPermission("create_sale") || hasPermission("sales.create") || tagRules?.can_sell !== false;
   const canReverse = (hasPermission("reverse_sale") || hasPermission("sales.cancel") || hasPermission("sales.edit") || hasPermission("delete_sale")) && (isDevMode || isCeoMode || tagRules?.can_reverse_sales !== false);
   const canViewAll = hasPermission("view_all_sales") || isCeoMode || isDevMode || tagRules?.can_view_all_sales === true;
 

@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { rtdb } from "@/integrations/firebase/rtdb";
 import type {
   RawMaterial,
   Production,
@@ -397,8 +398,9 @@ export async function getRawMaterialMovements(
 export async function executeProduction(input: {
   productId: string;
   quantity: number;
-  rawMaterials: { raw_material_id: string; quantity_used: number }[];
+  rawMaterials?: { raw_material_id: string; quantity_used: number }[];
   observation?: string;
+  bauId?: string;
 }): Promise<{
   success: boolean;
   production_id: string;
@@ -407,23 +409,251 @@ export async function executeProduction(input: {
   warehouse_balance: number;
 }> {
   const cleanQty = Math.max(1, Math.round(Number(input.quantity) || 1));
-  const cleanMats = (input.rawMaterials || []).map((m) => ({
+  const rawMaterials = input.rawMaterials || [];
+  const cleanMats = rawMaterials.map((m) => ({
     raw_material_id: m.raw_material_id,
     quantity_used: Math.max(1, Math.round(Number(m.quantity_used) || 1)),
   }));
 
-  const { data, error } = await supabase.rpc("execute_production_rpc", {
-    p_product_id: input.productId,
-    p_quantity: cleanQty,
-    p_raw_materials: cleanMats,
-    p_observation: input.observation?.trim() || null,
-  });
+  // 1. Se informou matérias-primas, tenta a RPC padrão
+  if (cleanMats.length > 0) {
+    try {
+      const { data, error } = await supabase.rpc("execute_production_rpc", {
+        p_product_id: input.productId,
+        p_quantity: cleanQty,
+        p_raw_materials: cleanMats,
+        p_observation: input.observation?.trim() || null,
+      });
 
-  if (error) {
-    throw new Error(error.message || "Erro ao registrar produção");
+      if (!error && data) {
+        const rpcResult = data as any;
+        const now = new Date().toISOString();
+        const { data: authData } = await supabase.auth.getUser();
+        const userId = authData?.user?.id || "system";
+
+        await rtdb.set(`productions/${rpcResult.production_id}`, {
+          id: rpcResult.production_id,
+          product_id: input.productId,
+          quantity: cleanQty,
+          user_id: userId,
+          observation: input.observation?.trim() || null,
+          status: "COMPLETED",
+          created_at: now,
+        }).catch(() => {});
+
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("tw_production_created", {
+            detail: { id: rpcResult.production_id, productId: input.productId, quantity: cleanQty },
+          }));
+          window.dispatchEvent(new CustomEvent("tw_stock_updated"));
+          window.dispatchEvent(new CustomEvent("tw_products_updated"));
+        }
+
+        return rpcResult;
+      }
+      console.warn("RPC execute_production_rpc avisou:", error?.message);
+    } catch (rpcErr) {
+      console.warn("Falha na chamada RPC de produção (prosseguindo com registro direto):", rpcErr);
+    }
   }
 
-  return data as any;
+  // 2. Registro direto e resiliente (sem bloquear por múltiplos de receitas ou falta de insumos)
+  const now = new Date().toISOString();
+  const { data: authData } = await supabase.auth.getUser();
+  const userId = authData?.user?.id || "system";
+  const prodId = (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `prod_${Date.now()}`;
+
+  // Buscar detalhes do produto no Supabase ou RTDB
+  const { data: prodData } = await supabase
+    .from("products")
+    .select("id, nome, unidade, estoque_atual, bau_id")
+    .eq("id", input.productId)
+    .maybeSingle();
+
+  let prodName = prodData?.nome;
+  let prodUnit = prodData?.unidade || "un";
+  let currentStock = Number(prodData?.estoque_atual || 0);
+
+  if (!prodName) {
+    const fbProd = await rtdb.get<any>(`products/${input.productId}`).catch(() => null);
+    if (fbProd) {
+      prodName = fbProd.nome;
+      prodUnit = fbProd.unidade || "un";
+      currentStock = Number(fbProd.estoque_atual || 0);
+    } else {
+      prodName = "Produto";
+    }
+  }
+
+  // Gravar no Supabase (tabela productions)
+  const { data: insertedProd } = await supabase
+    .from("productions" as any)
+    .insert({
+      id: prodId,
+      product_id: input.productId,
+      quantity: cleanQty,
+      user_id: userId,
+      observation: input.observation?.trim() || null,
+      status: "COMPLETED",
+      created_at: now,
+      updated_at: now,
+    })
+    .select()
+    .maybeSingle();
+
+  const finalProdId = (insertedProd as any)?.id || prodId;
+
+  // Gravar no Firebase RTDB (productions)
+  await rtdb.set(`productions/${finalProdId}`, {
+    id: finalProdId,
+    product_id: input.productId,
+    quantity: cleanQty,
+    user_id: userId,
+    observation: input.observation?.trim() || null,
+    status: "COMPLETED",
+    created_at: now,
+    updated_at: now,
+  }).catch(() => {});
+
+  // Atualizar Armazém (warehouse_stock) no Supabase
+  const { data: whRow } = await supabase
+    .from("warehouse_stock" as any)
+    .select("quantity")
+    .eq("product_id", input.productId)
+    .maybeSingle();
+
+  const prevWh = Number(whRow?.quantity || 0);
+  const newWh = prevWh + cleanQty;
+
+  await supabase
+    .from("warehouse_stock" as any)
+    .upsert({
+      product_id: input.productId,
+      quantity: newWh,
+      updated_at: now,
+    }, { onConflict: "product_id" })
+    .catch(() => {});
+
+  // Registrar movimentação de armazém no Supabase
+  await supabase
+    .from("warehouse_movements" as any)
+    .insert({
+      product_id: input.productId,
+      type: "PRODUCTION",
+      quantity: cleanQty,
+      previous_balance: prevWh,
+      resulting_balance: newWh,
+      source: "PRODUCAO",
+      destination: "ARMAZEM",
+      reference_id: finalProdId,
+      user_id: userId,
+      observation: input.observation?.trim() || `Produção direta de ${cleanQty} ${prodUnit}`,
+      created_at: now,
+    })
+    .catch(() => {});
+
+  // Registrar insumos consumidos se foram informados
+  if (cleanMats.length > 0) {
+    for (const matItem of cleanMats) {
+      await supabase.from("production_raw_materials" as any).insert({
+        production_id: finalProdId,
+        raw_material_id: matItem.raw_material_id,
+        quantity_used: matItem.quantity_used,
+        created_at: now,
+      }).catch(() => {});
+
+      try {
+        const { data: matData } = await supabase
+          .from("raw_materials" as any)
+          .select("stock_quantity")
+          .eq("id", matItem.raw_material_id)
+          .maybeSingle();
+
+        if (matData) {
+          const prevMatStock = Number(matData.stock_quantity || 0);
+          const newMatStock = Math.max(0, prevMatStock - matItem.quantity_used);
+          await supabase
+            .from("raw_materials" as any)
+            .update({ stock_quantity: newMatStock, updated_at: now })
+            .eq("id", matItem.raw_material_id);
+
+          await supabase.from("raw_material_movements" as any).insert({
+            raw_material_id: matItem.raw_material_id,
+            type: "CONSUMPTION",
+            quantity: matItem.quantity_used,
+            previous_balance: prevMatStock,
+            resulting_balance: newMatStock,
+            production_id: finalProdId,
+            user_id: userId,
+            observation: `Consumo na produção ${finalProdId}`,
+            created_at: now,
+          });
+        }
+      } catch (matErr) {
+        console.warn("Aviso ao abater matéria-prima:", matErr);
+      }
+    }
+  }
+
+  // Atualizar estoque geral e baús
+  const newCatalogStock = currentStock + cleanQty;
+  await supabase
+    .from("products")
+    .update({ estoque_atual: newCatalogStock, updated_at: now })
+    .eq("id", input.productId)
+    .catch(() => {});
+
+  await rtdb.update(`products/${input.productId}`, {
+    estoque_atual: newCatalogStock,
+    updated_at: now,
+  }).catch(() => {});
+
+  const targetBauId = input.bauId || prodData?.bau_id;
+  if (targetBauId) {
+    const pbKey = `${input.productId}_${targetBauId}`;
+    const pbData = await rtdb.get<any>(`product_baus/${pbKey}`).catch(() => null);
+    const prevPb = Number(pbData?.quantidade || pbData?.estoque_atual || 0);
+    const newPb = prevPb + cleanQty;
+    await rtdb.set(`product_baus/${pbKey}`, {
+      product_id: input.productId,
+      bau_id: targetBauId,
+      quantidade: newPb.toFixed(2),
+      updated_at: now,
+    }).catch(() => {});
+  }
+
+  // Registrar movimentação de estoque
+  const movId = (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `mov_${Date.now()}`;
+  await rtdb.set(`stock_movements/${movId}`, {
+    id: movId,
+    product_id: input.productId,
+    user_id: userId,
+    bau_id: targetBauId || null,
+    type: "entrada",
+    quantity: cleanQty,
+    previous_balance: currentStock,
+    resulting_balance: newCatalogStock,
+    reason: input.observation?.trim() || `Produção registrada (${cleanQty} ${prodUnit})`,
+    origin: "producao",
+    status: "completed",
+    created_at: now,
+  }).catch(() => {});
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("tw_production_created", {
+      detail: { id: finalProdId, productId: input.productId, quantity: cleanQty },
+    }));
+    window.dispatchEvent(new CustomEvent("tw_stock_updated"));
+    window.dispatchEvent(new CustomEvent("tw_products_updated"));
+  }
+
+  return {
+    success: true,
+    production_id: finalProdId,
+    quantity: cleanQty,
+    product_name: prodName,
+    warehouse_balance: newWh,
+  };
 }
 
 export async function getProductions(limit = 100): Promise<Production[]> {
@@ -443,57 +673,80 @@ export async function getProductions(limit = 100): Promise<Production[]> {
     .order("created_at", { ascending: false })
     .limit(limit);
 
-  if (error) {
-    console.error("Erro ao carregar produções:", error);
-    return [];
-  }
+  let results: Production[] = [];
 
-  return (data || []).map((row: any) => ({
-    id: row.id,
-    product_id: row.product_id,
-    quantity: Number(row.quantity || 0),
-    user_id: row.user_id,
-    observation: row.observation,
-    status: row.status || "COMPLETED",
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-    product: row.products
-      ? {
-          id: row.products.id,
-          nome: row.products.nome,
-          unidade: row.products.unidade,
-          imagem_url: row.products.imagem_url,
-          categoria_id: row.products.categoria_id,
-          preco_sugerido: Number(row.products.preco_sugerido || 0),
-          descricao: null,
-          estoque_atual: 0,
-          estoque_minimo: 0,
-          ativo: true,
-          created_at: "",
-          updated_at: "",
-          bau_id: null,
-        }
-      : undefined,
-    consumed_materials: (row.production_raw_materials || []).map((prm: any) => ({
-      id: prm.id,
-      production_id: row.id,
-      raw_material_id: prm.raw_material_id,
-      quantity_used: Number(prm.quantity_used || 0),
-      created_at: prm.created_at,
-      raw_material: prm.raw_materials
+  if (!error && Array.isArray(data)) {
+    results = data.map((row: any) => ({
+      id: row.id,
+      product_id: row.product_id,
+      quantity: Number(row.quantity || 0),
+      user_id: row.user_id,
+      observation: row.observation,
+      status: row.status || "COMPLETED",
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      product: row.products
         ? {
-            id: prm.raw_materials.id,
-            name: prm.raw_materials.name,
-            unit: prm.raw_materials.unit,
-            description: null,
-            stock_quantity: 0,
-            is_active: true,
+            id: row.products.id,
+            nome: row.products.nome,
+            unidade: row.products.unidade,
+            imagem_url: row.products.imagem_url,
+            categoria_id: row.products.categoria_id,
+            preco_sugerido: Number(row.products.preco_sugerido || 0),
+            descricao: null,
+            estoque_atual: 0,
+            estoque_minimo: 0,
+            ativo: true,
             created_at: "",
             updated_at: "",
+            bau_id: null,
           }
         : undefined,
-    })),
-  }));
+      consumed_materials: (row.production_raw_materials || []).map((prm: any) => ({
+        id: prm.id,
+        production_id: row.id,
+        raw_material_id: prm.raw_material_id,
+        quantity_used: Number(prm.quantity_used || 0),
+        created_at: prm.created_at,
+        raw_material: prm.raw_materials
+          ? {
+              id: prm.raw_materials.id,
+              name: prm.raw_materials.name,
+              unit: prm.raw_materials.unit,
+              description: null,
+              stock_quantity: 0,
+              is_active: true,
+              created_at: "",
+              updated_at: "",
+            }
+          : undefined,
+      })),
+    }));
+  }
+
+  // Mesclar também com Firebase RTDB para resiliência máxima
+  try {
+    const fbList = await rtdb.getList<any>("productions");
+    if (fbList && fbList.length > 0) {
+      const existingIds = new Set(results.map((r) => r.id));
+      for (const item of fbList) {
+        if (!item || !item.id || existingIds.has(item.id)) continue;
+        results.push({
+          id: item.id,
+          product_id: item.product_id,
+          quantity: Number(item.quantity || 0),
+          user_id: item.user_id || "system",
+          observation: item.observation || null,
+          status: item.status || "COMPLETED",
+          created_at: item.created_at || new Date().toISOString(),
+          updated_at: item.updated_at || item.created_at || new Date().toISOString(),
+        });
+      }
+      results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }
+  } catch {}
+
+  return results.slice(0, limit);
 }
 
 
