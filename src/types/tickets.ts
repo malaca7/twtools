@@ -169,24 +169,35 @@ export interface DeleteTicketMessagePayload {
 }
 
 export interface MuteTicketMemberPayload {
-  ticketId: string;
-  targetUserId: string;
-  targetName: string;
+  ticketId?: string;
+  targetUserId?: string;
+  targetName?: string;
   targetNickname?: string | null;
+  user_id?: string;
+  user_name?: string;
+  nickname?: string | null;
   reason?: string | null;
   durationMinutes?: number | null;
+  duration_minutes?: number | null;
 }
 
 export interface UnmuteTicketMemberPayload {
-  ticketId: string;
-  targetUserId: string;
+  ticketId?: string;
+  targetUserId?: string;
+  user_id?: string;
 }
 
 export interface PokeTicketMemberPayload {
-  ticketId: string;
-  targetUserId: string;
-  targetName: string;
-  reason: string;
+  ticketId?: string;
+  targetUserId?: string;
+  targetName?: string;
+  target_id?: string;
+  target_name?: string;
+  targetDiscordId?: string | null;
+  target_discord_id?: string | null;
+  reason?: string;
+  message?: string;
+  urgency?: "baixa" | "normal" | "alta" | "urgente";
 }
 
 export const TICKET_CATEGORIES: {

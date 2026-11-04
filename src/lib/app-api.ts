@@ -5609,13 +5609,30 @@ export async function addTicketMessage(
 
   // Verificação de silenciamento ativo no chamado
   const nowMs = Date.now();
+  const senderIdentifiers = new Set<string>(
+    [
+      auth.user?.id,
+      (auth as any).user_id,
+      (auth as any).id,
+      (auth as any).profile?.id,
+      (auth as any).profile?.user_id,
+      (auth as any).profile?.discord_id,
+      auth.nome,
+      auth.nickname,
+    ]
+      .filter(Boolean)
+      .map((x) => String(x).toLowerCase())
+  );
   const isMuted = (ticket.muted_members || []).some((m) => {
-    if (m.user_id !== auth.user.id) return false;
+    const mId = String(m.user_id || "").toLowerCase();
+    const mName = String(m.name || m.nickname || "").toLowerCase();
+    const matches = senderIdentifiers.has(mId) || (mName && senderIdentifiers.has(mName));
+    if (!matches) return false;
     if (!m.expires_at) return true;
     return new Date(m.expires_at).getTime() > nowMs;
   });
   if (isMuted && !auth.canManage && !auth.isSuperUser) {
-    throw new Error("Você está silenciado temporariamente pela moderação neste chamado.");
+    throw new Error("Você está temporariamente silenciado(a) pela moderação neste chamado.");
   }
 
   // Verificação estrita de permissão para Nota Interna Privada:
@@ -6707,17 +6724,36 @@ export async function muteTicketMember(
   const ticket = allRawTickets[targetIndex];
   const now = new Date().toISOString();
   const actorName = auth.nickname || auth.nome || "Moderação";
-  const targetName = payload.targetNickname || payload.targetName;
 
-  const expiresAt = payload.durationMinutes && payload.durationMinutes > 0
-    ? new Date(Date.now() + payload.durationMinutes * 60 * 1000).toISOString()
-    : null;
+  const targetUserId = String(payload.targetUserId || payload.user_id || "").trim();
+  if (!targetUserId) throw new Error("ID do usuário a silenciar não foi informado.");
 
-  const existingMutes = (ticket.muted_members || []).filter((m) => m.user_id !== payload.targetUserId);
+  const targetName =
+    payload.targetNickname ||
+    payload.nickname ||
+    payload.targetName ||
+    payload.user_name ||
+    "Membro";
+
+  const durationMin = payload.durationMinutes ?? payload.duration_minutes ?? null;
+  const expiresAt =
+    durationMin && durationMin > 0
+      ? new Date(Date.now() + durationMin * 60 * 1000).toISOString()
+      : null;
+
+  const targetLower = targetUserId.toLowerCase();
+  const targetNameLower = targetName.toLowerCase();
+
+  const existingMutes = (ticket.muted_members || []).filter((m) => {
+    const mId = (m.user_id || "").toLowerCase();
+    const mName = (m.name || m.nickname || "").toLowerCase();
+    return mId !== targetLower && mName !== targetNameLower;
+  });
+
   const newMute: TicketMutedMember = {
-    user_id: payload.targetUserId,
-    name: payload.targetName,
-    nickname: payload.targetNickname || null,
+    user_id: targetUserId,
+    name: targetName,
+    nickname: payload.targetNickname || payload.nickname || null,
     muted_at: now,
     muted_by_id: auth.user.id,
     muted_by_name: actorName,
@@ -6725,9 +6761,7 @@ export async function muteTicketMember(
     expires_at: expiresAt,
   };
 
-  const durationLabel = payload.durationMinutes
-    ? `${payload.durationMinutes} minutos`
-    : "Indeterminado";
+  const durationLabel = durationMin ? `${durationMin} minutos` : "Permanente";
 
   const muteSystemMsg: TicketMessage = {
     id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -6759,7 +6793,7 @@ export async function muteTicketMember(
     message: `Você foi silenciado no chamado "${ticket.subject}" por ${actorName}. Motivo: ${payload.reason || "Conduta inadequada"}.`,
     type: "ticket",
     category: "warning",
-    user_id: payload.targetUserId,
+    user_id: targetUserId,
     link: `/tickets/${ticket.id}`,
     sender_id: auth.user.id,
     sender_name: actorName,
@@ -6773,7 +6807,7 @@ export async function muteTicketMember(
  */
 export async function unmuteTicketMember(
   ticketId: string,
-  targetUserId: string
+  targetUserIdOrPayload: string | UnmuteTicketMemberPayload
 ): Promise<Ticket> {
   const auth = await getEffectiveTicketAuth();
   if (!auth) throw new Error("Usuário não autenticado");
@@ -6787,7 +6821,19 @@ export async function unmuteTicketMember(
   if (targetIndex === -1) throw new Error("Ticket não encontrado");
 
   const ticket = allRawTickets[targetIndex];
-  const targetMute = (ticket.muted_members || []).find((m) => m.user_id === targetUserId);
+  const targetUserId = String(
+    typeof targetUserIdOrPayload === "string"
+      ? targetUserIdOrPayload
+      : (targetUserIdOrPayload?.targetUserId || targetUserIdOrPayload?.user_id || "")
+  ).trim();
+
+  const targetLower = targetUserId.toLowerCase();
+  const targetMute = (ticket.muted_members || []).find((m) => {
+    const mId = (m.user_id || "").toLowerCase();
+    const mName = (m.name || m.nickname || "").toLowerCase();
+    return mId === targetLower || (targetLower && mName === targetLower);
+  });
+
   const targetName = targetMute?.nickname || targetMute?.name || "Membro";
   const now = new Date().toISOString();
   const actorName = auth.nickname || auth.nome || "Moderação";
@@ -6807,7 +6853,11 @@ export async function unmuteTicketMember(
 
   const updatedTicket: Ticket = {
     ...ticket,
-    muted_members: (ticket.muted_members || []).filter((m) => m.user_id !== targetUserId),
+    muted_members: (ticket.muted_members || []).filter((m) => {
+      const mId = (m.user_id || "").toLowerCase();
+      const mName = (m.name || m.nickname || "").toLowerCase();
+      return mId !== targetLower && (!targetMute || mName !== (targetMute.name || "").toLowerCase());
+    }),
     messages: [...(ticket.messages || []), unmuteSystemMsg],
     updated_at: now,
   };
@@ -6832,7 +6882,7 @@ export async function unmuteTicketMember(
 }
 
 /**
- * Alerta / dá poke em um membro no chamado.
+ * Alerta / dá poke em um membro no chamado e envia DM no Discord via Bot.
  */
 export async function pokeTicketMember(
   ticketId: string,
@@ -6853,13 +6903,18 @@ export async function pokeTicketMember(
   const now = new Date().toISOString();
   const actorName = auth.nickname || auth.nome || "Atendente";
 
+  const targetUserId = String(payload.targetUserId || payload.target_id || "").trim();
+  const targetName = String(payload.targetName || payload.target_name || "Membro").trim();
+  const reason = String(payload.reason || payload.message || "Atenção necessária no chamado").trim();
+  const urgency = payload.urgency || "normal";
+
   const pokeEntry: TicketPoke = {
     id: `poke_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-    target_user_id: payload.targetUserId,
-    target_name: payload.targetName,
+    target_user_id: targetUserId,
+    target_name: targetName,
     poked_by_id: auth.user.id,
     poked_by_name: actorName,
-    reason: payload.reason,
+    reason: reason,
     created_at: now,
   };
 
@@ -6871,7 +6926,7 @@ export async function pokeTicketMember(
     sender_nickname: auth.nickname,
     sender_role: auth.role,
     sender_avatar: auth.avatar,
-    content: `🔔 [Alerta ao Membro] ${actorName} alertou ${payload.targetName}: "${payload.reason}".`,
+    content: `🔔 [Alerta ao Membro] ${actorName} alertou ${targetName}: "${reason}".`,
     is_internal_note: false,
     created_at: now,
   };
@@ -6888,16 +6943,69 @@ export async function pokeTicketMember(
   await persistRolePermissionsData(TICKETS_DB_LEVEL, { tickets: allRawTickets });
   broadcastTicketsRealtimeUpdate();
 
-  void createNotification({
-    title: `🔔 Alerta de Atendimento #${String(ticket.ticket_number).padStart(3, "0")}`,
-    message: `${actorName} enviou um alerta no chamado "${ticket.subject}": "${payload.reason}".`,
-    type: "ticket",
-    category: "warning",
-    user_id: payload.targetUserId,
-    link: `/tickets/${ticket.id}`,
-    sender_id: auth.user.id,
-    sender_name: actorName,
-  });
+  // 1. Notificação interna do sistema
+  if (targetUserId) {
+    void createNotification({
+      title: `🔔 Alerta de Atendimento #${String(ticket.ticket_number).padStart(3, "0")}`,
+      message: `${actorName} enviou um alerta no chamado "${ticket.subject}": "${reason}".`,
+      type: "ticket",
+      category: "warning",
+      user_id: targetUserId,
+      link: `/tickets/${ticket.id}`,
+      sender_id: auth.user.id,
+      sender_name: actorName,
+    });
+  }
+
+  // 2. Envio de DM Direta no Discord via Bot (se o usuário possuir discord_id)
+  try {
+    let discordUserId = payload.targetDiscordId || payload.target_discord_id || null;
+    if (!discordUserId && targetUserId) {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("discord_id")
+        .or(`id.eq.${targetUserId},user_id.eq.${targetUserId}`)
+        .maybeSingle();
+      if (prof?.discord_id) discordUserId = prof.discord_id;
+    }
+
+    if (discordUserId) {
+      const siteUrl = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://twtools.site";
+      const ticketUrl = `${siteUrl}/ticket/${ticket.id}/`;
+      const numFmt = String(ticket.ticket_number).padStart(3, "0");
+      const urgencyBadge = urgency === "urgente" ? "🚨 Urgente" : urgency === "alta" ? "⚡ Alta" : "🔔 Normal";
+      const embedColor = urgency === "urgente" ? "#EF4444" : urgency === "alta" ? "#F97316" : "#F59E0B";
+
+      const botControl = supabase.channel("system-discord-bot-control");
+      await botControl.send({
+        type: "broadcast",
+        event: "send_dm",
+        payload: {
+          userId: discordUserId,
+          sender: actorName,
+          content: `🔔 **Atenção:** Você recebeu uma notificação prioritária no chamado **#${numFmt}**!`,
+          embed: {
+            title: `🔔 Alerta de Atendimento — Chamado #${numFmt}`,
+            url: ticketUrl,
+            description: `Olá **${targetName}**! Você foi alertado(a) por **${actorName}** referente ao chamado **"${ticket.subject}"**.`,
+            color: embedColor,
+            fields: [
+              { name: "💬 Mensagem do Alerta", value: reason },
+              { name: "⚡ Nível de Urgência", value: urgencyBadge, inline: true },
+              { name: "👤 Atendente / Autor", value: actorName, inline: true },
+              { name: "🔗 Link do Chamado", value: `[Clique aqui para abrir na Web](${ticketUrl})`, inline: false },
+            ],
+            footer: { text: "Twin Wheels RP • Atendimento Ticket" },
+            timestamp: now,
+          },
+          timestamp: Date.now(),
+        },
+      });
+      console.log(`✉️ [POKE BOT DM] Broadcast enviado para usuário Discord ${discordUserId}`);
+    }
+  } catch (dmErr) {
+    console.warn("⚠️ [POKE BOT DM] Falha ao despachar DM no Discord:", dmErr);
+  }
 
   return updatedTicket;
 }

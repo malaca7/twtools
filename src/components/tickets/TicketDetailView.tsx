@@ -428,8 +428,12 @@ export function TicketDetailView({
     const uname = (userName || "").trim().toLowerCase();
     return ticket.muted_members.some((m) => {
       const targetId = (m.user_id || "").trim().toLowerCase();
-      const targetName = (m.user_name || "").trim().toLowerCase();
-      const match = (uid && targetId === uid) || (uname && targetName === uname);
+      const targetName = (m.name || m.nickname || (m as any).user_name || "").trim().toLowerCase();
+      const match =
+        (uid && targetId && (targetId === uid || targetName === uid)) ||
+        (uname && targetName && (targetName === uname || targetId === uname)) ||
+        (uid && targetName && targetName === uid) ||
+        (uname && targetId && targetId === uname);
       if (!match) return false;
       if (!m.expires_at) return true;
       return new Date(m.expires_at) > now;
@@ -444,8 +448,12 @@ export function TicketDetailView({
     return (
       ticket.muted_members.find((m) => {
         const targetId = (m.user_id || "").trim().toLowerCase();
-        const targetName = (m.user_name || "").trim().toLowerCase();
-        const match = (uid && targetId === uid) || (uname && targetName === uname);
+        const targetName = (m.name || m.nickname || (m as any).user_name || "").trim().toLowerCase();
+        const match =
+          (uid && targetId && (targetId === uid || targetName === uid)) ||
+          (uname && targetName && (targetName === uname || targetId === uname)) ||
+          (uid && targetName && targetName === uid) ||
+          (uname && targetId && targetId === uname);
         if (!match) return false;
         if (!m.expires_at) return true;
         return new Date(m.expires_at) > now;
@@ -454,8 +462,32 @@ export function TicketDetailView({
   };
 
   const activeUserMute = useMemo(() => {
-    return getMemberMute(user?.id, profile?.nome || profile?.nickname);
-  }, [ticket.muted_members, user?.id, profile?.nome, profile?.nickname]);
+    if (!ticket.muted_members || ticket.muted_members.length === 0) return null;
+    const myIds = new Set(
+      [
+        user?.id,
+        (user as any)?.user_id,
+        profile?.id,
+        profile?.user_id,
+        profile?.discord_id,
+        profile?.nome,
+        profile?.nickname,
+      ]
+        .filter(Boolean)
+        .map((x) => String(x).trim().toLowerCase())
+    );
+    const now = new Date();
+    return (
+      ticket.muted_members.find((m) => {
+        const targetId = (m.user_id || "").trim().toLowerCase();
+        const targetName = (m.name || m.nickname || (m as any).user_name || "").trim().toLowerCase();
+        const matches = (targetId && myIds.has(targetId)) || (targetName && myIds.has(targetName));
+        if (!matches) return false;
+        if (!m.expires_at) return true;
+        return new Date(m.expires_at) > now;
+      }) || null
+    );
+  }, [ticket.muted_members, user, profile]);
 
   const isUserMuted = Boolean(activeUserMute);
 
@@ -565,9 +597,12 @@ export function TicketDetailView({
       await muteMemberMutation.mutateAsync({
         ticketId: ticket.id,
         payload: {
+          targetUserId: memberToMute.id,
+          targetName: memberToMute.name,
           user_id: memberToMute.id,
           user_name: memberToMute.name,
           reason: muteReason.trim() || undefined,
+          durationMinutes: muteDuration === 0 ? null : muteDuration,
           duration_minutes: muteDuration === 0 ? null : muteDuration,
         },
       });
@@ -582,6 +617,7 @@ export function TicketDetailView({
       await unmuteMemberMutation.mutateAsync({
         ticketId: ticket.id,
         payload: {
+          targetUserId: userId,
           user_id: userId,
         },
       });
@@ -591,11 +627,26 @@ export function TicketDetailView({
   const handleConfirmPokeMember = async () => {
     if (!memberToPoke || !pokeMessage.trim()) return;
     try {
+      // Localiza o membro alvo para obter seu discord_id caso cadastrado
+      const targetM = members.find((m) =>
+        m.user_id === memberToPoke.id ||
+        m.id === memberToPoke.id ||
+        (m as any).discord_id === memberToPoke.id ||
+        (m.nome && m.nome.toLowerCase() === memberToPoke.name.toLowerCase()) ||
+        (m.nickname && m.nickname.toLowerCase() === memberToPoke.name.toLowerCase())
+      );
+      const targetDiscordId = targetM?.discord_id || (targetM as any)?.discordId || null;
+
       await pokeMemberMutation.mutateAsync({
         ticketId: ticket.id,
         payload: {
+          targetUserId: memberToPoke.id,
+          targetName: memberToPoke.name,
           target_id: memberToPoke.id,
           target_name: memberToPoke.name,
+          targetDiscordId: targetDiscordId,
+          target_discord_id: targetDiscordId,
+          reason: pokeMessage.trim(),
           message: pokeMessage.trim(),
           urgency: pokeUrgency,
         },

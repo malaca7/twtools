@@ -1492,6 +1492,72 @@ function setupRealtimeListeners() {
         console.error(`❌ [BOT CONTROL] Falha ao enviar mensagem no canal ${data.channelId}:`, err.message);
       }
     })
+    .on("broadcast", { event: "send_dm" }, async (payload) => {
+      const data = payload?.payload;
+      if (!data || !data.userId) return;
+      console.log(`✉️ [BOT DM] Solicitação de envio de DM para usuário Discord ${data.userId} por ${data.sender || "Sistema"}`);
+      try {
+        const targetUser =
+          client.users.cache.get(data.userId) ||
+          (await client.users.fetch(data.userId).catch(() => null));
+
+        if (!targetUser) {
+          console.warn(`⚠️ [BOT DM] Usuário Discord ${data.userId} não encontrado.`);
+          return;
+        }
+
+        const msgOptions = {};
+        if (data.content && data.content.trim()) {
+          msgOptions.content = data.content.trim();
+        }
+
+        if (data.embed && typeof data.embed === "object") {
+          const eb = new EmbedBuilder();
+          if (data.embed.title) eb.setTitle(data.embed.title);
+          if (data.embed.url) eb.setURL(data.embed.url);
+          if (data.embed.description) eb.setDescription(data.embed.description);
+          if (data.embed.color) {
+            const c = typeof data.embed.color === "string" ? hexToInt(data.embed.color) : data.embed.color;
+            eb.setColor(c);
+          }
+          if (data.embed.author && data.embed.author.name) {
+            eb.setAuthor({
+              name: data.embed.author.name,
+              iconURL: data.embed.author.icon_url || data.embed.author.iconURL || undefined,
+              url: data.embed.author.url || undefined,
+            });
+          }
+          if (data.embed.thumbnail && data.embed.thumbnail.url) {
+            eb.setThumbnail(data.embed.thumbnail.url);
+          }
+          if (data.embed.image && data.embed.image.url) {
+            eb.setImage(data.embed.image.url);
+          }
+          if (data.embed.footer && data.embed.footer.text) {
+            eb.setFooter({
+              text: data.embed.footer.text,
+              iconURL: data.embed.footer.icon_url || data.embed.footer.iconURL || undefined,
+            });
+          }
+          if (data.embed.timestamp) {
+            eb.setTimestamp(new Date(data.embed.timestamp));
+          }
+          if (Array.isArray(data.embed.fields) && data.embed.fields.length > 0) {
+            for (const f of data.embed.fields) {
+              if (f.name && f.value) {
+                eb.addFields({ name: f.name, value: f.value, inline: Boolean(f.inline) });
+              }
+            }
+          }
+          msgOptions.embeds = [eb];
+        }
+
+        await targetUser.send(msgOptions);
+        console.log(`✅ [BOT DM] DM enviada com sucesso para ${targetUser.tag || data.userId}!`);
+      } catch (err) {
+        console.warn(`⚠️ [BOT DM] Falha ao enviar DM para o usuário ${data.userId} (DMs podem estar fechadas):`, err.message);
+      }
+    })
     .subscribe((status) => {
       console.log(`📡 [BOT CONTROL CHANNEL STATUS] status: ${status}`);
     });
@@ -3431,6 +3497,76 @@ const server = http.createServer(async (req, res) => {
         return res.end(JSON.stringify(result));
       } catch (err) {
         console.error("❌ [SIMULATE-STOCK HTTP ERROR]:", err);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // Rota HTTP para envio de DM direta ao usuário via Discord Bot
+  if (pathname === "/api/send-dm") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+      res.writeHead(204);
+      return res.end();
+    }
+    if (req.method !== "POST") {
+      res.writeHead(405, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: "Método não permitido. Utilize POST." }));
+    }
+
+    let bodyStr = "";
+    req.on("data", (chunk) => {
+      bodyStr += chunk;
+      if (bodyStr.length > 1024 * 512) req.destroy();
+    });
+
+    req.on("end", async () => {
+      try {
+        const data = JSON.parse(bodyStr || "{}");
+        if (!data.userId) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({ success: false, error: "userId do Discord é obrigatório." }));
+        }
+
+        const targetUser =
+          client.users.cache.get(data.userId) ||
+          (await client.users.fetch(data.userId).catch(() => null));
+
+        if (!targetUser) {
+          res.writeHead(404, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({ success: false, error: `Usuário Discord ${data.userId} não encontrado.` }));
+        }
+
+        const msgOptions = {};
+        if (data.content && data.content.trim()) msgOptions.content = data.content.trim();
+        if (data.embed && typeof data.embed === "object") {
+          const eb = new EmbedBuilder();
+          if (data.embed.title) eb.setTitle(data.embed.title);
+          if (data.embed.url) eb.setURL(data.embed.url);
+          if (data.embed.description) eb.setDescription(data.embed.description);
+          if (data.embed.color) {
+            const c = typeof data.embed.color === "string" ? hexToInt(data.embed.color) : data.embed.color;
+            eb.setColor(c);
+          }
+          if (data.embed.fields && Array.isArray(data.embed.fields)) {
+            for (const f of data.embed.fields) {
+              if (f.name && f.value) eb.addFields({ name: f.name, value: f.value, inline: Boolean(f.inline) });
+            }
+          }
+          if (data.embed.footer?.text) eb.setFooter({ text: data.embed.footer.text });
+          if (data.embed.timestamp) eb.setTimestamp(new Date(data.embed.timestamp));
+          msgOptions.embeds = [eb];
+        }
+
+        await targetUser.send(msgOptions);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ success: true, message: `DM enviada com sucesso para ${targetUser.tag}!` }));
+      } catch (err) {
+        console.error("❌ [SEND-DM HTTP ERROR]:", err);
         res.writeHead(500, { "Content-Type": "application/json" });
         return res.end(JSON.stringify({ success: false, error: err.message }));
       }

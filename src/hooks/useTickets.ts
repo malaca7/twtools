@@ -571,7 +571,8 @@ export function useMuteTicketMember() {
       });
       void queryClient.invalidateQueries({ queryKey: ["tickets"] });
       broadcastTicketsRealtimeUpdate();
-      toast.success(`${vars.payload.user_name} foi silenciado(a) no chamado.`);
+      const targetName = vars.payload.targetName || vars.payload.user_name || "Membro";
+      toast.success(`${targetName} foi silenciado(a) no chamado.`);
     },
     onError: (err: any) => {
       toast.error(err?.message || "Erro ao silenciar membro.");
@@ -588,8 +589,8 @@ export function useUnmuteTicketMember() {
       payload,
     }: {
       ticketId: string;
-      payload: UnmuteTicketMemberPayload;
-    }) => unmuteTicketMember(ticketId, payload),
+      payload: UnmuteTicketMemberPayload | string;
+    }) => unmuteTicketMember(ticketId, payload as any),
     onSuccess: (updatedTicket) => {
       queryClient.setQueryData<Ticket[]>(["tickets"], (old = []) => {
         return old.map((t) => (t.id === updatedTicket.id ? updatedTicket : t));
@@ -621,7 +622,8 @@ export function usePokeTicketMember() {
       });
       void queryClient.invalidateQueries({ queryKey: ["tickets"] });
       broadcastTicketsRealtimeUpdate();
-      toast.success(`Alerta enviado para ${vars.payload.target_name}! 🔔`);
+      const targetName = vars.payload.targetName || vars.payload.target_name || "Membro";
+      toast.success(`Alerta enviado para ${targetName}! 🔔`);
     },
     onError: (err: any) => {
       toast.error(err?.message || "Erro ao alertar membro.");
