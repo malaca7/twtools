@@ -32,6 +32,13 @@ import {
   Check,
   IdCard,
   Headphones,
+  Copy,
+  Sparkles,
+  Zap,
+  CornerDownRight,
+  ShieldAlert,
+  ArrowUpRight,
+  Share2,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -98,6 +105,29 @@ import { CannedResponsesMenu } from "./CannedResponsesMenu";
 import { TicketMemberDossier } from "./TicketMemberDossier";
 import { generateTicketDiscordTranscript } from "./ticketTranscript";
 
+const QUICK_CLOSE_REASONS = [
+  "✅ Resolvido e Orientado",
+  "💡 Dúvida Esclarecida",
+  "💰 Reembolso Concluído",
+  "⏱️ Sem Retorno do Membro",
+  "❌ Inviável / Recusado",
+  "🤝 Acordo Formalizado",
+];
+
+function isSystemEventMessage(content: string): boolean {
+  if (!content) return false;
+  const trimmed = content.trim();
+  return (
+    trimmed.startsWith("⚡") ||
+    trimmed.startsWith("🔄") ||
+    trimmed.startsWith("🔒") ||
+    trimmed.startsWith("👥") ||
+    trimmed.startsWith("🔀") ||
+    trimmed.startsWith("📌") ||
+    trimmed.startsWith("⚠️ [Sistema]")
+  );
+}
+
 interface TicketDetailViewProps {
   ticket: Ticket;
   onClose: () => void;
@@ -141,13 +171,13 @@ export function TicketDetailView({
   const [replyContent, setReplyContent] = useState("");
   const [isInternalNote, setIsInternalNote] = useState(false);
   const [replyAttachments, setReplyAttachments] = useState<TicketAttachment[]>([]);
-  const [isDragging, setIsDragging] = useState(false);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Modals state
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const [transferSearchTerm, setTransferSearchTerm] = useState("");
   const [selectedNewAssigneeId, setSelectedNewAssigneeId] = useState("");
   const [transferNote, setTransferNote] = useState("");
 
@@ -248,6 +278,7 @@ export function TicketDetailView({
     (hasPermission("delete_tickets") ||
       hasPermission("delete_ticket" as Permission) ||
       effectiveCanManage);
+
   const canReply =
     hasPermission("reply_tickets") ||
     hasPermission("reply_ticket" as Permission) ||
@@ -275,10 +306,26 @@ export function TicketDetailView({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [ticket.messages?.length]);
 
-  // Management members for transfer dropdown
-  const managementMembers = members.filter((m) =>
-    ["desenvolvedor", "01", "02", "gerente", "motoqueiro", "membro"].includes(m.nivel || "")
-  );
+  // Management members for transfer dropdown (with search filter)
+  const filteredTransferMembers = useMemo(() => {
+    const base = members.filter((m) =>
+      ["desenvolvedor", "01", "02", "gerente", "motoqueiro", "membro"].includes(m.nivel || "")
+    );
+    const term = transferSearchTerm.toLowerCase().trim();
+    if (!term) return base;
+    return base.filter((m) => {
+      const name = (m.nome || "").toLowerCase();
+      const nick = (m.nickname || "").toLowerCase();
+      return name.includes(term) || nick.includes(term);
+    });
+  }, [members, transferSearchTerm]);
+
+  const handleCopyTicketId = () => {
+    navigator.clipboard.writeText(formatTicketNumber(ticket.ticket_number));
+    toast.success("ID do chamado copiado!", {
+      description: formatTicketNumber(ticket.ticket_number),
+    });
+  };
 
   const handleImageFile = async (file: File) => {
     if (!canReply) {
@@ -397,6 +444,7 @@ export function TicketDetailView({
       });
       setTransferDialogOpen(false);
       setTransferNote("");
+      setSelectedNewAssigneeId("");
     } catch {}
   };
 
@@ -427,26 +475,39 @@ export function TicketDetailView({
 
   return (
     <div
-      className="flex flex-col h-full bg-card border border-border rounded-xl overflow-hidden shadow-xl"
+      className="flex flex-col h-full bg-card/95 border border-border/80 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-md"
       onPaste={handlePaste}
     >
-      {/* 1. Header do Ticket */}
-      <div className="border-b border-border/80 bg-secondary/30 p-4 shrink-0 space-y-3">
-        {/* Linha 1: Badges & Fechar */}
-        <div className="flex items-center justify-between gap-2 flex-wrap">
+      {/* 1. HEADER DO TICKET: Identificação Executiva, Stepper e Metadados */}
+      <div className="border-b border-border/70 bg-gradient-to-b from-secondary/40 to-card/60 p-4 sm:p-5 shrink-0 space-y-3.5">
+        {/* Linha 1: Badges de Identificação, ID Copiável e Botão Fechar Modal */}
+        <div className="flex items-center justify-between gap-2.5 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm sm:text-base font-mono font-bold text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-md border border-amber-500/20">
-              {formatTicketNumber(ticket.ticket_number)}
-            </span>
-            <Badge variant="outline" className={cn("text-xs font-medium gap-1", catInfo.badgeClass)}>
+            {/* ID do Chamado com 1-Click Copy */}
+            <button
+              type="button"
+              onClick={handleCopyTicketId}
+              className="group flex items-center gap-1.5 text-xs sm:text-sm font-mono font-black text-amber-300 bg-amber-500/15 hover:bg-amber-500/25 px-2.5 py-1 rounded-lg border border-amber-500/30 transition-all cursor-pointer shadow-xs active:scale-95"
+              title="Copiar número do chamado"
+            >
+              <span>{formatTicketNumber(ticket.ticket_number)}</span>
+              <Copy className="h-3 w-3 opacity-60 group-hover:opacity-100 transition-opacity" />
+            </button>
+
+            {/* Categoria */}
+            <Badge variant="outline" className={cn("text-xs font-semibold gap-1 px-2.5 py-0.5 rounded-lg shadow-xs", catInfo.badgeClass)}>
               <span>{catInfo.emoji}</span>
               <span>{catInfo.label}</span>
             </Badge>
-            <Badge variant="outline" className={cn("text-xs font-medium", priorityInfo.badgeClass)}>
-              <span className={cn("h-1.5 w-1.5 rounded-full mr-1", priorityInfo.dotClass)} />
+
+            {/* Prioridade */}
+            <Badge variant="outline" className={cn("text-xs font-semibold px-2.5 py-0.5 rounded-lg shadow-xs", priorityInfo.badgeClass)}>
+              <span className={cn("h-1.5 w-1.5 rounded-full mr-1.5", priorityInfo.dotClass)} />
               Prioridade {priorityInfo.label}
             </Badge>
-            <Badge variant="outline" className={cn("text-xs font-medium", statusInfo.badgeClass)}>
+
+            {/* Status Atual */}
+            <Badge variant="outline" className={cn("text-xs font-bold px-2.5 py-0.5 rounded-lg shadow-xs", statusInfo.badgeClass)}>
               {statusInfo.label}
             </Badge>
           </div>
@@ -455,27 +516,27 @@ export function TicketDetailView({
             variant="ghost"
             size="icon"
             onClick={onClose}
-            className="h-8 w-8 text-muted-foreground hover:text-foreground shrink-0"
-            title="Fechar detalhes"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-secondary/80 rounded-xl shrink-0"
+            title="Fechar detalhes do chamado (Esc)"
           >
             <X className="h-4 w-4" />
           </Button>
         </div>
 
-        {/* Linha 2: Assunto */}
-        <div className="space-y-1">
-          <h2 className="text-base sm:text-lg font-bold text-foreground leading-snug">
+        {/* Linha 2: Assunto e Metadados do Autor e Responsável */}
+        <div className="space-y-1.5">
+          <h2 className="text-base sm:text-xl font-black text-foreground tracking-tight leading-snug">
             {ticket.subject}
           </h2>
           <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-            <span className="flex items-center gap-1.5">
+            <span className="flex items-center gap-1.5 bg-secondary/50 px-2 py-0.5 rounded-md border border-border/40">
               <Avatar className="h-4 w-4">
                 <AvatarImage src={ticket.creator_avatar || undefined} />
                 <AvatarFallback className="text-[9px]">
                   {(ticket?.creator_name || ticket?.creator_nickname || "TC").slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-foreground font-medium inline-flex items-center gap-1">
+              <span className="text-foreground font-semibold inline-flex items-center gap-1">
                 <span>{ticket.creator_nickname || ticket.creator_name}</span>
                 <VerifiedBadge userId={ticket.creator_id || ticket.user_id} isVerified={ticket.creator_is_verified} size="xs" />
               </span>
@@ -485,54 +546,58 @@ export function TicketDetailView({
             </span>
 
             <span>•</span>
-            <span className="flex items-center gap-1">
-              <Calendar className="h-3 w-3" />
+            <span className="flex items-center gap-1 font-mono text-[11px]">
+              <Calendar className="h-3 w-3 text-cyan-400" />
               Aberto em {dateTime(ticket.created_at)}
             </span>
 
             <span>•</span>
-            <span className="flex items-center gap-1">
-              <User className="h-3 w-3" />
+            <span className="flex items-center gap-1 text-[11px]">
+              <User className="h-3 w-3 text-sky-400" />
               Responsável:{" "}
               {ticket.assigned_to_name ? (
-                <span className="text-sky-400 font-medium inline-flex items-center gap-1">
+                <span className="text-sky-300 font-semibold inline-flex items-center gap-1">
                   <span>{ticket.assigned_to_nickname || ticket.assigned_to_name}</span>
                   <VerifiedBadge userId={ticket.assigned_to_id} size="xs" />
                 </span>
               ) : (
-                <span className="text-muted-foreground italic">Não atribuído</span>
+                <span className="text-muted-foreground/80 italic font-mono">Fila Livre</span>
               )}
             </span>
           </div>
         </div>
 
-        {/* Linha 3: Barra de Progresso de Estados (Stepper) */}
-        <div className="pt-1">
-          <div className="grid grid-cols-5 gap-1 text-[11px] font-medium">
+        {/* Linha 3: Stepper Visual Operacional */}
+        <div className="pt-2 px-1">
+          <div className="relative flex items-center justify-between">
+            <div className="absolute left-3 right-3 top-1/2 -translate-y-1/2 h-0.5 bg-border/60 z-0" />
             {TICKET_STATUSES.map((st, idx) => {
               const currentOrder = statusInfo.order;
-              const isPast = st.order <= currentOrder;
+              const isPast = st.order < currentOrder;
               const isCurrent = st.order === currentOrder;
               return (
-                <div key={st.id} className="flex flex-col items-center text-center gap-1">
+                <div key={st.id} className="relative z-10 flex flex-col items-center group">
                   <div
                     className={cn(
-                      "h-1.5 w-full rounded-full transition-all",
+                      "h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold border transition-all duration-200",
                       isCurrent
-                        ? "bg-amber-500 shadow-sm shadow-amber-500/50"
+                        ? "bg-amber-500 text-black border-amber-400 shadow-md shadow-amber-500/40 ring-4 ring-amber-500/20 scale-110"
                         : isPast
-                        ? "bg-emerald-500/80"
-                        : "bg-secondary"
+                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                        : "bg-card text-muted-foreground border-border/70"
                     )}
-                  />
+                    title={st.label}
+                  >
+                    {isPast ? <Check className="h-3 w-3 stroke-[3]" /> : <span>{idx + 1}</span>}
+                  </div>
                   <span
                     className={cn(
-                      "text-[10px] truncate max-w-full hidden sm:inline-block",
+                      "mt-1 text-[10px] font-semibold tracking-tight hidden sm:block whitespace-nowrap transition-colors",
                       isCurrent
                         ? "text-amber-400 font-bold"
                         : isPast
-                        ? "text-emerald-400"
-                        : "text-muted-foreground/60"
+                        ? "text-emerald-400/90"
+                        : "text-muted-foreground/50"
                     )}
                   >
                     {st.label}
@@ -543,43 +608,43 @@ export function TicketDetailView({
           </div>
         </div>
 
-        {/* Linha: Membros Participantes do Chamado */}
-        <div className="flex items-center gap-1.5 pt-2 border-t border-border/40 flex-wrap text-xs">
-          <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1 shrink-0">
+        {/* Linha 4: Participantes do Chamado */}
+        <div className="flex items-center gap-1.5 pt-2.5 border-t border-border/40 flex-wrap text-xs">
+          <span className="text-[11px] font-bold text-muted-foreground flex items-center gap-1 shrink-0 uppercase tracking-wider">
             <Users className="h-3.5 w-3.5 text-amber-400" />
-            Membros:
+            Participantes:
           </span>
 
           {/* Autor */}
-          <div className="flex items-center gap-1 bg-secondary/70 border border-border/70 rounded-full px-2 py-0.5" title="Autor do Chamado">
-            <Avatar className="h-3.5 w-3.5">
+          <div className="flex items-center gap-1.5 bg-secondary/80 border border-border/70 rounded-full pl-1.5 pr-2 py-0.5 shadow-2xs" title="Autor do Chamado">
+            <Avatar className="h-4 w-4">
               <AvatarImage src={ticket.creator_avatar || undefined} />
-              <AvatarFallback className="text-[7px]">
+              <AvatarFallback className="text-[8px]">
                 {(ticket?.creator_name || ticket?.creator_nickname || "TC").slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <span className="text-[11px] font-medium text-foreground">
+            <span className="text-[11px] font-semibold text-foreground">
               {ticket.creator_nickname || ticket.creator_name}
             </span>
-            <Badge variant="outline" className="text-[8px] py-0 px-1 border-amber-500/30 text-amber-400 bg-amber-500/10">
+            <Badge variant="outline" className="text-[8px] py-0 px-1 border-amber-500/30 text-amber-400 bg-amber-500/10 rounded-full font-bold">
               Autor
             </Badge>
           </div>
 
-          {/* Responsável */}
+          {/* Responsável Atribuído */}
           {ticket.assigned_to_name && (
-            <div className="flex items-center gap-1 bg-secondary/70 border border-border/70 rounded-full px-2 py-0.5" title="Responsável Atribuído">
-              <Avatar className="h-3.5 w-3.5">
+            <div className="flex items-center gap-1.5 bg-secondary/80 border border-sky-500/30 rounded-full pl-1.5 pr-2 py-0.5 shadow-2xs" title="Responsável Atribuído">
+              <Avatar className="h-4 w-4">
                 <AvatarImage src={ticket.assigned_to_avatar || undefined} />
-                <AvatarFallback className="text-[7px]">
+                <AvatarFallback className="text-[8px]">
                   {(ticket?.assigned_to_name || ticket?.assigned_to_nickname || "TC").slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-[11px] font-medium text-sky-400">
+              <span className="text-[11px] font-semibold text-sky-300">
                 {ticket.assigned_to_nickname || ticket.assigned_to_name}
               </span>
-              <Badge variant="outline" className="text-[8px] py-0 px-1 border-sky-500/30 text-sky-400 bg-sky-500/10">
-                Resp
+              <Badge variant="outline" className="text-[8px] py-0 px-1 border-sky-500/30 text-sky-400 bg-sky-500/10 rounded-full font-bold">
+                Atendente
               </Badge>
             </div>
           )}
@@ -588,12 +653,12 @@ export function TicketDetailView({
           {(ticket.members || []).map((m) => (
             <div
               key={m.user_id}
-              className="group flex items-center gap-1 bg-secondary/70 border border-border/70 rounded-full pl-2 pr-1 py-0.5 hover:border-border transition-colors"
+              className="group flex items-center gap-1.5 bg-secondary/70 border border-border/70 rounded-full pl-1.5 pr-1 py-0.5 hover:border-border transition-colors shadow-2xs"
               title={`Adicionado por ${m.added_by_name}`}
             >
-              <Avatar className="h-3.5 w-3.5">
+              <Avatar className="h-4 w-4">
                 <AvatarImage src={m.avatar || undefined} />
-                <AvatarFallback className="text-[7px]">
+                <AvatarFallback className="text-[8px]">
                   {(m?.name || m?.nickname || "MB").slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
@@ -623,317 +688,330 @@ export function TicketDetailView({
                 setMemberSearchTerm("");
                 setMemberDialogOpen(true);
               }}
-              className="h-6 text-[11px] px-2 gap-1 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 rounded-full border border-dashed border-amber-500/30"
+              className="h-6 text-[11px] px-2.5 gap-1 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 rounded-full border border-dashed border-amber-500/30"
             >
               <UserPlus className="h-3 w-3" />
-              Adicionar Membro
+              <span>Adicionar Membro</span>
             </Button>
           )}
         </div>
 
-        {/* Linha 4: Barra de Ações Operacionais */}
+        {/* Linha 5: Toolbar Operacional Organizada por Grupos Funcionais */}
         {(canClaim || canTransfer || canChangeStatus || canChangePriority || canChangeCategory || canClose || canReopen || canDelete || !isMemberPortal) && (
-          <div className="flex items-center gap-2 pt-2 border-t border-border/50 flex-wrap">
-            {/* Dossiê do Jogador Toggle */}
-            {!isMemberPortal && canViewDossier && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowDossier((prev) => !prev)}
-                className={cn(
-                  "h-7 text-xs gap-1.5 transition-all",
-                  showDossier
-                    ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-xs"
-                    : "border-border/70 text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-                )}
-                title="Visualizar dossiê do jogador com ID, telefone, Discord e histórico de chamados"
-              >
-                <IdCard className="h-3.5 w-3.5 text-cyan-400" />
-                <span>{showDossier ? "Ocultar Dossiê" : "Dossiê do Membro"}</span>
-              </Button>
-            )}
+          <div className="flex items-center gap-2 pt-2.5 border-t border-border/50 flex-wrap justify-between">
+            {/* GRUPO 1: TRIAGEM & CLASSIFICAÇÃO */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {/* Alterar Prioridade */}
+              {canChangePriority && !isClosed && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={updatePriorityMutation.isPending}
+                      className="h-7 text-xs gap-1.5 border-border/70 rounded-lg hover:bg-secondary/70"
+                    >
+                      <span className={cn("h-1.5 w-1.5 rounded-full", priorityInfo.dotClass)} />
+                      <span className="font-semibold">{priorityInfo.label}</span>
+                      <ChevronDown className="h-3 w-3 opacity-60" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="bg-popover border-border">
+                    <DropdownMenuLabel className="text-xs">Definir Prioridade</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {TICKET_PRIORITIES.map((p) => {
+                      const pInfo = getPriorityInfo(p.id);
+                      return (
+                        <DropdownMenuItem
+                          key={p.id}
+                          onClick={() =>
+                            updatePriorityMutation.mutate({ ticketId: ticket.id, priority: p.id })
+                          }
+                          className={cn(
+                            "text-xs cursor-pointer flex items-center justify-between gap-3",
+                            p.id === ticket.priority && "font-bold text-amber-400"
+                          )}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span className={cn("h-2 w-2 rounded-full", pInfo.dotClass)} />
+                            {pInfo.label}
+                          </span>
+                          {p.id === ticket.priority && <Check className="h-3.5 w-3.5 text-amber-400" />}
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
 
-            {/* Copiar Transcrição do Discord */}
-            {!isMemberPortal && canExportTranscript && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const transcript = generateTicketDiscordTranscript(ticket, canViewInternalNotes);
-                  navigator.clipboard.writeText(transcript);
-                  toast.success("Transcrição completa copiada para colar no Discord!");
-                }}
-                className="h-7 text-xs gap-1.5 border-border/70 text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-                title="Copiar histórico de atendimento formatado para o Discord"
-              >
-                <FileText className="h-3.5 w-3.5 text-indigo-400" />
-                <span className="hidden sm:inline">Copiar Transcrição</span>
-                <span className="sm:hidden">Transcrição</span>
-              </Button>
-            )}
-
-            {/* Atender / Assumir (Apenas quem tem permissão para assumir atendimento) */}
-            {canClaim && ticket.assigned_to_id !== user?.id && !isClosed && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => claimMutation.mutate(ticket.id)}
-                disabled={claimMutation.isPending}
-                className="h-7 text-xs gap-1.5 border-sky-500/30 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20"
-              >
-                <UserCheck className="h-3.5 w-3.5" />
-                Atender Chamado
-              </Button>
-            )}
-
-            {/* Devolver para Fila (Desatribuir) */}
-            {canUnassign && isAssigned && !isClosed && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => unassignMutation.mutate(ticket.id)}
-                disabled={unassignMutation.isPending}
-                className="h-7 text-xs gap-1.5 border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
-                title="Devolver chamado para a fila sem atendente"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-                Devolver p/ Fila
-              </Button>
-            )}
-
-            {/* Transferir */}
-            {canTransfer && !isClosed && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setTransferDialogOpen(true)}
-                className="h-7 text-xs gap-1.5 border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500/20"
-              >
-                <ArrowRightLeft className="h-3.5 w-3.5" />
-                Transferir
-              </Button>
-            )}
-
-            {/* Alterar Prioridade */}
-            {canChangePriority && !isClosed && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={updatePriorityMutation.isPending}
-                    className="h-7 text-xs gap-1.5 border-border/70"
-                  >
-                    <span className={cn("h-1.5 w-1.5 rounded-full", priorityInfo.dotClass)} />
-                    <span className="font-semibold">{priorityInfo.label}</span>
-                    <ChevronDown className="h-3 w-3 opacity-60" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="bg-popover border-border">
-                  <DropdownMenuLabel className="text-xs">Definir Prioridade</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {TICKET_PRIORITIES.map((p) => {
-                    const pInfo = getPriorityInfo(p.id);
-                    return (
+              {/* Reclassificar Categoria */}
+              {canChangeCategory && !isClosed && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={updateCategoryMutation.isPending}
+                      className="h-7 text-xs gap-1.5 border-border/70 rounded-lg hover:bg-secondary/70"
+                    >
+                      <span>{catInfo.emoji}</span>
+                      <span className="font-semibold">{catInfo.label}</span>
+                      <ChevronDown className="h-3 w-3 opacity-60" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="bg-popover border-border">
+                    <DropdownMenuLabel className="text-xs">Reclassificar Categoria</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {TICKET_CATEGORIES.map((c) => (
                       <DropdownMenuItem
-                        key={p.id}
+                        key={c.id}
                         onClick={() =>
-                          updatePriorityMutation.mutate({ ticketId: ticket.id, priority: p.id })
+                          updateCategoryMutation.mutate({ ticketId: ticket.id, category: c.id })
                         }
                         className={cn(
                           "text-xs cursor-pointer flex items-center justify-between gap-3",
-                          p.id === ticket.priority && "font-bold text-amber-400"
+                          c.id === ticket.category && "font-bold text-cyan-400"
                         )}
                       >
                         <span className="flex items-center gap-2">
-                          <span className={cn("h-2 w-2 rounded-full", pInfo.dotClass)} />
-                          {pInfo.label}
+                          <span>{c.emoji}</span>
+                          {c.label}
                         </span>
-                        {p.id === ticket.priority && <Check className="h-3.5 w-3.5 text-amber-400" />}
+                        {c.id === ticket.category && <Check className="h-3.5 w-3.5 text-cyan-400" />}
                       </DropdownMenuItem>
-                    );
-                  })}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
 
-            {/* Reclassificar Categoria */}
-            {canChangeCategory && !isClosed && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={updateCategoryMutation.isPending}
-                    className="h-7 text-xs gap-1.5 border-border/70"
-                  >
-                    <span>{catInfo.emoji}</span>
-                    <span className="font-semibold">{catInfo.label}</span>
-                    <ChevronDown className="h-3 w-3 opacity-60" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="bg-popover border-border">
-                  <DropdownMenuLabel className="text-xs">Reclassificar Categoria</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {TICKET_CATEGORIES.map((c) => (
-                    <DropdownMenuItem
-                      key={c.id}
+              {/* Alterar Status (Dropdown Completo) */}
+              {canChangeStatus && !isClosed && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 border-border/70 rounded-lg hover:bg-secondary/70">
+                      <SlidersHorizontal className="h-3.5 w-3.5" />
+                      Status
+                      <ChevronDown className="h-3 w-3 opacity-60" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="bg-popover border-border">
+                    <DropdownMenuLabel className="text-xs">Definir Novo Status</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {TICKET_STATUSES.filter((s) => s.id !== "fechado").map((s) => (
+                      <DropdownMenuItem
+                        key={s.id}
+                        onClick={() =>
+                          updateStatusMutation.mutate({ ticketId: ticket.id, status: s.id })
+                        }
+                        className={cn("text-xs cursor-pointer", s.id === ticket.status && "font-bold text-amber-400")}
+                      >
+                        {s.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+
+              {/* Ações Rápidas de Status em 1 Clique */}
+              {canChangeStatus && !isClosed && (
+                <div className="flex items-center gap-1">
+                  {ticket.status !== "aguardando" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() =>
-                        updateCategoryMutation.mutate({ ticketId: ticket.id, category: c.id })
+                        updateStatusMutation.mutate({ ticketId: ticket.id, status: "aguardando" })
                       }
-                      className={cn(
-                        "text-xs cursor-pointer flex items-center justify-between gap-3",
-                        c.id === ticket.category && "font-bold text-cyan-400"
-                      )}
+                      disabled={updateStatusMutation.isPending}
+                      className="h-7 text-[11px] px-2 gap-1 border-amber-500/30 text-amber-400 bg-amber-500/5 hover:bg-amber-500/15 rounded-lg"
+                      title="Definir status como 'Aguardando Membro'"
                     >
-                      <span className="flex items-center gap-2">
-                        <span>{c.emoji}</span>
-                        {c.label}
-                      </span>
-                      {c.id === ticket.category && <Check className="h-3.5 w-3.5 text-cyan-400" />}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+                      <Clock className="h-3 w-3" />
+                      <span className="hidden lg:inline">Aguardar Membro</span>
+                    </Button>
+                  )}
 
-            {/* Alterar Status (Dropdown Completo) */}
-            {canChangeStatus && !isClosed && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5">
-                    <SlidersHorizontal className="h-3.5 w-3.5" />
-                    Alterar Status
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="bg-popover border-border">
-                  <DropdownMenuLabel className="text-xs">Definir Novo Status</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {TICKET_STATUSES.filter((s) => s.id !== "fechado").map((s) => (
-                    <DropdownMenuItem
-                      key={s.id}
+                  {ticket.status !== "em_atendimento" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() =>
-                        updateStatusMutation.mutate({ ticketId: ticket.id, status: s.id })
+                        updateStatusMutation.mutate({ ticketId: ticket.id, status: "em_atendimento" })
                       }
-                      className={cn("text-xs cursor-pointer", s.id === ticket.status && "font-bold text-amber-400")}
+                      disabled={updateStatusMutation.isPending}
+                      className="h-7 text-[11px] px-2 gap-1 border-cyan-500/30 text-cyan-400 bg-cyan-500/5 hover:bg-cyan-500/15 rounded-lg"
+                      title="Definir status como 'Em Atendimento'"
                     >
-                      {s.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+                      <Headphones className="h-3 w-3" />
+                      <span className="hidden lg:inline">Atendendo</span>
+                    </Button>
+                  )}
 
-            {/* Ações Rápidas de Status em 1 Clique */}
-            {canChangeStatus && !isClosed && (
-              <div className="flex items-center gap-1 flex-wrap">
-                {ticket.status !== "aguardando" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      updateStatusMutation.mutate({ ticketId: ticket.id, status: "aguardando" })
-                    }
-                    disabled={updateStatusMutation.isPending}
-                    className="h-7 text-[11px] px-2 gap-1 border-amber-500/30 text-amber-400 bg-amber-500/5 hover:bg-amber-500/15"
-                    title="Definir status como 'Aguardando Membro'"
-                  >
-                    <Clock className="h-3 w-3" />
-                    <span className="hidden md:inline">Aguardar Membro</span>
-                  </Button>
-                )}
+                  {ticket.status !== "resolvido" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        updateStatusMutation.mutate({ ticketId: ticket.id, status: "resolvido" })
+                      }
+                      disabled={updateStatusMutation.isPending}
+                      className="h-7 text-[11px] px-2 gap-1 border-emerald-500/30 text-emerald-400 bg-emerald-500/5 hover:bg-emerald-500/15 rounded-lg"
+                      title="Definir chamado como 'Resolvido'"
+                    >
+                      <CheckCircle2 className="h-3 w-3" />
+                      <span className="hidden lg:inline">Resolver</span>
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
 
-                {ticket.status !== "em_atendimento" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      updateStatusMutation.mutate({ ticketId: ticket.id, status: "em_atendimento" })
-                    }
-                    disabled={updateStatusMutation.isPending}
-                    className="h-7 text-[11px] px-2 gap-1 border-blue-500/30 text-blue-400 bg-blue-500/5 hover:bg-blue-500/15"
-                    title="Definir status como 'Em Atendimento'"
-                  >
-                    <Headphones className="h-3 w-3" />
-                    <span className="hidden md:inline">Atendendo</span>
-                  </Button>
-                )}
-
-                {ticket.status !== "resolvido" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      updateStatusMutation.mutate({ ticketId: ticket.id, status: "resolvido" })
-                    }
-                    disabled={updateStatusMutation.isPending}
-                    className="h-7 text-[11px] px-2 gap-1 border-emerald-500/30 text-emerald-400 bg-emerald-500/5 hover:bg-emerald-500/15"
-                    title="Definir chamado como 'Resolvido'"
-                  >
-                    <CheckCircle2 className="h-3 w-3" />
-                    <span className="hidden md:inline">Resolver</span>
-                  </Button>
-                )}
-              </div>
-            )}
-
-            {/* Fechar Ticket */}
-            {!isClosed && canClose && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCloseDialogOpen(true)}
-                className="h-7 text-xs gap-1.5 border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 ml-auto"
-              >
-                <Lock className="h-3.5 w-3.5" />
-                {isCreator && !effectiveCanManage ? "Encerrar Chamado" : "Fechar Ticket"}
-              </Button>
-            )}
-
-            {/* Reabrir Ticket */}
-            {isClosed && (
-              canReopen ? (
+            {/* GRUPO 2: ATENDIMENTO & GESTÃO DO CHAMADO */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {/* Dossiê do Jogador Toggle */}
+              {!isMemberPortal && canViewDossier && (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => reopenMutation.mutate(ticket.id)}
-                  disabled={reopenMutation.isPending}
-                  className="h-7 text-xs gap-1.5 border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 ml-auto cursor-pointer"
+                  onClick={() => setShowDossier((prev) => !prev)}
+                  className={cn(
+                    "h-7 text-xs gap-1.5 transition-all rounded-lg",
+                    showDossier
+                      ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-xs"
+                      : "border-border/70 text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                  )}
+                  title="Visualizar dossiê do jogador com ID, telefone, Discord e histórico de chamados"
                 >
-                  <RefreshCw className={cn("h-3.5 w-3.5", reopenMutation.isPending && "animate-spin")} />
-                  Reabrir Chamado
+                  <IdCard className="h-3.5 w-3.5 text-cyan-400" />
+                  <span>{showDossier ? "Ocultar Dossiê" : "Dossiê"}</span>
                 </Button>
-              ) : (
-                <div
-                  className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground/70 px-2.5 py-1 rounded-md bg-secondary/30 border border-border/40 ml-auto cursor-help"
-                  title="Apenas integrantes com a permissão 'Reabrir Chamados Fechados' atribuída ao seu cargo ou tag podem reabrir chamados."
-                >
-                  <Lock className="h-3 w-3 text-amber-400/70" />
-                  <span>Reabertura restrita</span>
-                </div>
-              )
-            )}
+              )}
 
-            {/* Excluir Chamado */}
-            {canDelete && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setDeleteDialogOpen(true)}
-                className="h-7 text-xs gap-1.5 border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20"
-                title="Excluir chamado permanentemente"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Excluir
-              </Button>
-            )}
+              {/* Copiar Transcrição do Discord */}
+              {!isMemberPortal && canExportTranscript && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const transcript = generateTicketDiscordTranscript(ticket, canViewInternalNotes);
+                    navigator.clipboard.writeText(transcript);
+                    toast.success("Transcrição completa copiada para colar no Discord!");
+                  }}
+                  className="h-7 text-xs gap-1.5 border-border/70 text-muted-foreground hover:text-foreground hover:bg-secondary/60 rounded-lg"
+                  title="Copiar histórico de atendimento formatado para o Discord"
+                >
+                  <FileText className="h-3.5 w-3.5 text-indigo-400" />
+                  <span className="hidden sm:inline">Transcrição</span>
+                </Button>
+              )}
+
+              {/* Atender / Assumir */}
+              {canClaim && ticket.assigned_to_id !== user?.id && !isClosed && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => claimMutation.mutate(ticket.id)}
+                  disabled={claimMutation.isPending}
+                  className="h-7 text-xs gap-1.5 border-sky-500/35 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 rounded-lg font-semibold"
+                >
+                  <UserCheck className="h-3.5 w-3.5" />
+                  <span>Assumir Chamado</span>
+                </Button>
+              )}
+
+              {/* Devolver para Fila (Desatribuir) */}
+              {canUnassign && isAssigned && !isClosed && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => unassignMutation.mutate(ticket.id)}
+                  disabled={unassignMutation.isPending}
+                  className="h-7 text-xs gap-1.5 border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 rounded-lg"
+                  title="Devolver chamado para a fila sem atendente"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Devolver p/ Fila</span>
+                </Button>
+              )}
+
+              {/* Transferir */}
+              {canTransfer && !isClosed && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedNewAssigneeId("");
+                    setTransferNote("");
+                    setTransferSearchTerm("");
+                    setTransferDialogOpen(true);
+                  }}
+                  className="h-7 text-xs gap-1.5 border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 rounded-lg font-medium"
+                >
+                  <ArrowRightLeft className="h-3.5 w-3.5" />
+                  <span>Transferir</span>
+                </Button>
+              )}
+
+              {/* Fechar Ticket */}
+              {!isClosed && canClose && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setCloseReason("");
+                    setCloseDialogOpen(true);
+                  }}
+                  className="h-7 text-xs gap-1.5 border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 rounded-lg font-semibold"
+                >
+                  <Lock className="h-3.5 w-3.5" />
+                  <span>{isCreator && !effectiveCanManage ? "Encerrar Chamado" : "Fechar"}</span>
+                </Button>
+              )}
+
+              {/* Reabrir Ticket */}
+              {isClosed && (
+                canReopen ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => reopenMutation.mutate(ticket.id)}
+                    disabled={reopenMutation.isPending}
+                    className="h-7 text-xs gap-1.5 border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 rounded-lg cursor-pointer font-semibold"
+                  >
+                    <RefreshCw className={cn("h-3.5 w-3.5", reopenMutation.isPending && "animate-spin")} />
+                    <span>Reabrir Chamado</span>
+                  </Button>
+                ) : (
+                  <div
+                    className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground/70 px-2.5 py-1 rounded-lg bg-secondary/30 border border-border/40 cursor-help"
+                    title="Apenas integrantes com a permissão 'Reabrir Chamados Fechados' atribuída ao seu cargo ou tag podem reabrir chamados."
+                  >
+                    <Lock className="h-3 w-3 text-amber-400/70" />
+                    <span>Reabertura restrita</span>
+                  </div>
+                )
+              )}
+
+              {/* Excluir Chamado */}
+              {canDelete && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDeleteDialogOpen(true)}
+                  className="h-7 text-xs gap-1.5 border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 rounded-lg"
+                  title="Excluir chamado permanentemente"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </div>
 
-      {/* Dossiê do Jogador (Expandido) */}
+      {/* Dossiê do Jogador (Drawer Colapsável de Inteligência) */}
       {showDossier && !isMemberPortal && (
-        <div className="border-b border-border/80 bg-secondary/15 p-3 sm:p-4 shrink-0 max-h-72 overflow-y-auto">
+        <div className="border-b border-border/80 bg-secondary/20 p-3 sm:p-4 shrink-0 max-h-80 overflow-y-auto animate-in slide-in-from-top-2 duration-200">
           <TicketMemberDossier
             ticket={ticket}
             allTickets={allTickets}
@@ -942,66 +1020,67 @@ export function TicketDetailView({
         </div>
       )}
 
-      {/* 2. Área de Mensagens / Conversação */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {/* Card da Descrição Inicial Aberta pelo Membro */}
-        <div className="bg-secondary/40 border border-border/80 rounded-xl p-4 space-y-3">
-          <div className="flex items-center justify-between border-b border-border/40 pb-2">
-            <div className="flex items-center gap-2">
-              <Avatar className="h-7 w-7">
+      {/* 2. ÁREA DE MENSAGENS / CONVERSAÇÃO / TIMELINE */}
+      <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+        {/* Card da Descrição Inicial ("Solicitação Genesis") */}
+        <div className="rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-500/5 via-secondary/30 to-secondary/20 p-4 sm:p-5 space-y-3.5 shadow-sm border-l-4 border-l-cyan-500">
+          <div className="flex items-center justify-between border-b border-border/50 pb-2.5">
+            <div className="flex items-center gap-2.5">
+              <Avatar className="h-8 w-8 rounded-xl border border-cyan-500/30">
                 <AvatarImage src={ticket.creator_avatar || undefined} />
-                <AvatarFallback className="text-xs">
+                <AvatarFallback className="text-xs font-bold bg-secondary">
                   {(ticket?.creator_name || ticket?.creator_nickname || "TC").slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div>
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-xs font-semibold text-foreground">
+                  <span className="text-xs sm:text-sm font-bold text-foreground">
                     {ticket.creator_nickname || ticket.creator_name}
                   </span>
                   <VerifiedBadge userId={ticket.user_id || (ticket as any).creator_id} isVerified={members.find((m) => m.user_id === (ticket.user_id || (ticket as any).creator_id))?.is_verified} size="xs" />
                   <Badge
                     variant="outline"
-                    className={cn("text-[10px] px-1.5 py-0", levelBadgeClass(ticket.creator_role))}
+                    className={cn("text-[9px] px-1.5 py-0 font-medium", levelBadgeClass(ticket.creator_role))}
                   >
                     {LEVEL_LABEL[ticket.creator_role] || ticket.creator_role}
                   </Badge>
-                  <span className="text-[10px] text-emerald-400 font-medium bg-emerald-500/10 px-1.5 rounded">
-                    Autor do Chamado
+                  <span className="text-[10px] text-cyan-300 font-semibold bg-cyan-500/15 border border-cyan-500/30 px-2 py-0.2 rounded-full">
+                    Solicitação Inicial
                   </span>
                 </div>
-                <span className="text-[10px] text-muted-foreground">
-                  Abertura inicial • {dateTime(ticket.created_at)}
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  Abertura inicial do chamado • {dateTime(ticket.created_at)}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
+          <div className="text-xs sm:text-sm text-foreground/95 whitespace-pre-wrap leading-relaxed font-sans">
             {ticket.description}
           </div>
 
           {/* Anexos Iniciais */}
           {ticket.attachments && ticket.attachments.length > 0 && (
-            <div className="pt-2 border-t border-border/40 space-y-1.5">
-              <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
-                <Paperclip className="h-3 w-3" />
-                Anexos / Prints ({ticket.attachments.length}):
+            <div className="pt-2.5 border-t border-border/40 space-y-2">
+              <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1.5">
+                <Paperclip className="h-3.5 w-3.5 text-cyan-400" />
+                Prints e Comprovantes Anexados ({ticket.attachments.length}):
               </span>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2.5">
                 {ticket.attachments.map((att) => (
                   <div
                     key={att.id}
                     onClick={() => setLightboxImage(att)}
-                    className="group relative w-24 h-24 rounded-lg overflow-hidden border border-border bg-black/40 cursor-pointer"
+                    className="group relative w-24 h-24 rounded-xl overflow-hidden border border-border/80 bg-black/40 cursor-pointer shadow-sm hover:border-cyan-500/60 transition-all"
                   >
                     <img
                       src={att.url}
                       alt={att.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                     />
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white gap-1 text-[10px]">
                       <Eye className="h-4 w-4" />
+                      <span>Ampliar</span>
                     </div>
                   </div>
                 ))}
@@ -1012,37 +1091,54 @@ export function TicketDetailView({
 
         {/* Thread de Mensagens e Notas Internas */}
         {ticket.messages && ticket.messages.length > 0 && (
-          <div className="space-y-3 pt-2">
+          <div className="space-y-3.5 pt-1">
             {ticket.messages.map((msg) => {
               const isMe = msg.sender_id === user?.id;
               const isNote = msg.is_internal_note;
+              const isSystem = isSystemEventMessage(msg.content);
 
               // Notas internas confidenciais são estritamente ocultadas para quem não tem permissão de visualização
               if (isNote && !canViewInternalNotes) {
                 return null;
               }
 
+              // SE FOR EVENTO DE SISTEMA (Claim, Transfer, Fechamento, etc.)
+              if (isSystem) {
+                return (
+                  <div key={msg.id} className="flex items-center gap-3 my-3 px-2">
+                    <div className="h-px flex-1 bg-border/40" />
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary/80 border border-border/60 text-[11px] font-mono text-muted-foreground shadow-2xs">
+                      <span>{msg.content}</span>
+                      <span className="text-[10px] text-muted-foreground/60">• {formatTimeOnly(msg.created_at)}</span>
+                    </div>
+                    <div className="h-px flex-1 bg-border/40" />
+                  </div>
+                );
+              }
+
               return (
                 <div
                   key={msg.id}
                   className={cn(
-                    "flex flex-col space-y-1.5 max-w-[88%] sm:max-w-[78%]",
+                    "flex flex-col space-y-1.5 max-w-[92%] sm:max-w-[80%]",
                     isNote
-                      ? "mx-auto w-full max-w-[96%]"
+                      ? "mx-auto w-full max-w-[98%]"
                       : isMe
                       ? "ml-auto items-end"
                       : "mr-auto items-start"
                   )}
                 >
-                  {/* Se for NOTA INTERNA PRIVADA */}
+                  {/* Se for NOTA INTERNA PRIVADA (Dossiê Confidencial) */}
                   {isNote ? (
-                    <div className="w-full rounded-xl border border-amber-500/40 bg-amber-500/10 p-3.5 space-y-2 shadow-sm">
-                      <div className="flex items-center justify-between border-b border-amber-500/20 pb-1.5">
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-amber-400">
-                          <Lock className="h-3.5 w-3.5" />
-                          <span>NOTA INTERNA PRIVADA (Visível apenas para a gerência)</span>
+                    <div className="w-full rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-amber-500/10 p-4 space-y-2.5 shadow-sm">
+                      <div className="flex items-center justify-between border-b border-amber-500/25 pb-2">
+                        <div className="flex items-center gap-2 text-xs font-black text-amber-400">
+                          <span className="p-1 rounded-md bg-amber-500/20 border border-amber-500/30">
+                            <Lock className="h-3.5 w-3.5" />
+                          </span>
+                          <span>NOTA INTERNA PRIVADA — CONFIDENCIAL</span>
                         </div>
-                        <span className="text-[10px] text-amber-300/80">
+                        <span className="text-[10px] text-amber-300/80 font-mono">
                           {dateTime(msg.created_at)}
                         </span>
                       </div>
@@ -1053,79 +1149,85 @@ export function TicketDetailView({
                             {(msg?.sender_name || msg?.sender_nickname || "MB").slice(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
-                        <span className="text-xs font-semibold text-amber-300">
+                        <span className="text-xs font-bold text-amber-300">
                           {msg.sender_nickname || msg.sender_name}
                         </span>
                         <VerifiedBadge userId={msg.sender_id} isVerified={members.find((m) => m.user_id === msg.sender_id)?.is_verified} size="xs" />
-                        <span className="text-[10px] text-amber-400/80">
+                        <span className="text-[10px] text-amber-400/80 font-semibold">
                           ({LEVEL_LABEL[msg.sender_role] || msg.sender_role})
                         </span>
                       </div>
-                      <p className="text-xs text-amber-100 whitespace-pre-wrap leading-relaxed">
+                      <p className="text-xs sm:text-sm text-amber-100/95 whitespace-pre-wrap leading-relaxed font-sans">
                         {msg.content}
                       </p>
                       {msg.attachments && msg.attachments.length > 0 && (
-                        <div className="flex flex-wrap gap-2 pt-1">
+                        <div className="flex flex-wrap gap-2 pt-1.5 border-t border-amber-500/20">
                           {msg.attachments.map((att) => (
                             <div
                               key={att.id}
                               onClick={() => setLightboxImage(att)}
-                              className="w-20 h-20 rounded-md overflow-hidden border border-amber-500/40 cursor-pointer"
+                              className="w-20 h-20 rounded-lg overflow-hidden border border-amber-500/40 cursor-pointer group relative shadow-2xs"
                             >
-                              <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
+                              <img src={att.url} alt={att.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                <Eye className="h-3.5 w-3.5" />
+                              </div>
                             </div>
                           ))}
                         </div>
                       )}
                     </div>
                   ) : (
-                    /* Mensagem Normal */
+                    /* Mensagem Normal de Chat */
                     <div
                       className={cn(
-                        "rounded-2xl p-3.5 text-xs sm:text-sm space-y-1.5 shadow-sm",
+                        "rounded-2xl p-3.5 sm:p-4 text-xs sm:text-sm space-y-2 shadow-sm border transition-all",
                         isMe
-                          ? "bg-amber-500/15 border border-amber-500/30 text-foreground rounded-br-none"
-                          : "bg-secondary/70 border border-border text-foreground rounded-bl-none"
+                          ? "bg-amber-500/15 border-amber-500/35 text-foreground rounded-br-xs"
+                          : "bg-secondary/70 border-border/80 text-foreground rounded-bl-xs"
                       )}
                     >
-                      <div className="flex items-center gap-1.5 flex-wrap border-b border-border/30 pb-1">
+                      <div className="flex items-center gap-1.5 flex-wrap border-b border-border/30 pb-1.5">
                         <Avatar className="h-5 w-5">
                           <AvatarImage src={msg.sender_avatar || undefined} />
                           <AvatarFallback className="text-[9px]">
                             {(msg?.sender_name || msg?.sender_nickname || "MB").slice(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
-                        <span className="font-semibold text-xs text-foreground">
+                        <span className="font-bold text-xs text-foreground">
                           {isMe ? "Você" : msg.sender_nickname || msg.sender_name}
                         </span>
                         <VerifiedBadge userId={msg.sender_id} isVerified={members.find((m) => m.user_id === msg.sender_id)?.is_verified} size="xs" />
                         <Badge
                           variant="outline"
-                          className={cn("text-[9px] px-1 py-0", levelBadgeClass(msg.sender_role))}
+                          className={cn("text-[9px] px-1.5 py-0 font-medium", levelBadgeClass(msg.sender_role))}
                         >
                           {LEVEL_LABEL[msg.sender_role] || msg.sender_role}
                         </Badge>
-                        <span className="text-[10px] text-muted-foreground ml-auto">
+                        <span className="text-[10px] text-muted-foreground ml-auto font-mono">
                           {formatTimeOnly(msg.created_at)}
                         </span>
                       </div>
 
-                      <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
+                      <div className="whitespace-pre-wrap leading-relaxed text-foreground/95">{msg.content}</div>
 
                       {/* Anexos da mensagem */}
                       {msg.attachments && msg.attachments.length > 0 && (
-                        <div className="flex flex-wrap gap-2 pt-1">
+                        <div className="flex flex-wrap gap-2 pt-1 border-t border-border/20">
                           {msg.attachments.map((att) => (
                             <div
                               key={att.id}
                               onClick={() => setLightboxImage(att)}
-                              className="w-20 h-20 rounded-md overflow-hidden border border-border cursor-pointer group relative"
+                              className="w-20 h-20 rounded-xl overflow-hidden border border-border/80 cursor-pointer group relative shadow-2xs hover:border-primary/60 transition-all"
                             >
                               <img
                                 src={att.url}
                                 alt={att.name}
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                               />
+                              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                <Eye className="h-4 w-4" />
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -1141,28 +1243,30 @@ export function TicketDetailView({
 
         {/* Banner de Chamado Fechado */}
         {isClosed && (
-          <div className="rounded-xl border border-zinc-500/30 bg-zinc-500/10 p-4 text-center space-y-1.5 my-3">
-            <div className="flex items-center justify-center gap-1.5 text-zinc-400 font-bold text-xs sm:text-sm">
-              <Lock className="h-4 w-4" />
-              <span>CHAMADO FINALIZADO E FECHADO</span>
+          <div className="rounded-2xl border border-zinc-500/30 bg-zinc-500/10 p-5 text-center space-y-2 my-4 shadow-sm">
+            <div className="flex items-center justify-center gap-2 text-zinc-300 font-black text-sm">
+              <span className="p-1 rounded-md bg-zinc-500/20 border border-zinc-500/30">
+                <Lock className="h-4 w-4" />
+              </span>
+              <span>CHAMADO FINALIZADO E ARQUIVADO</span>
             </div>
             {ticket.closed_reason && (
-              <p className="text-xs text-muted-foreground">
-                Conclusão: <span className="text-foreground italic">"{ticket.closed_reason}"</span>
+              <p className="text-xs text-muted-foreground max-w-lg mx-auto">
+                Conclusão registrada: <span className="text-foreground font-semibold italic">"{ticket.closed_reason}"</span>
               </p>
             )}
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-[11px] text-muted-foreground/80 font-mono">
               Finalizado por {ticket.closed_by_name || "Gerência"} em {dateTime(ticket.closed_at)}
             </p>
           </div>
         )}
       </div>
 
-      {/* 3. Caixa de Envio de Respostas / Notas Internas */}
+      {/* 3. CAIXA DE ENVIO DE RESPOSTAS / NOTAS INTERNAS */}
       {!isClosed ? (
         canReply ? (
-          <div className="border-t border-border/80 bg-secondary/20 p-3 sm:p-4 space-y-2 shrink-0">
-            {/* Controles de Anexos, Respostas Rápidas e Nota Interna */}
+          <div className="border-t border-border/80 bg-secondary/30 p-3 sm:p-4 space-y-2.5 shrink-0">
+            {/* Controles de Anexos, Respostas Rápidas e Switch de Nota Interna */}
             <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
               <div className="flex items-center gap-2 flex-wrap">
                 {/* Respostas Rápidas / Macros para Atendentes */}
@@ -1185,10 +1289,11 @@ export function TicketDetailView({
                       variant="outline"
                       size="sm"
                       onClick={() => fileInputRef.current?.click()}
-                      className="h-7 text-xs gap-1 border-border/70 bg-secondary/40 text-muted-foreground hover:text-foreground"
+                      disabled={isUploadingAttachment}
+                      className="h-7 text-xs gap-1.5 border-border/70 bg-secondary/50 text-muted-foreground hover:text-foreground rounded-lg"
                     >
                       <Paperclip className="h-3 w-3" />
-                      Anexar Print
+                      <span>{isUploadingAttachment ? "Enviando print..." : "Anexar Print"}</span>
                     </Button>
                     <input
                       ref={fileInputRef}
@@ -1208,9 +1313,14 @@ export function TicketDetailView({
                   </>
                 )}
 
-                {/* Botão Switch Nota Interna (somente quem tem permissão para enviar notas internas) */}
+                {/* Switch Nota Interna */}
                 {canSendInternalNotes && (
-                  <div className="flex items-center gap-2 px-2.5 py-1 rounded-md border border-amber-500/30 bg-amber-500/10">
+                  <div className={cn(
+                    "flex items-center gap-2 px-2.5 py-1 rounded-lg border transition-all",
+                    isInternalNote
+                      ? "border-amber-500/50 bg-amber-500/15 text-amber-300 shadow-2xs"
+                      : "border-border/60 bg-secondary/40 text-muted-foreground"
+                  )}>
                     <Switch
                       id="internal_note_switch"
                       checked={isInternalNote}
@@ -1219,19 +1329,29 @@ export function TicketDetailView({
                     />
                     <Label
                       htmlFor="internal_note_switch"
-                      className="text-[11px] font-semibold text-amber-400 flex items-center gap-1 cursor-pointer select-none"
+                      className="text-[11px] font-bold flex items-center gap-1 cursor-pointer select-none"
                     >
                       <Lock className="h-3 w-3" />
-                      Nota Interna Privada
+                      <span>Nota Interna Privada</span>
                     </Label>
                   </div>
                 )}
               </div>
 
-              <span className="text-[10px] text-muted-foreground hidden sm:inline-block">
-                Pressione <kbd className="px-1 py-0.5 rounded bg-muted text-[9px] border">Ctrl+Enter</kbd> para enviar
+              <span className="text-[10px] text-muted-foreground hidden sm:inline-block font-mono">
+                Pressione <kbd className="px-1.5 py-0.5 rounded bg-muted/80 text-[10px] border border-border/70 font-sans">Ctrl + Enter</kbd> para enviar
               </span>
             </div>
+
+            {/* Aviso quando modo nota interna estiver ativo */}
+            {isInternalNote && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/35 text-amber-300 text-xs font-semibold animate-in fade-in duration-150">
+                <Lock className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+                <span>
+                  Modo Nota Interna Ativo: Esta mensagem NÃO será visível para o membro, apenas para a gerência.
+                </span>
+              </div>
+            )}
 
             {/* Miniaturas de anexos anexados na resposta */}
             {replyAttachments.length > 0 && (
@@ -1239,7 +1359,7 @@ export function TicketDetailView({
                 {replyAttachments.map((att) => (
                   <div
                     key={att.id}
-                    className="group relative w-16 h-16 rounded-md overflow-hidden border border-border bg-secondary"
+                    className="group relative w-16 h-16 rounded-xl overflow-hidden border border-border bg-secondary shadow-xs"
                   >
                     <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
                     <button
@@ -1247,7 +1367,8 @@ export function TicketDetailView({
                       onClick={() =>
                         setReplyAttachments((prev) => prev.filter((a) => a.id !== att.id))
                       }
-                      className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-black/70 hover:bg-rose-600 text-white"
+                      className="absolute top-1 right-1 p-0.5 rounded-full bg-black/80 hover:bg-rose-600 text-white transition-colors"
+                      title="Remover anexo"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -1270,10 +1391,10 @@ export function TicketDetailView({
                 }
                 rows={2}
                 className={cn(
-                  "resize-none text-xs sm:text-sm bg-card border-border focus-visible:ring-1",
+                  "resize-none text-xs sm:text-sm bg-card border-border/80 focus-visible:ring-2 rounded-xl transition-all",
                   isInternalNote
-                    ? "border-amber-500/50 bg-amber-500/5 focus-visible:ring-amber-500/50 text-amber-100 placeholder:text-amber-400/50"
-                    : "focus-visible:ring-amber-500/40"
+                    ? "border-amber-500/60 bg-amber-500/5 focus-visible:ring-amber-500/60 text-amber-100 placeholder:text-amber-400/50"
+                    : "focus-visible:ring-cyan-500/50"
                 )}
               />
               <Button
@@ -1281,20 +1402,20 @@ export function TicketDetailView({
                 onClick={handleSendReply}
                 disabled={addMessageMutation.isPending}
                 className={cn(
-                  "h-10 px-4 shrink-0 font-semibold gap-1.5 text-xs text-black",
+                  "h-10 px-4 shrink-0 font-bold gap-1.5 text-xs text-black rounded-xl shadow-sm transition-all active:scale-95",
                   isInternalNote
                     ? "bg-amber-400 hover:bg-amber-500"
-                    : "bg-amber-500 hover:bg-amber-600"
+                    : "bg-cyan-500 hover:bg-cyan-600"
                 )}
               >
                 <Send className="h-3.5 w-3.5" />
-                {isInternalNote ? "Salvar Nota" : "Responder"}
+                <span>{isInternalNote ? "Salvar Nota" : "Responder"}</span>
               </Button>
             </div>
           </div>
         ) : (
           <div className="border-t border-border/70 bg-gradient-to-r from-amber-500/5 via-secondary/20 to-amber-500/5 p-3.5 sm:p-4 text-center text-xs text-muted-foreground flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-2.5 shrink-0">
-            <div className="flex items-center gap-2 font-medium text-amber-400/90">
+            <div className="flex items-center gap-2 font-semibold text-amber-400/90">
               <Lock className="h-4 w-4 shrink-0 text-amber-400" />
               <span>Modo Somente Leitura:</span>
             </div>
@@ -1315,51 +1436,71 @@ export function TicketDetailView({
         </div>
       )}
 
-      {/* MODAL: Transferir Responsável */}
+      {/* MODAL 1: TRANSFERIR RESPONSÁVEL COM BUSCA E NOTA */}
       <Dialog open={transferDialogOpen} onOpenChange={setTransferDialogOpen}>
-        <DialogContent className="max-w-md bg-card border-border">
+        <DialogContent className="max-w-md bg-card/95 backdrop-blur-md border-border/80 rounded-2xl shadow-2xl">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold flex items-center gap-2">
-              <ArrowRightLeft className="h-4 w-4 text-purple-400" />
-              Transferir Chamado
+            <DialogTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+              <span className="p-1.5 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                <ArrowRightLeft className="h-4 w-4" />
+              </span>
+              <span>Transferir Atendimento do Chamado</span>
             </DialogTitle>
-            <DialogDescription className="text-xs">
-              Selecione outro membro da gerência para assumir a responsabilidade deste chamado.
+            <DialogDescription className="text-xs text-muted-foreground">
+              Selecione outro atendente ou líder para assumir a continuidade deste chamado.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 py-2">
+          <div className="space-y-3.5 py-2">
+            {/* Campo de Busca Rápida */}
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                value={transferSearchTerm}
+                onChange={(e) => setTransferSearchTerm(e.target.value)}
+                placeholder="Filtrar por nome ou apelido..."
+                className="pl-8 h-8 text-xs bg-secondary/40 border-border/70 rounded-xl"
+              />
+            </div>
+
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Novo Responsável *</Label>
-              <div className="max-h-48 overflow-y-auto space-y-1 border border-border rounded-lg p-1">
-                {managementMembers.map((m) => {
-                  const isSelected = selectedNewAssigneeId === m.user_id;
-                  return (
-                    <div
-                      key={m.user_id}
-                      onClick={() => setSelectedNewAssigneeId(m.user_id)}
-                      className={cn(
-                        "flex items-center justify-between p-2 rounded-md cursor-pointer text-xs transition-colors",
-                        isSelected
-                          ? "bg-purple-500/20 text-purple-300 font-semibold"
-                          : "hover:bg-secondary text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-5 w-5">
-                          <AvatarImage src={m.avatar_url || undefined} />
-                          <AvatarFallback className="text-[9px]">
-                            {(m?.nome || m?.nickname || "MB").slice(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span>{m.nickname || m.nome}</span>
+              <div className="max-h-48 overflow-y-auto space-y-1 border border-border/70 rounded-xl p-1 bg-secondary/20">
+                {filteredTransferMembers.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-4">Nenhum membro encontrado.</p>
+                ) : (
+                  filteredTransferMembers.map((m) => {
+                    const isSelected = selectedNewAssigneeId === m.user_id;
+                    return (
+                      <div
+                        key={m.user_id}
+                        onClick={() => setSelectedNewAssigneeId(m.user_id)}
+                        className={cn(
+                          "flex items-center justify-between p-2 rounded-lg cursor-pointer text-xs transition-colors",
+                          isSelected
+                            ? "bg-purple-500/20 text-purple-300 font-semibold border border-purple-500/40"
+                            : "hover:bg-secondary text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={m.avatar_url || undefined} />
+                            <AvatarFallback className="text-[9px]">
+                              {(m?.nome || m?.nickname || "MB").slice(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="text-left">
+                            <span className="text-foreground font-semibold block">{m.nickname || m.nome}</span>
+                            {m.nickname && <span className="text-[10px] text-muted-foreground block">{m.nome}</span>}
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="text-[9px] px-1.5 py-0">
+                          {LEVEL_LABEL[m.nivel as any] || m.nivel}
+                        </Badge>
                       </div>
-                      <Badge variant="outline" className="text-[9px] px-1 py-0">
-                        {LEVEL_LABEL[m.nivel as any] || m.nivel}
-                      </Badge>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             </div>
 
@@ -1371,18 +1512,18 @@ export function TicketDetailView({
                 id="transfer_note"
                 value={transferNote}
                 onChange={(e) => setTransferNote(e.target.value)}
-                placeholder="Ex: Transferido para resolução com 01..."
-                className="text-xs bg-secondary/30"
+                placeholder="Ex: Alinhamento de reembolso com diretoria..."
+                className="text-xs bg-secondary/30 rounded-xl"
               />
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setTransferDialogOpen(false)}
-              className="text-xs"
+              className="text-xs rounded-xl"
             >
               Cancelar
             </Button>
@@ -1390,7 +1531,7 @@ export function TicketDetailView({
               size="sm"
               onClick={handleConfirmTransfer}
               disabled={transferMutation.isPending || !selectedNewAssigneeId}
-              className="text-xs bg-purple-600 hover:bg-purple-700 text-white"
+              className="text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold"
             >
               Confirmar Transferência
             </Button>
@@ -1398,39 +1539,67 @@ export function TicketDetailView({
         </DialogContent>
       </Dialog>
 
-      {/* MODAL: Fechar Chamado */}
+      {/* MODAL 2: FECHAR CHAMADO COM CHIPS RÁPIDOS */}
       <Dialog open={closeDialogOpen} onOpenChange={setCloseDialogOpen}>
-        <DialogContent className="max-w-md bg-card border-border">
+        <DialogContent className="max-w-md bg-card/95 backdrop-blur-md border-border/80 rounded-2xl shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-base font-bold flex items-center gap-2 text-rose-400">
-              <Lock className="h-4 w-4" />
-              Finalizar e Fechar Chamado
+              <span className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                <Lock className="h-4 w-4" />
+              </span>
+              <span>Finalizar e Fechar Chamado</span>
             </DialogTitle>
-            <DialogDescription className="text-xs">
-              O chamado será marcado como fechado e todo o histórico e mensagens serão preservados para auditoria.
+            <DialogDescription className="text-xs text-muted-foreground">
+              O chamado será concluído e arquivado com auditoria completa de mensagens e anexos.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-2 py-2">
-            <Label htmlFor="close_reason" className="text-xs font-semibold">
-              Conclusão / Justificativa do Fechamento
-            </Label>
-            <Textarea
-              id="close_reason"
-              value={closeReason}
-              onChange={(e) => setCloseReason(e.target.value)}
-              placeholder="Ex: Dúvida esclarecida pelo chat / Reembolso aprovado e pago no jogo..."
-              rows={3}
-              className="text-xs bg-secondary/30"
-            />
+          <div className="space-y-3 py-2">
+            {/* Chips de Resolução Rápida em 1 Clique */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Motivos Rápidos de Conclusão:
+              </Label>
+              <div className="flex flex-wrap gap-1.5">
+                {QUICK_CLOSE_REASONS.map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => setCloseReason(chip)}
+                    className={cn(
+                      "text-[11px] px-2.5 py-1 rounded-lg border transition-all cursor-pointer font-medium",
+                      closeReason === chip
+                        ? "bg-rose-500/20 border-rose-500/50 text-rose-300 font-bold"
+                        : "bg-secondary/40 border-border/60 hover:bg-secondary hover:text-foreground text-muted-foreground"
+                    )}
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="close_reason" className="text-xs font-semibold">
+                Justificativa Detalhada do Encerramento *
+              </Label>
+              <Textarea
+                id="close_reason"
+                value={closeReason}
+                onChange={(e) => setCloseReason(e.target.value)}
+                placeholder="Ex: Dúvida esclarecida pelo chat / Reembolso aprovado e pago no jogo..."
+                rows={3}
+                className="text-xs bg-secondary/30 rounded-xl"
+              />
+            </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setCloseDialogOpen(false)}
-              className="text-xs"
+              className="text-xs rounded-xl"
             >
               Cancelar
             </Button>
@@ -1438,7 +1607,7 @@ export function TicketDetailView({
               size="sm"
               onClick={handleConfirmClose}
               disabled={closeMutation.isPending}
-              className="text-xs bg-rose-600 hover:bg-rose-700 text-white font-semibold"
+              className="text-xs bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl"
             >
               Fechar Ticket
             </Button>
@@ -1446,18 +1615,20 @@ export function TicketDetailView({
         </DialogContent>
       </Dialog>
 
-      {/* Modal Confirmar Exclusão */}
+      {/* MODAL 3: EXCLUSÃO PERMANENTE */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-card border-border">
+        <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-md border-border/80 rounded-2xl shadow-2xl">
           <DialogHeader>
             <div className="flex items-center gap-2 text-rose-400">
-              <AlertTriangle className="h-5 w-5" />
-              <DialogTitle>Excluir Chamado Permanentemente</DialogTitle>
+              <span className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                <AlertTriangle className="h-5 w-5" />
+              </span>
+              <DialogTitle className="text-base font-bold">Excluir Chamado Permanentemente</DialogTitle>
             </div>
-            <DialogDescription className="text-xs text-muted-foreground pt-1">
+            <DialogDescription className="text-xs text-muted-foreground pt-1.5">
               Tem certeza que deseja excluir o chamado{" "}
               <strong className="text-foreground">{formatTicketNumber(ticket.ticket_number)} — {ticket.subject}</strong>?
-              Esta ação não pode ser desfeita e removerá todo o histórico de mensagens e anexos.
+              Esta ação removerá todo o histórico e não poderá ser revertida.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0 pt-2">
@@ -1465,7 +1636,7 @@ export function TicketDetailView({
               variant="outline"
               size="sm"
               onClick={() => setDeleteDialogOpen(false)}
-              className="text-xs"
+              className="text-xs rounded-xl"
             >
               Cancelar
             </Button>
@@ -1474,25 +1645,27 @@ export function TicketDetailView({
               size="sm"
               onClick={handleConfirmDelete}
               disabled={deleteMutation.isPending}
-              className="text-xs gap-1.5 bg-rose-600 hover:bg-rose-700 text-white"
+              className="text-xs gap-1.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              {deleteMutation.isPending ? "Excluindo..." : "Confirmar Exclusão"}
+              <span>{deleteMutation.isPending ? "Excluindo..." : "Confirmar Exclusão"}</span>
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Modal Adicionar Membro ao Chamado */}
+      {/* MODAL 4: ADICIONAR MEMBRO AO CHAMADO COM FILTRO */}
       <Dialog open={memberDialogOpen} onOpenChange={setMemberDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-card border-border">
+        <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-md border-border/80 rounded-2xl shadow-2xl">
           <DialogHeader>
             <div className="flex items-center gap-2 text-amber-400">
-              <UserPlus className="h-5 w-5" />
-              <DialogTitle>Adicionar Membro ao Chamado</DialogTitle>
+              <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                <UserPlus className="h-4 w-4" />
+              </span>
+              <DialogTitle className="text-base font-bold">Adicionar Membro ao Chamado</DialogTitle>
             </div>
             <DialogDescription className="text-xs text-muted-foreground pt-1">
-              O membro adicionado poderá visualizar todo o histórico do chamado e participar das mensagens.
+              O membro adicionado poderá acompanhar as mensagens e contribuir com o chamado.
             </DialogDescription>
           </DialogHeader>
 
@@ -1503,7 +1676,7 @@ export function TicketDetailView({
                 value={memberSearchTerm}
                 onChange={(e) => setMemberSearchTerm(e.target.value)}
                 placeholder="Buscar membro por nome ou apelido..."
-                className="pl-8 h-8 text-xs bg-secondary/40 border-border"
+                className="pl-8 h-8 text-xs bg-secondary/40 border-border/70 rounded-xl"
                 autoFocus
               />
             </div>
@@ -1517,10 +1690,10 @@ export function TicketDetailView({
                 availableMembersToAdd.map((m) => (
                   <div
                     key={m.user_id}
-                    className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/50 border border-transparent hover:border-border/60 transition-all"
+                    className="flex items-center justify-between p-2 rounded-xl hover:bg-secondary/50 border border-transparent hover:border-border/60 transition-all"
                   >
                     <div className="flex items-center gap-2">
-                      <Avatar className="h-6 w-6">
+                      <Avatar className="h-7 w-7 rounded-lg">
                         <AvatarImage src={m.avatar_url || m.discord_avatar_url || undefined} />
                         <AvatarFallback className="text-[9px]">
                           {(m?.nome || m?.nickname || "MB").slice(0, 2).toUpperCase()}
@@ -1553,10 +1726,10 @@ export function TicketDetailView({
                         setMemberDialogOpen(false);
                       }}
                       disabled={addMemberMutation.isPending}
-                      className="h-7 text-xs bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border-amber-500/30 gap-1"
+                      className="h-7 text-xs bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border-amber-500/30 gap-1 rounded-lg"
                     >
                       <Plus className="h-3 w-3" />
-                      Adicionar
+                      <span>Adicionar</span>
                     </Button>
                   </div>
                 ))
@@ -1566,17 +1739,28 @@ export function TicketDetailView({
         </DialogContent>
       </Dialog>
 
-      {/* Lightbox / Imagem Tela Cheia */}
+      {/* MODAL 5: LIGHTBOX / IMAGEM TELA CHEIA */}
       {lightboxImage && (
         <Dialog open={Boolean(lightboxImage)} onOpenChange={() => setLightboxImage(null)}>
-          <DialogContent className="max-w-4xl p-2 bg-black/95 border-border">
-            <div className="relative flex flex-col items-center justify-center p-2">
+          <DialogContent className="max-w-4xl p-3 bg-black/95 border-border/80 backdrop-blur-xl rounded-2xl shadow-2xl">
+            <div className="relative flex flex-col items-center justify-center p-2 space-y-3">
+              <div className="w-full flex items-center justify-between text-xs text-muted-foreground px-2">
+                <span className="font-mono truncate max-w-md">{lightboxImage.name}</span>
+                <a
+                  href={lightboxImage.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1.5 text-cyan-400 hover:underline font-semibold"
+                >
+                  <span>Abrir em nova aba</span>
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                </a>
+              </div>
               <img
                 src={lightboxImage.url}
                 alt={lightboxImage.name}
-                className="max-h-[85vh] w-auto rounded object-contain"
+                className="max-h-[80vh] w-auto rounded-xl object-contain shadow-2xl border border-white/10"
               />
-              <p className="text-xs text-muted-foreground mt-2">{lightboxImage.name}</p>
             </div>
           </DialogContent>
         </Dialog>

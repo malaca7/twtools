@@ -13,6 +13,7 @@ import {
   Check,
   LifeBuoy,
   Loader2,
+  ArrowUpRight,
 } from "lucide-react";
 import {
   Dialog,
@@ -89,7 +90,7 @@ export function NewTicketDialog({ open, onOpenChange }: NewTicketDialogProps) {
     }
 
     setIsUploadingAttachment(true);
-    const toastId = toast.loading("Enviando imagem...");
+    const toastId = toast.loading("Enviando print/imagem para o chamado...");
     try {
       const newAtt = await uploadTicketAttachment(file);
       setAttachments((prev) => [...prev, newAtt]);
@@ -170,20 +171,20 @@ export function NewTicketDialog({ open, onOpenChange }: NewTicketDialogProps) {
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
-          className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card border-border p-4 sm:p-6"
+          className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card/95 backdrop-blur-md border-border/80 p-4 sm:p-6 rounded-2xl shadow-2xl"
           onPaste={handlePaste}
         >
           <DialogHeader className="space-y-1">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shadow-sm">
                 <LifeBuoy className="h-5 w-5" />
               </div>
               <div>
-                <DialogTitle className="text-lg sm:text-xl font-bold">
+                <DialogTitle className="text-lg sm:text-xl font-black text-foreground tracking-tight">
                   Novo Chamado / Ouvidoria
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground">
-                  Abra uma solicitação confidencial para a gerência do grupo Twin Wheels.
+                  Abra uma solicitação confidencial e acompanhe o atendimento com a gerência do grupo.
                 </DialogDescription>
               </div>
             </div>
@@ -192,12 +193,12 @@ export function NewTicketDialog({ open, onOpenChange }: NewTicketDialogProps) {
           <form onSubmit={handleSubmit} className="space-y-4 pt-2">
             {/* 1. Categorias */}
             <div className="space-y-2">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                1. Categoria da Solicitação *
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <span>1. Categoria da Solicitação</span>
+                <span className="text-rose-400">*</span>
               </Label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {TICKET_CATEGORIES.map((cat) => {
-                  const Icon = CATEGORY_ICONS[cat.id] || HelpCircle;
                   const isSelected = category === cat.id;
                   return (
                     <button
@@ -205,18 +206,18 @@ export function NewTicketDialog({ open, onOpenChange }: NewTicketDialogProps) {
                       key={cat.id}
                       onClick={() => setCategory(cat.id)}
                       className={cn(
-                        "relative flex flex-col items-start text-left p-2.5 rounded-lg border transition-all select-none",
+                        "relative flex flex-col items-start text-left p-2.5 rounded-xl border transition-all select-none cursor-pointer",
                         isSelected
-                          ? "bg-amber-500/15 border-amber-500/50 shadow-sm shadow-amber-500/10 text-foreground ring-1 ring-amber-500/40"
+                          ? "bg-cyan-500/15 border-cyan-500/50 shadow-sm shadow-cyan-500/10 text-foreground ring-1 ring-cyan-500/40"
                           : "bg-secondary/40 border-border/70 hover:bg-secondary/70 hover:border-border text-muted-foreground hover:text-foreground"
                       )}
                     >
                       <div className="flex items-center gap-1.5 w-full">
                         <span className="text-base leading-none">{cat.emoji}</span>
-                        <span className="text-xs font-semibold truncate flex-1">{cat.label}</span>
-                        {isSelected && <Check className="h-3.5 w-3.5 text-amber-400 shrink-0" />}
+                        <span className="text-xs font-bold truncate flex-1">{cat.label}</span>
+                        {isSelected && <Check className="h-3.5 w-3.5 text-cyan-400 shrink-0" />}
                       </div>
-                      <p className="text-[10px] text-muted-foreground line-clamp-2 mt-1 leading-tight">
+                      <p className="text-[10px] text-muted-foreground line-clamp-2 mt-1 leading-tight font-medium">
                         {cat.description}
                       </p>
                     </button>
@@ -228,8 +229,9 @@ export function NewTicketDialog({ open, onOpenChange }: NewTicketDialogProps) {
             {/* 2. Prioridade & Assunto */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="sm:col-span-2 space-y-1.5">
-                <Label htmlFor="subject" className="text-xs font-semibold">
-                  Assunto do Chamado *
+                <Label htmlFor="subject" className="text-xs font-bold flex items-center gap-1">
+                  <span>Assunto do Chamado</span>
+                  <span className="text-rose-400">*</span>
                 </Label>
                 <Input
                   id="subject"
@@ -237,13 +239,13 @@ export function NewTicketDialog({ open, onOpenChange }: NewTicketDialogProps) {
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder="Ex: Dúvida sobre baú de suprimentos..."
                   maxLength={100}
-                  className="bg-secondary/30 border-border text-sm"
+                  className="bg-secondary/30 border-border/70 text-xs sm:text-sm rounded-xl focus-visible:ring-cyan-500/40"
                   required
                 />
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Prioridade</Label>
+                <Label className="text-xs font-bold">Prioridade</Label>
                 <div className="grid grid-cols-2 gap-1.5">
                   {TICKET_PRIORITIES.map((pri) => {
                     const isSelected = priority === pri.id;
@@ -253,9 +255,9 @@ export function NewTicketDialog({ open, onOpenChange }: NewTicketDialogProps) {
                         key={pri.id}
                         onClick={() => setPriority(pri.id)}
                         className={cn(
-                          "flex items-center justify-center gap-1.5 px-2 py-2 rounded-md border text-xs font-medium transition-all",
+                          "flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl border text-xs font-medium transition-all cursor-pointer",
                           isSelected
-                            ? "border-amber-500/50 bg-amber-500/15 text-amber-300 font-semibold shadow-sm"
+                            ? "border-cyan-500/50 bg-cyan-500/15 text-cyan-300 font-bold shadow-xs"
                             : "border-border/60 bg-secondary/30 text-muted-foreground hover:bg-secondary hover:text-foreground"
                         )}
                       >
@@ -271,10 +273,11 @@ export function NewTicketDialog({ open, onOpenChange }: NewTicketDialogProps) {
             {/* 3. Descrição */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label htmlFor="description" className="text-xs font-semibold">
-                  Descrição Detalhada *
+                <Label htmlFor="description" className="text-xs font-bold flex items-center gap-1">
+                  <span>Descrição Detalhada</span>
+                  <span className="text-rose-400">*</span>
                 </Label>
-                <span className="text-[10px] text-muted-foreground">
+                <span className="text-[10px] text-muted-foreground font-mono">
                   {description.length} caracteres
                 </span>
               </div>
@@ -284,7 +287,7 @@ export function NewTicketDialog({ open, onOpenChange }: NewTicketDialogProps) {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder={CATEGORY_PLACEHOLDERS[category]}
                 rows={4}
-                className="bg-secondary/30 border-border text-sm resize-none focus-visible:ring-1 focus-visible:ring-amber-500/40"
+                className="bg-secondary/30 border-border/70 text-xs sm:text-sm resize-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 rounded-xl leading-relaxed"
                 required
               />
             </div>
@@ -292,12 +295,12 @@ export function NewTicketDialog({ open, onOpenChange }: NewTicketDialogProps) {
             {/* 4. Anexos / Comprovantes */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-xs font-semibold flex items-center gap-1.5">
-                  <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
-                  Anexos / Prints (Opcional)
+                <Label className="text-xs font-bold flex items-center gap-1.5 text-muted-foreground">
+                  <Paperclip className="h-3.5 w-3.5 text-cyan-400" />
+                  <span>Anexos / Prints (Opcional)</span>
                 </Label>
-                <span className="text-[10px] text-muted-foreground">
-                  Dica: Você pode pressionar <kbd className="px-1 py-0.5 rounded bg-muted text-[9px] border">Ctrl+V</kbd> para colar prints
+                <span className="text-[10px] text-muted-foreground hidden sm:inline">
+                  Dica: Pressione <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] border border-border">Ctrl + V</kbd> para colar prints
                 </span>
               </div>
 
@@ -311,18 +314,18 @@ export function NewTicketDialog({ open, onOpenChange }: NewTicketDialogProps) {
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
                 className={cn(
-                  "border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-1.5 select-none",
+                  "border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-1.5 select-none",
                   isDragging
-                    ? "border-amber-500 bg-amber-500/10 text-amber-300"
-                    : "border-border/60 hover:border-amber-500/40 hover:bg-secondary/30 text-muted-foreground"
+                    ? "border-cyan-500 bg-cyan-500/10 text-cyan-300"
+                    : "border-border/60 hover:border-cyan-500/40 hover:bg-secondary/30 text-muted-foreground"
                 )}
               >
-                <UploadCloud className="h-6 w-6 text-muted-foreground" />
-                <p className="text-xs font-medium">
+                <UploadCloud className="h-6 w-6 text-cyan-400/80" />
+                <p className="text-xs font-semibold text-foreground">
                   Clique para selecionar imagens ou arraste para cá
                 </p>
                 <p className="text-[10px] text-muted-foreground">
-                  PNG, JPG, WEBP até 8MB
+                  PNG, JPG, WEBP até 10MB
                 </p>
                 <input
                   ref={fileInputRef}
@@ -347,7 +350,7 @@ export function NewTicketDialog({ open, onOpenChange }: NewTicketDialogProps) {
                   {attachments.map((att) => (
                     <div
                       key={att.id}
-                      className="group relative w-20 h-20 rounded-md overflow-hidden border border-border/80 bg-secondary/50"
+                      className="group relative w-20 h-20 rounded-xl overflow-hidden border border-border/80 bg-secondary/50 shadow-xs"
                     >
                       <img
                         src={att.url}
@@ -361,7 +364,7 @@ export function NewTicketDialog({ open, onOpenChange }: NewTicketDialogProps) {
                           e.stopPropagation();
                           removeAttachment(att.id);
                         }}
-                        className="absolute top-1 right-1 p-1 rounded-full bg-black/70 hover:bg-rose-600 text-white opacity-90 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-1 right-1 p-1 rounded-full bg-black/80 hover:bg-rose-600 text-white transition-colors"
                         title="Remover anexo"
                       >
                         <X className="h-3 w-3" />
@@ -372,30 +375,30 @@ export function NewTicketDialog({ open, onOpenChange }: NewTicketDialogProps) {
               )}
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0 pt-2 border-t border-border/60">
+            <DialogFooter className="gap-2 sm:gap-0 pt-3 border-t border-border/60">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
                 disabled={createTicketMutation.isPending}
-                className="text-xs h-9"
+                className="text-xs h-9 rounded-xl"
               >
                 Cancelar
               </Button>
               <Button
                 type="submit"
                 disabled={createTicketMutation.isPending || !canCreate}
-                className="text-xs h-9 bg-amber-500 hover:bg-amber-600 text-black font-semibold gap-1.5"
+                className="text-xs h-9 bg-cyan-500 hover:bg-cyan-600 text-black font-bold gap-1.5 rounded-xl shadow-sm"
               >
                 {createTicketMutation.isPending ? (
                   <>
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Abrindo Chamado...
+                    <span>Abrindo Chamado...</span>
                   </>
                 ) : (
                   <>
                     <Plus className="h-3.5 w-3.5" />
-                    Abrir Chamado
+                    <span>Abrir Chamado</span>
                   </>
                 )}
               </Button>
@@ -407,14 +410,25 @@ export function NewTicketDialog({ open, onOpenChange }: NewTicketDialogProps) {
       {/* Lightbox / Preview Dialog */}
       {previewAttachment && (
         <Dialog open={Boolean(previewAttachment)} onOpenChange={() => setPreviewAttachment(null)}>
-          <DialogContent className="max-w-4xl p-2 bg-black/95 border-border">
-            <div className="relative flex flex-col items-center justify-center p-2">
+          <DialogContent className="max-w-4xl p-3 bg-black/95 border-border/80 backdrop-blur-xl rounded-2xl shadow-2xl">
+            <div className="relative flex flex-col items-center justify-center p-2 space-y-3">
+              <div className="w-full flex items-center justify-between text-xs text-muted-foreground px-2">
+                <span className="font-mono truncate max-w-md">{previewAttachment.name}</span>
+                <a
+                  href={previewAttachment.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1.5 text-cyan-400 hover:underline font-semibold"
+                >
+                  <span>Abrir em nova aba</span>
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                </a>
+              </div>
               <img
                 src={previewAttachment.url}
                 alt={previewAttachment.name}
-                className="max-h-[80vh] w-auto rounded object-contain"
+                className="max-h-[80vh] w-auto rounded-xl object-contain shadow-2xl border border-white/10"
               />
-              <p className="text-xs text-muted-foreground mt-2">{previewAttachment.name}</p>
             </div>
           </DialogContent>
         </Dialog>

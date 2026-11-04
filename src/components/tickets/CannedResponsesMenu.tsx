@@ -193,10 +193,10 @@ export function CannedResponsesMenu({ onSelect, disabled = false }: CannedRespon
             variant="outline"
             size="sm"
             disabled={disabled}
-            className="h-8 text-xs gap-1.5 font-bold border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 rounded-lg cursor-pointer"
+            className="h-7 text-xs gap-1.5 font-bold border-amber-500/35 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 rounded-lg cursor-pointer shadow-2xs transition-all active:scale-95"
             title="Inserir modelo de resposta rápida no chamado"
           >
-            <Zap className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+            <Zap className="h-3 w-3 fill-amber-400 text-amber-400" />
             <span className="hidden sm:inline">Respostas Rápidas</span>
             <span className="sm:hidden">Macros</span>
           </Button>
@@ -204,22 +204,22 @@ export function CannedResponsesMenu({ onSelect, disabled = false }: CannedRespon
         <DropdownMenuContent
           align="start"
           sideOffset={8}
-          className="w-80 sm:w-96 max-h-[460px] overflow-y-auto p-2 bg-card border-border shadow-2xl z-[10000]"
+          className="w-80 sm:w-96 max-h-[460px] overflow-y-auto p-2 bg-card/95 backdrop-blur-md border-border/80 shadow-2xl rounded-2xl z-[10000]"
         >
           <div className="flex items-center justify-between px-2 py-1 mb-1.5">
-            <DropdownMenuLabel className="p-0 text-xs font-bold flex items-center gap-1.5 text-amber-400">
+            <DropdownMenuLabel className="p-0 text-xs font-black flex items-center gap-1.5 text-amber-400">
               <Zap className="h-3.5 w-3.5 fill-amber-400" />
-              Modelos de Atendimento
+              <span>Modelos de Atendimento</span>
             </DropdownMenuLabel>
             <Button
               type="button"
               variant="ghost"
               size="sm"
               onClick={() => setIsNewDialogOpen(true)}
-              className="h-6 px-2 text-[10px] font-bold gap-1 text-primary hover:bg-primary/10 rounded-md"
+              className="h-6 px-2 text-[10px] font-bold gap-1 text-cyan-400 hover:bg-cyan-500/10 rounded-lg"
             >
               <Plus className="h-3 w-3" />
-              Criar Novo
+              <span>Novo Modelo</span>
             </Button>
           </div>
 
@@ -228,15 +228,15 @@ export function CannedResponsesMenu({ onSelect, disabled = false }: CannedRespon
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
-                placeholder="Buscar modelo por título ou palavra-chave..."
+                placeholder="Buscar por título ou texto..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-8 pl-8 text-xs bg-secondary/50 border-border/70 rounded-lg"
+                className="h-8 pl-8 text-xs bg-secondary/50 border-border/70 rounded-xl"
               />
             </div>
           </div>
 
-          <DropdownMenuSeparator className="my-1" />
+          <DropdownMenuSeparator className="my-1 border-border/50" />
 
           {filteredResponses.length === 0 ? (
             <div className="p-4 text-center text-xs text-muted-foreground">
@@ -250,12 +250,12 @@ export function CannedResponsesMenu({ onSelect, disabled = false }: CannedRespon
                   <DropdownMenuItem
                     key={item.id}
                     onClick={() => onSelect(item.text, item.isInternal)}
-                    className="flex flex-col items-start gap-1 p-2 rounded-lg cursor-pointer hover:bg-secondary/70 focus:bg-secondary transition-all group"
+                    className="flex flex-col items-start gap-1 p-2 rounded-xl cursor-pointer hover:bg-secondary/70 focus:bg-secondary transition-all group"
                   >
                     <div className="flex items-center justify-between w-full">
                       <div className="flex items-center gap-1.5 font-bold text-xs text-foreground group-hover:text-amber-300">
                         {item.isInternal && (
-                          <Badge variant="outline" className="text-[9px] px-1 py-0 border-amber-500/40 text-amber-400 bg-amber-500/10 gap-0.5">
+                          <Badge variant="outline" className="text-[9px] px-1 py-0 border-amber-500/40 text-amber-400 bg-amber-500/10 gap-0.5 rounded-full font-bold">
                             <Lock className="h-2.5 w-2.5" />
                             Nota
                           </Badge>
@@ -289,14 +289,16 @@ export function CannedResponsesMenu({ onSelect, disabled = false }: CannedRespon
 
       {/* DIÁLOGO: CRIAR NOVO MODELO PERSONALIZADO */}
       <Dialog open={isNewDialogOpen} onOpenChange={setIsNewDialogOpen}>
-        <DialogContent className="max-w-md bg-card border-border">
+        <DialogContent className="max-w-md bg-card/95 backdrop-blur-md border-border/80 rounded-2xl shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-base font-bold flex items-center gap-2 text-amber-400">
-              <Sparkles className="h-4 w-4" />
-              Criar Modelo de Resposta Rápida
+              <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                <Sparkles className="h-4 w-4" />
+              </span>
+              <span>Criar Modelo de Resposta Rápida</span>
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Salve suas próprias respostas padronizadas para agilizar atendimentos repetitivos no dia a dia.
+              Salve suas próprias respostas padronizadas para agilizar atendimentos operacionais no dia a dia.
             </DialogDescription>
           </DialogHeader>
 
@@ -307,7 +309,7 @@ export function CannedResponsesMenu({ onSelect, disabled = false }: CannedRespon
                 placeholder="Ex: 🚗 Veículo Apreendido / Resgate"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                className="text-xs bg-secondary/40 border-border"
+                className="text-xs bg-secondary/40 border-border/70 rounded-xl"
               />
             </div>
 
@@ -318,15 +320,15 @@ export function CannedResponsesMenu({ onSelect, disabled = false }: CannedRespon
                 value={newText}
                 onChange={(e) => setNewText(e.target.value)}
                 rows={4}
-                className="text-xs bg-secondary/40 border-border resize-none"
+                className="text-xs bg-secondary/40 border-border/70 resize-none rounded-xl leading-relaxed"
               />
             </div>
 
             <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/30 border border-border/60">
               <div className="space-y-0.5">
-                <Label className="text-xs font-semibold flex items-center gap-1.5">
+                <Label className="text-xs font-bold flex items-center gap-1.5 text-foreground">
                   <Lock className="h-3.5 w-3.5 text-amber-400" />
-                  Inserir como Nota Interna
+                  <span>Inserir como Nota Interna</span>
                 </Label>
                 <p className="text-[11px] text-muted-foreground">
                   Se ativado, ao clicar no modelo ele marcará automaticamente como nota interna confidencial.
@@ -336,13 +338,13 @@ export function CannedResponsesMenu({ onSelect, disabled = false }: CannedRespon
             </div>
           </div>
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => setIsNewDialogOpen(false)}
-              className="text-xs"
+              className="text-xs rounded-xl"
             >
               Cancelar
             </Button>
@@ -350,10 +352,10 @@ export function CannedResponsesMenu({ onSelect, disabled = false }: CannedRespon
               type="button"
               size="sm"
               onClick={handleSaveCustom}
-              className="text-xs font-bold gap-1 bg-amber-500 hover:bg-amber-600 text-black"
+              className="text-xs font-bold gap-1 bg-amber-500 hover:bg-amber-600 text-black rounded-xl shadow-xs"
             >
               <Check className="h-3.5 w-3.5" />
-              Salvar Modelo
+              <span>Salvar Modelo</span>
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -361,4 +363,3 @@ export function CannedResponsesMenu({ onSelect, disabled = false }: CannedRespon
     </>
   );
 }
-
