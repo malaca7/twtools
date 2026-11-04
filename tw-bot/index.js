@@ -454,7 +454,6 @@ async function syncDiscordBotProfile(avatarUrl, bannerUrl, force = false, userna
     };
   }
 }
-}
 
 /**
  * Atualiza caches auxiliares (produtos, baús, perfis)
