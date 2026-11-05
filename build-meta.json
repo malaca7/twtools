@@ -1,5 +1,5 @@
 {
-  "deployed_at": "2026-11-05T21:22:16.684Z",
-  "timestamp": 1793913736685,
-  "message": "^fix^(database^):^ restaurar^ dados^ do^ painel^ e^ banco^ de^ dados^ de^ 2^ dias^ atras^"
+  "deployed_at": "2026-11-05T21:38:55.484Z",
+  "timestamp": 1793914735485,
+  "message": "^fix:^ resolver^ erro^ de^ inicializacao^ da^ plataforma^"
 }
