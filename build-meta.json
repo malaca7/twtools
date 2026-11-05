@@ -1,5 +1,5 @@
 {
-  "deployed_at": "2026-11-05T22:15:08.188Z",
-  "timestamp": 1793916908189,
-  "message": "^fix^(auth^):^ restringir^ acesso^ ao^ painel^ dev^ apenas^ para^ membros^ com^ tag^ dev^ ativa^"
+  "deployed_at": "2026-11-05T22:46:00.176Z",
+  "timestamp": 1793918760177,
+  "message": "^fix^(auth^):^ sincronizar^ tag^ dev^ com^ supabase^ e^ exibir^ painel^ dev^ para^ usuarios^ atribuidos^"
 }
