@@ -58,6 +58,7 @@ import {
   Swords,
   Palette,
   BadgeCheck,
+  Coins,
 } from "lucide-react";
 import { resolveMenuIcon } from "@/lib/menuIcons";
 import {
