@@ -77,6 +77,43 @@ export async function getCurrentAuth(): Promise<AuthState> {
 
           // Sincroniza em tempo real com os dados mais recentes do banco / RTDB para refletir mudanças instantâneas
           try {
+            const orFilters: string[] = [];
+            if (currentUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(currentUserId))) {
+              orFilters.push(`id.eq.${currentUserId}`, `user_id.eq.${currentUserId}`);
+            }
+            if (dev.discord_id) {
+              orFilters.push(`discord_id.eq.${dev.discord_id}`);
+            }
+            if (orFilters.length > 0) {
+              const { data: supaProf } = await supabase
+                .from("profiles" as any)
+                .select("id, user_id, nome, nickname, telefone, game_id, avatar_url, banner_url, status, data_entrada, discord_id, discord_username, discord_avatar_url, discord_email, is_developer, is_ceo, custom_theme, bio, custom_status, custom_url, stars_rating, stars_count, is_verified")
+                .or(orFilters.join(","))
+                .maybeSingle();
+
+              if (supaProf) {
+                if (supaProf.status) dev.status = supaProf.status;
+                if (supaProf.is_developer !== undefined && supaProf.is_developer !== null) dev.is_developer = Boolean(supaProf.is_developer);
+                if (supaProf.is_ceo !== undefined && supaProf.is_ceo !== null) dev.is_ceo = Boolean(supaProf.is_ceo);
+                if (supaProf.custom_theme) dev.custom_theme = supaProf.custom_theme;
+                if (supaProf.nome) dev.nome = supaProf.nome;
+                if (supaProf.nickname !== undefined) dev.nickname = supaProf.nickname;
+                if (supaProf.avatar_url) dev.avatar_url = supaProf.avatar_url;
+                if (supaProf.is_verified !== undefined) dev.is_verified = Boolean(supaProf.is_verified);
+              }
+
+              if (currentUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(currentUserId))) {
+                const { data: roleRow } = await supabase
+                  .from("user_roles")
+                  .select("nivel")
+                  .eq("user_id", currentUserId)
+                  .maybeSingle();
+                if (roleRow?.nivel) {
+                  dev.nivel = roleRow.nivel;
+                }
+              }
+            }
+
             const { rtdb } = await import("@/integrations/firebase/rtdb");
             const roles = await rtdb.getList<any>("user_roles");
             const userRole = roles.find(r => r && (r.user_id === currentUserId || r.user_id === dev.id));

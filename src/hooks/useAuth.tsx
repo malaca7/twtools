@@ -115,17 +115,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (simRaw) {
         try {
           const sim = JSON.parse(simRaw);
+          const currentUserId = sim.user_id || sim.id;
+          const discordId = sim.discord_id ? String(sim.discord_id) : null;
 
-          // Auto-correção: Se for a conta Developers/Dev (917826984778797087) ou perfil sem tag dev, remove privilégio dev legado
-          if (sim.is_developer && (String(sim.discord_id) === "917826984778797087" || (sim.discord_id && !DEV_DISCORD_IDS.includes(String(sim.discord_id)) && sim.nivel !== "desenvolvedor"))) {
-            sim.is_developer = false;
-            if (sim.nivel === "desenvolvedor") sim.nivel = sim.is_ceo ? "01" : "membro";
-            sessionStorage.setItem("tw_dev_impersonate", JSON.stringify(sim));
-            localStorage.setItem("tw_dev_impersonate", JSON.stringify(sim));
-            if (localStorage.getItem("tw_panel_mode") === "dev") {
-              localStorage.setItem("tw_panel_mode", sim.is_ceo ? "ceo" : "member");
+          // Sincroniza dinamicamente com o perfil do Supabase (profiles) para refletir atribuição/revogação instantânea da Tag Dev
+          try {
+            const orFilters: string[] = [];
+            if (currentUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(currentUserId))) {
+              orFilters.push(`id.eq.${currentUserId}`, `user_id.eq.${currentUserId}`);
             }
-          }
+            if (discordId) {
+              orFilters.push(`discord_id.eq.${discordId}`);
+            }
+            if (orFilters.length > 0) {
+              const { data: supaProf } = await supabase
+                .from("profiles" as any)
+                .select("id, user_id, nome, nickname, telefone, game_id, avatar_url, banner_url, status, data_entrada, discord_id, discord_username, discord_avatar_url, discord_email, is_developer, is_ceo, custom_theme, bio, custom_status, custom_url, stars_rating, stars_count, is_verified")
+                .or(orFilters.join(","))
+                .maybeSingle();
+
+              if (supaProf) {
+                if (supaProf.is_developer !== undefined && supaProf.is_developer !== null) {
+                  sim.is_developer = Boolean(supaProf.is_developer);
+                }
+                if (supaProf.is_ceo !== undefined && supaProf.is_ceo !== null) {
+                  sim.is_ceo = Boolean(supaProf.is_ceo);
+                }
+                if (supaProf.status) sim.status = supaProf.status;
+                if (supaProf.nickname) sim.nickname = supaProf.nickname;
+                if (supaProf.nome) sim.nome = supaProf.nome;
+                if (supaProf.avatar_url) sim.avatar_url = supaProf.avatar_url;
+                if (supaProf.is_verified !== undefined) sim.is_verified = Boolean(supaProf.is_verified);
+                if (supaProf.custom_theme) sim.custom_theme = supaProf.custom_theme;
+
+                sessionStorage.setItem("tw_dev_impersonate", JSON.stringify(sim));
+                localStorage.setItem("tw_dev_impersonate", JSON.stringify(sim));
+              }
+            }
+          } catch {}
+
           const simState: AuthState = {
             user: { id: sim.user_id || "dev-sim", email: sim.discord_email || null },
             profile: {
@@ -154,7 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               custom_url: sim.custom_url || sim.custom_theme?.custom_url || null,
               is_verified: Boolean(sim.is_verified === true),
             },
-            level: sim.nivel || "novato",
+            level: sim.is_developer ? "desenvolvedor" : (sim.nivel || "novato"),
             signupRequestStatus: null,
             approvedAccess: true,
           };
@@ -183,17 +211,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (devRaw) {
         try {
           const dev = JSON.parse(devRaw);
+          const currentUserId = dev.user_id || dev.id;
+          const discordId = dev.discord_id ? String(dev.discord_id) : null;
 
-          // Auto-correção: Se for a conta Developers/Dev (917826984778797087) ou perfil sem tag dev, remove privilégio dev legado
-          if (dev.is_developer && (String(dev.discord_id) === "917826984778797087" || (dev.discord_id && !DEV_DISCORD_IDS.includes(String(dev.discord_id)) && dev.nivel !== "desenvolvedor"))) {
-            dev.is_developer = false;
-            if (dev.nivel === "desenvolvedor") dev.nivel = dev.is_ceo ? "01" : "membro";
-            localStorage.setItem("tw_dev_impersonate", JSON.stringify(dev));
-            sessionStorage.setItem("tw_dev_impersonate", JSON.stringify(dev));
-            if (localStorage.getItem("tw_panel_mode") === "dev") {
-              localStorage.setItem("tw_panel_mode", dev.is_ceo ? "ceo" : "member");
+          // Sincroniza dinamicamente com o perfil do Supabase (profiles) para refletir atribuição/revogação instantânea da Tag Dev
+          try {
+            const orFilters: string[] = [];
+            if (currentUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(currentUserId))) {
+              orFilters.push(`id.eq.${currentUserId}`, `user_id.eq.${currentUserId}`);
             }
-          }
+            if (discordId) {
+              orFilters.push(`discord_id.eq.${discordId}`);
+            }
+            if (orFilters.length > 0) {
+              const { data: supaProf } = await supabase
+                .from("profiles" as any)
+                .select("id, user_id, nome, nickname, telefone, game_id, avatar_url, banner_url, status, data_entrada, discord_id, discord_username, discord_avatar_url, discord_email, is_developer, is_ceo, custom_theme, bio, custom_status, custom_url, stars_rating, stars_count, is_verified")
+                .or(orFilters.join(","))
+                .maybeSingle();
+
+              if (supaProf) {
+                if (supaProf.is_developer !== undefined && supaProf.is_developer !== null) {
+                  dev.is_developer = Boolean(supaProf.is_developer);
+                }
+                if (supaProf.is_ceo !== undefined && supaProf.is_ceo !== null) {
+                  dev.is_ceo = Boolean(supaProf.is_ceo);
+                }
+                if (supaProf.status) dev.status = supaProf.status;
+                if (supaProf.nickname) dev.nickname = supaProf.nickname;
+                if (supaProf.nome) dev.nome = supaProf.nome;
+                if (supaProf.avatar_url) dev.avatar_url = supaProf.avatar_url;
+                if (supaProf.is_verified !== undefined) dev.is_verified = Boolean(supaProf.is_verified);
+                if (supaProf.custom_theme) dev.custom_theme = supaProf.custom_theme;
+
+                localStorage.setItem("tw_dev_impersonate", JSON.stringify(dev));
+                sessionStorage.setItem("tw_dev_impersonate", JSON.stringify(dev));
+              }
+            }
+          } catch {}
+
           const devState: AuthState = {
             user: { id: dev.user_id, email: dev.discord_email || null },
             profile: {
@@ -222,7 +278,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               custom_url: dev.custom_url || dev.custom_theme?.custom_url || null,
               is_verified: Boolean(dev.is_verified === true),
             },
-            level: dev.nivel || "novato",
+            level: dev.is_developer ? "desenvolvedor" : (dev.nivel || "novato"),
             signupRequestStatus: dev.status === "pendente" ? "pendente" : (dev.status === "rejeitado" ? "rejeitado" : null),
             approvedAccess: dev.status === "ativo",
           };
@@ -1242,7 +1298,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Checagem se o membro é Desenvolvedor (base ou concedido por tag ativa)
   const isDevUser = useMemo(() => {
-    // 1. REGRA ABSOLUTA: Se o perfil tem explicitamente is_developer === false e cargo não é desenvolvedor, NUNCA é dev!
+    // 1. PRIORIDADE MÁXIMA: Se o perfil tem explicitamente is_developer === true ou cargo desenvolvedor, É DEV!
+    if ((profile as any)?.is_developer === true || level === "desenvolvedor" || (profile as any)?.role === "desenvolvedor") {
+      return true;
+    }
+
+    // 2. REGRA ABSOLUTA: Se o perfil tem explicitamente is_developer === false e cargo não é desenvolvedor, NUNCA é dev!
     if (profile && (profile as any).is_developer === false && level !== "desenvolvedor") {
       const hasFormalDevTag = memberTags.some((t) => {
         if (t.is_active === false) return false;
