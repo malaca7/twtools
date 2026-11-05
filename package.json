@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "build:spa": "vite build --config vite.spa.config.ts && node -e \"import('fs').then(f => f.copyFileSync('dist/index.html', 'dist/404.html'))\"",
+    "build:spa": "vite build --config vite.spa.config.ts && node -e \"import('fs').then(f => { f.copyFileSync('dist/index.html', 'dist/404.html'); f.writeFileSync('dist/.nojekyll', ''); })\"",
     "deploy:spa": "npm run build:spa && node deploy.cjs",
     "migrate:firebase": "node scripts/master_migration_to_firebase.cjs",
     "migrate:metas": "node scripts/migrate_all_goals_and_deliveries_to_firebase.cjs",
