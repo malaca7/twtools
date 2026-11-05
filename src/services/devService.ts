@@ -227,8 +227,7 @@ export async function saveAdminTagPermissions(
 }
 
 export const DEV_DISCORD_IDS: string[] = [
-  "722320491767136346", // Malaca (Fundador & Dev)
-  "917826984778797087", // Malaca (Fundador & Dev)
+  "722320491767136346", // Malaca (Fundador & Dev Master)
 ];
 
 /**
@@ -240,7 +239,16 @@ export function isUserDeveloper(
   profile?: Profile | null,
   level?: AppLevel | null
 ): boolean {
-  // Fundador permanente
+  // 1. REGRA ABSOLUTA: Se o perfil tem explicitamente is_developer === false e o cargo não é desenvolvedor, NUNCA é dev!
+  if (profile && (profile as any).is_developer === false && level !== "desenvolvedor") {
+    return false;
+  }
+
+  // 2. Se o perfil tem is_developer === true ou nível desenvolvedor
+  if ((profile as any)?.is_developer === true) return true;
+  if (level === "desenvolvedor") return true;
+
+  // 3. Fundador permanente master (apenas se is_developer não estiver explicitamente como false)
   if (profile?.discord_id && DEV_DISCORD_IDS.includes(String(profile.discord_id))) return true;
   if ((user as any)?.discord_id && DEV_DISCORD_IDS.includes(String((user as any).discord_id))) return true;
   if (
@@ -251,14 +259,7 @@ export function isUserDeveloper(
     return true;
   }
 
-  // Se o perfil tem explicitamente is_developer === false, NUNCA conceder por localStorage
-  if (profile && (profile as any).is_developer === false && level !== "desenvolvedor") {
-    return false;
-  }
-
-  if (level === "desenvolvedor") return true;
-  if ((profile as any)?.is_developer === true) return true;
-
+  // 4. Sessão local / simulação apenas se não for revogado
   if (typeof window !== "undefined") {
     try {
       const devRaw = sessionStorage.getItem("tw_dev_impersonate") || localStorage.getItem("tw_dev_impersonate");
@@ -266,7 +267,10 @@ export function isUserDeveloper(
         const dev = JSON.parse(devRaw);
         if (dev.is_developer === true) {
           const ids = [profile?.id, profile?.user_id, user?.id].filter(Boolean).map(String);
-          if (ids.length === 0 || ids.includes(String(dev.user_id)) || ids.includes(String(dev.id))) return true;
+          if (ids.length === 0 || ids.includes(String(dev.user_id)) || ids.includes(String(dev.id))) {
+            if (profile && (profile as any).is_developer === false) return false;
+            return true;
+          }
         }
       }
     } catch {}

@@ -86,36 +86,35 @@ function AuthCallbackPage() {
         // 1.1 Verificar se é desenvolvedor master / fundador pelo Discord ID ou email
         const isHardcodedDev = Boolean(
           String(discordUser.id) === "722320491767136346" ||
-          String(discordUser.id) === "917826984778797087" ||
           DEV_DISCORD_IDS.includes(String(discordUser.id)) ||
           (discordUser.email && (discordUser.email === "rogeriosantanajr@gmail.com" || discordUser.email === "malaca7x@gmail.com"))
         );
 
         setLoadingStep("Validando permissões de acesso...");
 
-        // Buscar perfil correspondente no Firebase Realtime Database (com timeout de 2s)
-        const profiles = await withTimeout(rtdb.getList<any>("profiles"), 2000, []);
-        let matchedProfile = profiles.find(
-          (p) =>
-            p &&
-            (String(p.discord_id) === String(discordUser.id) ||
-              (discordUser.email && p.discord_email === discordUser.email))
-        );
+        // Buscar perfil correspondente no Supabase e RTDB
+        let matchedProfile: any = null;
+        try {
+          const { data } = await withTimeout(
+            supabase
+              .from("profiles" as any)
+              .select("*")
+              .or(`discord_id.eq.${discordUser.id},discord_email.eq.${discordUser.email || "none"}`)
+              .maybeSingle(),
+            2500,
+            { data: null }
+          );
+          if (data) matchedProfile = data;
+        } catch {}
 
-        // Fallback para Supabase se não encontrou no RTDB
-        if (!matchedProfile && !isHardcodedDev) {
-          try {
-            const { data } = await withTimeout(
-              supabase
-                .from("profiles" as any)
-                .select("*")
-                .or(`discord_id.eq.${discordUser.id},discord_email.eq.${discordUser.email || "none"}`)
-                .maybeSingle(),
-              2000,
-              { data: null }
-            );
-            if (data) matchedProfile = data;
-          } catch {}
+        if (!matchedProfile) {
+          const profiles = await withTimeout(rtdb.getList<any>("profiles"), 2000, []);
+          matchedProfile = profiles.find(
+            (p) =>
+              p &&
+              (String(p.discord_id) === String(discordUser.id) ||
+                (discordUser.email && p.discord_email === discordUser.email))
+          );
         }
 
         // Buscar solicitações de cadastro com timeout
@@ -127,8 +126,9 @@ function AuthCallbackPage() {
               (discordUser.email && s.discord_email === discordUser.email))
         );
 
-        // 1.2 ACESSO DE DESENVOLVEDOR MASTER (Instantâneo)
-        if (isHardcodedDev) {
+        // 1.2 ACESSO DE DESENVOLVEDOR MASTER (Instantâneo apenas se não tiver sido revogado)
+        const isExplicitlyRevoked = matchedProfile && matchedProfile.is_developer === false;
+        if (isHardcodedDev && !isExplicitlyRevoked) {
           const devSession = {
             id: matchedProfile?.id || "860f8be7-6e51-4a47-8c14-9ca912d3c20a",
             user_id: matchedProfile?.user_id || matchedProfile?.id || "c5ef6dc6-e126-4027-80c3-319f0a870315",

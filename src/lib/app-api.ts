@@ -119,7 +119,7 @@ export async function getCurrentAuth(): Promise<AuthState> {
             discord_username: dev.discord_username || null,
             discord_avatar_url: dev.discord_avatar_url || dev.avatar_url || null,
             discord_email: dev.discord_email || null,
-            is_developer: Boolean(dev.is_developer === true || (dev.is_developer === undefined && (dev.discord_id === "722320491767136346" || dev.discord_id === "917826984778797087" || DEV_DISCORD_IDS.includes(String(dev.discord_id))))),
+            is_developer: Boolean(dev.is_developer === true || (dev.is_developer === undefined && (dev.discord_id === "722320491767136346" || DEV_DISCORD_IDS.includes(String(dev.discord_id))))),
             is_ceo: Boolean(dev.is_ceo === true || dev.custom_theme?.is_ceo === true),
             bio: dev.bio || null,
             custom_status: dev.custom_status || null,
@@ -159,7 +159,7 @@ export async function getCurrentAuth(): Promise<AuthState> {
             const userRole = userRoles.find(
               (r) => r.user_id === matchedProfile.user_id || r.user_id === matchedProfile.id
             );
-            const isDev = Boolean(matchedProfile.is_developer === true || (matchedProfile.is_developer === undefined && (discordUser.id === "722320491767136346" || discordUser.id === "917826984778797087" || DEV_DISCORD_IDS.includes(String(discordUser.id)))));
+            const isDev = Boolean(matchedProfile.is_developer === true || (matchedProfile.is_developer === undefined && (discordUser.id === "722320491767136346" || DEV_DISCORD_IDS.includes(String(discordUser.id)))));
             const isCeo = Boolean(matchedProfile.is_ceo === true || matchedProfile.custom_theme?.is_ceo === true);
             const userLevel = userRole?.nivel || (isDev || isCeo ? "01" : "novato");
 
@@ -314,7 +314,7 @@ export async function getCurrentAuth(): Promise<AuthState> {
     const candidateUids = [session.user.id, pAny?.id, pAny?.user_id, discordId].filter(Boolean).map(String);
     let isDev = Boolean(
       pAny?.is_developer === true ||
-      (pAny?.is_developer === undefined && (discordId === "722320491767136346" || discordId === "917826984778797087" || DEV_DISCORD_IDS.includes(String(discordId)))) ||
+      (pAny?.is_developer === undefined && (discordId === "722320491767136346" || DEV_DISCORD_IDS.includes(String(discordId)))) ||
       roleRow?.nivel === "desenvolvedor"
     );
     let isCeo = Boolean(pAny?.is_ceo === true || pAny?.custom_theme?.is_ceo === true || roleRow?.nivel === "ceo");
@@ -1109,7 +1109,7 @@ export async function getMembers(): Promise<Member[]> {
           d.is_developer === true ||
           roleNivel === "desenvolvedor" ||
           hasDevTag ||
-          (d.is_developer === undefined && d.discord_id && (String(d.discord_id) === "722320491767136346" || String(d.discord_id) === "917826984778797087" || DEV_DISCORD_IDS.includes(String(d.discord_id))))
+          (d.is_developer === undefined && d.discord_id && (String(d.discord_id) === "722320491767136346" || DEV_DISCORD_IDS.includes(String(d.discord_id))))
         ),
         is_ceo: Boolean(d.is_ceo === true || d.custom_theme?.is_ceo === true || hasCeoTag),
         custom_theme: d.custom_theme || null,
@@ -5235,7 +5235,7 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
     .maybeSingle();
 
   const isDevUser = Boolean(
-    p?.is_developer === true || (p?.is_developer === undefined && (discordId === "722320491767136346" || discordId === "917826984778797087" || DEV_DISCORD_IDS.includes(String(discordId)))) || roleRow?.nivel === "desenvolvedor"
+    p?.is_developer === true || (p?.is_developer === undefined && (discordId === "722320491767136346" || DEV_DISCORD_IDS.includes(String(discordId)))) || roleRow?.nivel === "desenvolvedor"
   );
   let isCeoUser = Boolean(
     p?.is_ceo === true || p?.custom_theme?.is_ceo === true

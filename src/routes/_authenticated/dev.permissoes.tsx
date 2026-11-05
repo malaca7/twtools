@@ -947,7 +947,7 @@ function DevPermissoesContent() {
       if (!uid || seen.has(uid)) return false;
       const isDev = m.is_developer !== undefined
         ? Boolean(m.is_developer || m.nivel === "desenvolvedor")
-        : Boolean(m.nivel === "desenvolvedor" || (m.discord_id && (String(m.discord_id) === "722320491767136346" || String(m.discord_id) === "917826984778797087" || DEV_DISCORD_IDS.includes(String(m.discord_id)))));
+        : Boolean(m.nivel === "desenvolvedor" || (m.discord_id && (String(m.discord_id) === "722320491767136346" || DEV_DISCORD_IDS.includes(String(m.discord_id)))));
       if (isDev) {
         seen.add(uid);
         return true;
@@ -964,7 +964,7 @@ function DevPermissoesContent() {
 
       const isDev = m.is_developer !== undefined
         ? Boolean(m.is_developer || m.nivel === "desenvolvedor")
-        : Boolean(m.nivel === "desenvolvedor" || (m.discord_id && (String(m.discord_id) === "722320491767136346" || String(m.discord_id) === "917826984778797087" || DEV_DISCORD_IDS.includes(String(m.discord_id)))));
+        : Boolean(m.nivel === "desenvolvedor" || (m.discord_id && (String(m.discord_id) === "722320491767136346" || DEV_DISCORD_IDS.includes(String(m.discord_id)))));
       if (filterDevOnly === "dev_only" && !isDev) return false;
       if (filterDevOnly === "non_dev" && isDev) return false;
 
@@ -1967,7 +1967,7 @@ function DevPermissoesContent() {
                         const memberId = member.user_id || member.id;
                         const isDev = member.is_developer !== undefined
                           ? Boolean(member.is_developer || member.nivel === "desenvolvedor")
-                          : Boolean(member.nivel === "desenvolvedor" || (member.discord_id && (String(member.discord_id) === "722320491767136346" || String(member.discord_id) === "917826984778797087" || DEV_DISCORD_IDS.includes(String(member.discord_id)))));
+                          : Boolean(member.nivel === "desenvolvedor" || (member.discord_id && (String(member.discord_id) === "722320491767136346" || DEV_DISCORD_IDS.includes(String(member.discord_id)))));
                         const isCeo = Boolean(member.is_ceo || member.custom_theme?.is_ceo);
                         const isToggling =
                           togglingMemberId === memberId ||
@@ -2559,7 +2559,7 @@ function DevPermissoesContent() {
                         const isCeo = Boolean(member.is_ceo || member.custom_theme?.is_ceo);
                         const isDev = member.is_developer !== undefined
                           ? Boolean(member.is_developer || member.nivel === "desenvolvedor")
-                          : Boolean(member.nivel === "desenvolvedor" || (member.discord_id && (String(member.discord_id) === "722320491767136346" || String(member.discord_id) === "917826984778797087" || DEV_DISCORD_IDS.includes(String(member.discord_id)))));
+                          : Boolean(member.nivel === "desenvolvedor" || (member.discord_id && (String(member.discord_id) === "722320491767136346" || DEV_DISCORD_IDS.includes(String(member.discord_id)))));
                         const isToggling =
                           togglingMemberId === memberId ||
                           togglingMemberId === member.user_id ||

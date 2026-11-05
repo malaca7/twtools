@@ -115,6 +115,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (simRaw) {
         try {
           const sim = JSON.parse(simRaw);
+
+          // Auto-correção: Se for a conta Developers/Dev (917826984778797087) ou perfil sem tag dev, remove privilégio dev legado
+          if (sim.is_developer && (String(sim.discord_id) === "917826984778797087" || (sim.discord_id && !DEV_DISCORD_IDS.includes(String(sim.discord_id)) && sim.nivel !== "desenvolvedor"))) {
+            sim.is_developer = false;
+            if (sim.nivel === "desenvolvedor") sim.nivel = sim.is_ceo ? "01" : "membro";
+            sessionStorage.setItem("tw_dev_impersonate", JSON.stringify(sim));
+            localStorage.setItem("tw_dev_impersonate", JSON.stringify(sim));
+            if (localStorage.getItem("tw_panel_mode") === "dev") {
+              localStorage.setItem("tw_panel_mode", sim.is_ceo ? "ceo" : "member");
+            }
+          }
           const simState: AuthState = {
             user: { id: sim.user_id || "dev-sim", email: sim.discord_email || null },
             profile: {
@@ -172,6 +183,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (devRaw) {
         try {
           const dev = JSON.parse(devRaw);
+
+          // Auto-correção: Se for a conta Developers/Dev (917826984778797087) ou perfil sem tag dev, remove privilégio dev legado
+          if (dev.is_developer && (String(dev.discord_id) === "917826984778797087" || (dev.discord_id && !DEV_DISCORD_IDS.includes(String(dev.discord_id)) && dev.nivel !== "desenvolvedor"))) {
+            dev.is_developer = false;
+            if (dev.nivel === "desenvolvedor") dev.nivel = dev.is_ceo ? "01" : "membro";
+            localStorage.setItem("tw_dev_impersonate", JSON.stringify(dev));
+            sessionStorage.setItem("tw_dev_impersonate", JSON.stringify(dev));
+            if (localStorage.getItem("tw_panel_mode") === "dev") {
+              localStorage.setItem("tw_panel_mode", dev.is_ceo ? "ceo" : "member");
+            }
+          }
           const devState: AuthState = {
             user: { id: dev.user_id, email: dev.discord_email || null },
             profile: {
@@ -1220,7 +1242,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Checagem se o membro é Desenvolvedor (base ou concedido por tag ativa)
   const isDevUser = useMemo(() => {
-    // 1. Tags ativas atribuídas ao membro
+    // 1. REGRA ABSOLUTA: Se o perfil tem explicitamente is_developer === false e cargo não é desenvolvedor, NUNCA é dev!
+    if (profile && (profile as any).is_developer === false && level !== "desenvolvedor") {
+      const hasFormalDevTag = memberTags.some((t) => {
+        if (t.is_active === false) return false;
+        const cleanId = (t.id || "").toLowerCase().trim();
+        const cleanName = (t.name || "").toLowerCase().trim();
+        if (cleanId === "system_tag_dev") return false;
+        return cleanId === "desenvolvedor" || cleanId === "dev" || cleanName === "desenvolvedor" || cleanName === "dev" || t.rules?.can_access_dev === true;
+      });
+      if (!hasFormalDevTag) return false;
+    }
+
+    // 2. Tags ativas atribuídas ao membro
     const hasActiveDevTag = memberTags.some((t) => {
       if (t.is_active === false) return false;
       if (isDevTagItem(t)) return true;
@@ -1238,16 +1272,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (hasActiveDevTag) return true;
 
-    // Se o perfil tem explicitamente is_developer === false e não é fundador permanente, NÃO é dev
-    if (profile && (profile as any).is_developer === false && level !== "desenvolvedor") {
-      const isPermanentFounder =
-        (profile?.discord_id && DEV_DISCORD_IDS.includes(String(profile.discord_id))) ||
-        ((session?.user as any)?.discord_id && DEV_DISCORD_IDS.includes(String((session?.user as any).discord_id))) ||
-        session?.user?.id === "c5ef6dc6-e126-4027-80c3-319f0a870315";
-      if (!isPermanentFounder) return false;
-    }
-
-    // 2. Base (flag is_developer no perfil ou cargo desenvolvedor)
+    // 3. Base (flag is_developer no perfil ou cargo desenvolvedor)
     const baseDev = isUserDeveloper(
       session?.user ? { id: session.user.id, email: session.user.email ?? null } : null,
       profile,
@@ -1255,6 +1280,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
     if (baseDev) return true;
     if (level === "desenvolvedor" || (profile as any)?.role === "desenvolvedor") return true;
+
+    // Se o perfil tem explicitamente is_developer === false, NUNCA conceder por discord_id
+    if (profile && (profile as any).is_developer === false) return false;
+
     if (profile?.discord_id && DEV_DISCORD_IDS.includes(String(profile.discord_id))) return true;
     if ((session?.user as any)?.discord_id && DEV_DISCORD_IDS.includes(String((session?.user as any).discord_id))) return true;
     if (session?.user?.id === "c5ef6dc6-e126-4027-80c3-319f0a870315") return true;
