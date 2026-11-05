@@ -114,24 +114,26 @@ export async function getCurrentAuth(): Promise<AuthState> {
               }
             }
 
-            const { rtdb } = await import("@/integrations/firebase/rtdb");
-            const roles = await rtdb.getList<any>("user_roles");
-            const userRole = roles.find(r => r && (r.user_id === currentUserId || r.user_id === dev.id));
-            if (userRole && userRole.nivel) {
-              dev.nivel = userRole.nivel;
-            }
+            if (!supaProf) {
+              const { rtdb } = await import("@/integrations/firebase/rtdb");
+              const roles = await rtdb.getList<any>("user_roles");
+              const userRole = roles.find(r => r && (r.user_id === currentUserId || r.user_id === dev.id));
+              if (userRole && userRole.nivel) {
+                dev.nivel = userRole.nivel;
+              }
 
-            const fbProfiles = await rtdb.getList<any>("profiles");
-            const userProf = fbProfiles.find(p => p && (p.user_id === currentUserId || p.id === currentUserId || (dev.discord_id && String(p.discord_id) === String(dev.discord_id))));
-            if (userProf) {
-              if (userProf.status) dev.status = userProf.status;
-              if (userProf.is_developer !== undefined) dev.is_developer = Boolean(userProf.is_developer);
-              if (userProf.is_ceo !== undefined) dev.is_ceo = Boolean(userProf.is_ceo);
-              if (userProf.custom_theme) dev.custom_theme = userProf.custom_theme;
-              if (userProf.nome) dev.nome = userProf.nome;
-              if (userProf.nickname !== undefined) dev.nickname = userProf.nickname;
-              if (userProf.avatar_url) dev.avatar_url = userProf.avatar_url;
-              if (userProf.is_verified !== undefined) dev.is_verified = Boolean(userProf.is_verified);
+              const fbProfiles = await rtdb.getList<any>("profiles");
+              const userProf = fbProfiles.find(p => p && (p.user_id === currentUserId || p.id === currentUserId || (dev.discord_id && String(p.discord_id) === String(dev.discord_id))));
+              if (userProf) {
+                if (userProf.status) dev.status = userProf.status;
+                if (userProf.is_developer !== undefined && dev.is_developer === undefined) dev.is_developer = Boolean(userProf.is_developer);
+                if (userProf.is_ceo !== undefined && dev.is_ceo === undefined) dev.is_ceo = Boolean(userProf.is_ceo);
+                if (userProf.custom_theme && !dev.custom_theme) dev.custom_theme = userProf.custom_theme;
+                if (userProf.nome && !dev.nome) dev.nome = userProf.nome;
+                if (userProf.nickname !== undefined && !dev.nickname) dev.nickname = userProf.nickname;
+                if (userProf.avatar_url && !dev.avatar_url) dev.avatar_url = userProf.avatar_url;
+                if (userProf.is_verified !== undefined && dev.is_verified === undefined) dev.is_verified = Boolean(userProf.is_verified);
+              }
             }
             localStorage.setItem("tw_dev_impersonate", JSON.stringify(dev));
           } catch {}
@@ -184,21 +186,70 @@ export async function getCurrentAuth(): Promise<AuthState> {
       if (authUserRaw) {
         try {
           const discordUser = JSON.parse(authUserRaw);
-          const profiles = await rtdb.getList<any>("profiles");
-          const matchedProfile = profiles.find(
-            (p) =>
-              String(p.discord_id) === String(discordUser.id) ||
-              (discordUser.email && p.discord_email === discordUser.email)
-          );
+          let matchedProfile: any = null;
+
+          // 1. Buscar PRIMEIRO no Supabase (banco de dados oficial e dinâmico)
+          try {
+            const orFilters = [`discord_id.eq.${discordUser.id}`];
+            if (discordUser.email) orFilters.push(`discord_email.eq.${discordUser.email}`);
+            const { data: supaMatch } = await supabase
+              .from("profiles" as any)
+              .select("id, user_id, nome, nickname, telefone, game_id, avatar_url, banner_url, status, data_entrada, discord_id, discord_username, discord_avatar_url, discord_email, is_developer, is_ceo, custom_theme, bio, custom_status, custom_url, stars_rating, stars_count, is_verified")
+              .or(orFilters.join(","))
+              .maybeSingle();
+            if (supaMatch) matchedProfile = supaMatch;
+          } catch {}
+
+          if (!matchedProfile) {
+            const profiles = await rtdb.getList<any>("profiles");
+            matchedProfile = profiles.find(
+              (p) =>
+                p &&
+                (String(p.discord_id) === String(discordUser.id) ||
+                  (discordUser.email && p.discord_email === discordUser.email))
+            );
+          }
 
           if (matchedProfile) {
-            const userRoles = await rtdb.getList<any>("user_roles");
-            const userRole = userRoles.find(
-              (r) => r.user_id === matchedProfile.user_id || r.user_id === matchedProfile.id
+            const targetUid = matchedProfile.user_id || matchedProfile.id;
+            let userRole: any = null;
+            try {
+              if (targetUid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(targetUid))) {
+                const { data: supaRole } = await supabase
+                  .from("user_roles")
+                  .select("nivel")
+                  .eq("user_id", targetUid)
+                  .maybeSingle();
+                if (supaRole) userRole = supaRole;
+              }
+            } catch {}
+
+            if (!userRole) {
+              const userRoles = await rtdb.getList<any>("user_roles");
+              userRole = userRoles.find(
+                (r) => r.user_id === matchedProfile.user_id || r.user_id === matchedProfile.id
+              );
+            }
+
+            let hasDevTag = false;
+            try {
+              if (targetUid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(targetUid))) {
+                const { data: tagRows } = await supabase
+                  .from("member_tag_assignments")
+                  .select("tag_id")
+                  .eq("user_id", targetUid);
+                hasDevTag = (tagRows || []).some(t => t.tag_id === "dev" || t.tag_id === "desenvolvedor");
+              }
+            } catch {}
+
+            const isDev = Boolean(
+              matchedProfile.is_developer === true ||
+              userRole?.nivel === "desenvolvedor" ||
+              hasDevTag ||
+              (matchedProfile.is_developer === undefined && (discordUser.id === "722320491767136346" || DEV_DISCORD_IDS.includes(String(discordUser.id))))
             );
-            const isDev = Boolean(matchedProfile.is_developer === true || (matchedProfile.is_developer === undefined && (discordUser.id === "722320491767136346" || DEV_DISCORD_IDS.includes(String(discordUser.id)))));
-            const isCeo = Boolean(matchedProfile.is_ceo === true || matchedProfile.custom_theme?.is_ceo === true);
-            const userLevel = userRole?.nivel || (isDev || isCeo ? "01" : "novato");
+            const isCeo = Boolean(matchedProfile.is_ceo === true || matchedProfile.custom_theme?.is_ceo === true || userRole?.nivel === "ceo");
+            const userLevel = isDev ? "desenvolvedor" : (userRole?.nivel || (isCeo ? "01" : "novato"));
 
             const discordAvatar = discordUser.avatar
               ? `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png?size=512`
@@ -997,44 +1048,47 @@ export async function getMembers(): Promise<Member[]> {
   let tagAssignments: any[] = [];
   let ceoConfig: any = null;
 
+  // 1. Prioriza SEMPRE o banco de dados Supabase (dados reais, sincronizados e atualizados)
   try {
-    const [fbProfiles, fbRoles, fbSignups, fbTagAssignments, fbCeoConfig] = await Promise.all([
-      rtdb.getList<any>("profiles"),
-      rtdb.getList<any>("user_roles"),
-      rtdb.getList<any>("signup_requests"),
-      rtdb.getList<any>("member_tag_assignments").catch(() => []),
-      rtdb.get<any>("role_permissions/system_ceo_config").catch(() => null),
+    const [profilesRes, rolesRes, signupReqsRes, tagAssignsRes] = await Promise.all([
+      (supabase.from("profiles" as any))
+        .select("id, user_id, nome, nickname, telefone, game_id, status, data_entrada, created_at, discord_id, discord_username, discord_avatar_url, avatar_url, discord_email, is_developer, is_ceo, custom_theme, stars_rating, stars_count, is_verified")
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("user_roles")
+        .select("user_id, nivel"),
+      (supabase.from("signup_requests" as any))
+        .select("user_id, status"),
+      (supabase.from("member_tag_assignments" as any))
+        .select("user_id, member_id, tag_id"),
     ]);
-    if (fbProfiles && fbProfiles.length > 0) {
-      profiles = fbProfiles;
-      roles = fbRoles || [];
-      signupReqs = fbSignups || [];
-      tagAssignments = fbTagAssignments || [];
-      ceoConfig = fbCeoConfig;
-    }
-  } catch {}
 
+    if (!profilesRes.error && profilesRes.data && profilesRes.data.length > 0) {
+      profiles = profilesRes.data;
+      roles = rolesRes.data || [];
+      signupReqs = signupReqsRes.data || [];
+      tagAssignments = (tagAssignsRes as any)?.data || [];
+    }
+  } catch (err) {
+    console.warn("Aviso ao carregar profiles do Supabase em getMembers:", err);
+  }
+
+  // 2. Fallback para Firebase RTDB apenas se o Supabase não retornou nenhum perfil
   if (profiles.length === 0) {
     try {
-      const [profilesRes, rolesRes, signupReqsRes, tagAssignsRes] = await Promise.all([
-        (supabase.from("profiles" as any))
-          .select("id, user_id, nome, nickname, telefone, game_id, status, data_entrada, created_at, discord_id, discord_username, discord_avatar_url, avatar_url, discord_email, is_developer, is_ceo, custom_theme, stars_rating, stars_count, is_verified")
-          .order("created_at", { ascending: true }),
-        supabase
-          .from("user_roles")
-          .select("user_id, nivel"),
-        (supabase.from("signup_requests" as any))
-          .select("user_id, status"),
-        (supabase.from("member_tag_assignments" as any))
-          .select("user_id, member_id, tag_id")
-          .catch(() => ({ data: [] })),
+      const [fbProfiles, fbRoles, fbSignups, fbTagAssignments, fbCeoConfig] = await Promise.all([
+        rtdb.getList<any>("profiles"),
+        rtdb.getList<any>("user_roles"),
+        rtdb.getList<any>("signup_requests"),
+        rtdb.getList<any>("member_tag_assignments").catch(() => []),
+        rtdb.get<any>("role_permissions/system_ceo_config").catch(() => null),
       ]);
-
-      if (!profilesRes.error && profilesRes.data && profilesRes.data.length > 0) {
-        profiles = profilesRes.data;
-        roles = rolesRes.data || [];
-        signupReqs = signupReqsRes.data || [];
-        tagAssignments = (tagAssignsRes as any)?.data || [];
+      if (fbProfiles && fbProfiles.length > 0) {
+        profiles = fbProfiles;
+        roles = fbRoles || [];
+        signupReqs = fbSignups || [];
+        tagAssignments = fbTagAssignments || [];
+        ceoConfig = fbCeoConfig;
       }
     } catch {}
   }
@@ -1142,13 +1196,22 @@ export async function getMembers(): Promise<Member[]> {
         original_avatar_url: d.original_avatar_url || d.custom_theme?.original_avatar_url || null,
         bio: d.bio || d.custom_theme?.bio || null,
         custom_status: d.custom_status || d.custom_theme?.custom_status || null,
-        is_developer: Boolean(
-          d.is_developer === true ||
-          roleNivel === "desenvolvedor" ||
-          hasDevTag ||
-          (d.is_developer === undefined && d.discord_id && (String(d.discord_id) === "722320491767136346" || DEV_DISCORD_IDS.includes(String(d.discord_id))))
-        ),
-        is_ceo: Boolean(d.is_ceo === true || d.custom_theme?.is_ceo === true || hasCeoTag),
+        is_developer: (d.is_developer === false && roleNivel !== "desenvolvedor" && !hasDevTag)
+          ? false
+          : Boolean(
+              d.is_developer === true ||
+              roleNivel === "desenvolvedor" ||
+              hasDevTag ||
+              (d.is_developer === undefined && d.discord_id && (String(d.discord_id) === "722320491767136346" || DEV_DISCORD_IDS.includes(String(d.discord_id))))
+            ),
+        is_ceo: (d.is_ceo === false && roleNivel !== "ceo" && !hasCeoTag)
+          ? false
+          : Boolean(
+              d.is_ceo === true ||
+              (d.custom_theme?.is_ceo === true && d.is_ceo !== false) ||
+              hasCeoTag ||
+              roleNivel === "ceo"
+            ),
         custom_theme: d.custom_theme || null,
         custom_url: d.custom_url ?? d.custom_theme?.custom_url ?? null,
         stars_rating: Number(d.stars_rating || 5.0),

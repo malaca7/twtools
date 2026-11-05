@@ -2453,3 +2453,29 @@ export const supabase = createClient<any>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY
 (supabase as any).channel = (topic: string) => {
   return new FirebaseRealtimeChannel(topic);
 };
+
+// Polifill universal de segurança para .catch em builders Postgrest
+try {
+  const dummyBuilder = (supabase.from as any)("_prototype_probe");
+  let p = Object.getPrototypeOf(dummyBuilder);
+  while (p && p !== Object.prototype) {
+    if (!p.catch) {
+      p.catch = function (onRejected: any) {
+        return this.then(undefined, onRejected);
+      };
+    }
+    p = Object.getPrototypeOf(p);
+  }
+
+  const filterBuilder = dummyBuilder.select();
+  p = Object.getPrototypeOf(filterBuilder);
+  while (p && p !== Object.prototype) {
+    if (!p.catch) {
+      p.catch = function (onRejected: any) {
+        return this.then(undefined, onRejected);
+      };
+    }
+    p = Object.getPrototypeOf(p);
+  }
+} catch {}
+

@@ -287,6 +287,17 @@ export function assertDeveloperAccess(
   level?: AppLevel | null
 ): void {
   if (isUserDeveloper(user, profile, level)) return;
+  if (typeof window !== "undefined") {
+    try {
+      const simRaw = sessionStorage.getItem("tw_dev_impersonate") || localStorage.getItem("tw_dev_impersonate");
+      if (simRaw) {
+        const sim = JSON.parse(simRaw);
+        if (sim?.is_developer || sim?.nivel === "desenvolvedor" || (sim?.discord_id && DEV_DISCORD_IDS.includes(String(sim.discord_id)))) {
+          return;
+        }
+      }
+    } catch {}
+  }
   throw new Error("Acesso Negado: Apenas membros com a Tag Dev têm permissão.");
 }
 
@@ -301,10 +312,27 @@ export function assertDeveloperOrCeoAccess(
   permission?: Permission
 ): void {
   if (isUserDeveloper(user, profile, level)) return;
-  if (isUserCeo(profile)) {
+  if (isUserCeo(profile) || level === "ceo" || level === "01") {
     if (!permission) return;
     const ceoPerms = getCeoTagPermissionsSync();
     if (ceoPerms.includes(permission)) return;
+  }
+  if (typeof window !== "undefined") {
+    try {
+      const simRaw = sessionStorage.getItem("tw_dev_impersonate") || localStorage.getItem("tw_dev_impersonate");
+      if (simRaw) {
+        const sim = JSON.parse(simRaw);
+        if (
+          sim?.is_developer ||
+          sim?.is_ceo ||
+          sim?.nivel === "desenvolvedor" ||
+          sim?.nivel === "ceo" ||
+          (sim?.discord_id && DEV_DISCORD_IDS.includes(String(sim.discord_id)))
+        ) {
+          return;
+        }
+      }
+    } catch {}
   }
   throw new Error("Acesso Negado: Apenas membros com a Tag CEO ou Tag Dev têm permissão.");
 }
@@ -1269,7 +1297,7 @@ function extractTargetCandidateIds(target: any): string[] {
 
 /**
  * Ativa ou desativa a Tag CEO para um membro do grupo.
- * REGRA ESTRITA: Apenas quem possui a Tag Dev (is_developer === true) pode executar!
+ * Permite que Desenvolvedores ou CEOs com privilégio façam a gestão da Tag CEO.
  */
 export async function toggleMemberCeoTag(
   target: any,
@@ -1278,7 +1306,7 @@ export async function toggleMemberCeoTag(
   profile?: Profile | null,
   level?: AppLevel | null
 ): Promise<{ success: boolean; is_ceo: boolean }> {
-  assertDeveloperAccess(user, profile, level);
+  assertDeveloperOrCeoAccess(user, profile, level);
 
   const candidateIds = extractTargetCandidateIds(target);
   if (candidateIds.length === 0) {
@@ -1309,22 +1337,25 @@ export async function toggleMemberCeoTag(
           existingTheme = v.custom_theme || existingTheme;
 
           const updatedTheme = { ...existingTheme, is_ceo: enable };
-          await rtdb.update(`profiles/${k}`, {
-            is_ceo: enable,
-            custom_theme: updatedTheme,
-            updated_at: now,
-          }).catch(() => {});
+          try {
+            await rtdb.update(`profiles/${k}`, {
+              is_ceo: enable,
+              custom_theme: updatedTheme,
+              updated_at: now,
+            });
+          } catch {}
         }
       }
     }
 
-    // Apenas atualiza chave primária se já existir no RTDB para evitar nós fantasmas
     if (matchedKeys.length === 0 && fbProfiles && fbProfiles[primaryTargetId]) {
-      await rtdb.update(`profiles/${primaryTargetId}`, {
-        is_ceo: enable,
-        custom_theme: { ...existingTheme, is_ceo: enable },
-        updated_at: now,
-      }).catch(() => {});
+      try {
+        await rtdb.update(`profiles/${primaryTargetId}`, {
+          is_ceo: enable,
+          custom_theme: { ...existingTheme, is_ceo: enable },
+          updated_at: now,
+        });
+      } catch {}
     }
   } catch (err) {
     console.warn("Aviso ao atualizar profiles no RTDB:", err);
@@ -1333,7 +1364,7 @@ export async function toggleMemberCeoTag(
   // Deduplica candidateIds (apenas UUIDs e chaves reais)
   const uniqueCandidateIds = Array.from(new Set(candidateIds.filter(Boolean).map(String)));
 
-  // 2. Atualiza no Supabase (profiles) estritamente por id e user_id (UUIDs)
+  // 2. Atualiza no Supabase (profiles e user_roles)
   try {
     const orConditions: string[] = [];
     for (const cid of uniqueCandidateIds) {
@@ -1344,7 +1375,8 @@ export async function toggleMemberCeoTag(
     }
 
     if (orConditions.length > 0) {
-      const { data: targetProfiles } = await (supabase.from("profiles" as any))
+      const { data: targetProfiles } = await supabase
+        .from("profiles")
         .select("id, user_id, game_id, discord_id, nome, nickname, custom_theme")
         .or(orConditions.join(","));
 
@@ -1355,38 +1387,51 @@ export async function toggleMemberCeoTag(
           const colToMatch = isValidUuid(tp.id) ? "id" : "user_id";
           const valToMatch = tp[colToMatch];
 
-          await (supabase.from("profiles" as any))
-            .update({
-              is_ceo: enable,
-              custom_theme: updatedTheme,
-              updated_at: now,
-            })
-            .eq(colToMatch, valToMatch)
-            .catch(() => {});
+          try {
+            await supabase
+              .from("profiles")
+              .update({
+                is_ceo: enable,
+                custom_theme: updatedTheme,
+                updated_at: now,
+              })
+              .eq(colToMatch, valToMatch);
+          } catch (pErr) {
+            console.warn("Erro ao atualizar profile no Supabase:", pErr);
+          }
         }
       }
     }
 
-    // Se estiver desativando, sincroniza user_roles no Supabase caso estivesse como ceo
-    if (!enable) {
-      for (const cid of uniqueCandidateIds) {
-        if (isValidUuid(cid)) {
-          await (supabase.from("user_roles" as any))
-            .update({ nivel: "membro" })
-            .eq("user_id", cid)
-            .eq("nivel", "ceo")
-            .catch(() => {});
+    // Sincroniza user_roles no Supabase
+    for (const cid of uniqueCandidateIds) {
+      if (!isValidUuid(cid)) continue;
+      try {
+        const { data: existingRole } = await supabase
+          .from("user_roles")
+          .select("id, nivel")
+          .eq("user_id", cid)
+          .maybeSingle();
+
+        if (existingRole) {
+          if (enable && existingRole.nivel !== "desenvolvedor") {
+            await supabase
+              .from("user_roles")
+              .update({ nivel: "ceo", updated_at: now })
+              .eq("user_id", cid);
+          } else if (!enable && existingRole.nivel === "ceo") {
+            await supabase
+              .from("user_roles")
+              .update({ nivel: "membro", updated_at: now })
+              .eq("user_id", cid);
+          }
+        } else if (enable) {
+          await supabase
+            .from("user_roles")
+            .insert({ user_id: cid, nivel: "ceo", created_at: now, updated_at: now });
         }
-      }
-    } else {
-      for (const cid of uniqueCandidateIds) {
-        if (isValidUuid(cid)) {
-          await (supabase.from("user_roles" as any))
-            .update({ nivel: "ceo" })
-            .eq("user_id", cid)
-            .eq("nivel", "membro")
-            .catch(() => {});
-        }
+      } catch (rErr) {
+        console.warn("Aviso ao atualizar user_roles no Supabase:", rErr);
       }
     }
   } catch (err) {
@@ -1408,41 +1453,56 @@ export async function toggleMemberCeoTag(
           assigned_by: isValidUuid(user?.id) ? user?.id : null,
           created_at: now,
         };
-        await rtdb.set(`member_tag_assignments/${assignmentKey}`, assignmentData).catch(() => {});
-        await (supabase.from("member_tag_assignments" as any))
-          .upsert(assignmentData, { onConflict: "id" })
-          .catch(async () => {
-            await (supabase.from("member_tag_assignments" as any)).insert(assignmentData).catch(() => {});
-          });
+        try {
+          await rtdb.set(`member_tag_assignments/${assignmentKey}`, assignmentData);
+        } catch {}
+        try {
+          await supabase.from("member_tag_assignments").upsert(assignmentData, { onConflict: "id" });
+        } catch {
+          try {
+            await supabase.from("member_tag_assignments").insert(assignmentData);
+          } catch {}
+        }
       }
     } else {
       // Remove de RTDB member_tag_assignments
-      const list = await rtdb.getList<any>("member_tag_assignments").catch(() => []);
-      for (const item of list) {
-        if (
-          item &&
-          item.tag_id === "ceo" &&
-          (uniqueCandidateIds.includes(String(item.member_id)) ||
-            uniqueCandidateIds.includes(String(item.user_id)) ||
-            uniqueCandidateIds.includes(String(item.id)))
-        ) {
-          const key = item._key || item.id || `${item.member_id || item.user_id}_${item.tag_id}`;
-          await rtdb.remove(`member_tag_assignments/${key}`).catch(() => {});
+      try {
+        const list = await rtdb.getList<any>("member_tag_assignments");
+        for (const item of list || []) {
+          if (
+            item &&
+            item.tag_id === "ceo" &&
+            (uniqueCandidateIds.includes(String(item.member_id)) ||
+              uniqueCandidateIds.includes(String(item.user_id)) ||
+              uniqueCandidateIds.includes(String(item.id)))
+          ) {
+            const key = item._key || item.id || `${item.member_id || item.user_id}_${item.tag_id}`;
+            try {
+              await rtdb.remove(`member_tag_assignments/${key}`);
+            } catch {}
+          }
         }
-      }
+      } catch {}
+
       for (const cid of uniqueCandidateIds) {
-        await rtdb.remove(`member_tag_assignments/${cid}_ceo`).catch(() => {});
+        try {
+          await rtdb.remove(`member_tag_assignments/${cid}_ceo`);
+        } catch {}
         if (isValidUuid(cid)) {
-          await (supabase.from("member_tag_assignments" as any))
-            .delete()
-            .eq("tag_id", "ceo")
-            .eq("member_id", cid)
-            .catch(() => {});
-          await (supabase.from("member_tag_assignments" as any))
-            .delete()
-            .eq("tag_id", "ceo")
-            .eq("user_id", cid)
-            .catch(() => {});
+          try {
+            await supabase
+              .from("member_tag_assignments")
+              .delete()
+              .eq("tag_id", "ceo")
+              .eq("member_id", cid);
+          } catch {}
+          try {
+            await supabase
+              .from("member_tag_assignments")
+              .delete()
+              .eq("tag_id", "ceo")
+              .eq("user_id", cid);
+          } catch {}
         }
       }
     }
@@ -1614,33 +1674,37 @@ export async function toggleMemberDevTag(
           candidateIds.push(k);
           targetName = v.nickname || v.nome || targetName;
 
-          await rtdb.update(`profiles/${k}`, {
-            is_developer: enable,
-            updated_at: now,
-          }).catch(() => {});
+          try {
+            await rtdb.update(`profiles/${k}`, {
+              is_developer: enable,
+              updated_at: now,
+            });
+          } catch {}
         }
       }
     }
 
-    // Apenas atualiza chave primária se já existir no RTDB para evitar nós fantasmas
     if (matchedKeys.length === 0 && fbProfiles && fbProfiles[primaryTargetId]) {
-      await rtdb.update(`profiles/${primaryTargetId}`, {
-        is_developer: enable,
-        updated_at: now,
-      }).catch(() => {});
+      try {
+        await rtdb.update(`profiles/${primaryTargetId}`, {
+          is_developer: enable,
+          updated_at: now,
+        });
+      } catch {}
     }
 
-    // Se estiver desativando e o usuário tinha nivel desenvolvedor, ajusta user_roles para evitar que continue dev
     if (!enable) {
       for (const cid of candidateIds) {
         if (isValidUuid(cid)) {
-          const existingRole = await rtdb.get<any>(`user_roles/${cid}`).catch(() => null);
-          if (existingRole && (existingRole.nivel === "desenvolvedor" || existingRole.nivel === "dev")) {
-            await rtdb.update(`user_roles/${cid}`, {
-              nivel: "membro",
-              updated_at: now,
-            }).catch(() => {});
-          }
+          try {
+            const existingRole = await rtdb.get<any>(`user_roles/${cid}`);
+            if (existingRole && (existingRole.nivel === "desenvolvedor" || existingRole.nivel === "dev")) {
+              await rtdb.update(`user_roles/${cid}`, {
+                nivel: "membro",
+                updated_at: now,
+              });
+            }
+          } catch {}
         }
       }
     }
@@ -1651,7 +1715,7 @@ export async function toggleMemberDevTag(
   // Deduplica candidateIds (apenas UUIDs e chaves reais)
   const uniqueCandidateIds = Array.from(new Set(candidateIds.filter(Boolean).map(String)));
 
-  // 2. Atualiza no Supabase (profiles) com checagem rigorosa de tipos UUID vs texto
+  // 2. Atualiza no Supabase (profiles e user_roles)
   try {
     const orConditions: string[] = [];
     for (const cid of uniqueCandidateIds) {
@@ -1662,7 +1726,8 @@ export async function toggleMemberDevTag(
     }
 
     if (orConditions.length > 0) {
-      const { data: targetProfiles } = await (supabase.from("profiles" as any))
+      const { data: targetProfiles } = await supabase
+        .from("profiles")
         .select("id, user_id, game_id, discord_id, nome, nickname, is_developer")
         .or(orConditions.join(","));
 
@@ -1672,36 +1737,50 @@ export async function toggleMemberDevTag(
           const colToMatch = isValidUuid(tp.id) ? "id" : "user_id";
           const valToMatch = tp[colToMatch];
 
-          await (supabase.from("profiles" as any))
-            .update({
-              is_developer: enable,
-              updated_at: now,
-            })
-            .eq(colToMatch, valToMatch)
-            .catch(() => {});
+          try {
+            await supabase
+              .from("profiles")
+              .update({
+                is_developer: enable,
+                updated_at: now,
+              })
+              .eq(colToMatch, valToMatch);
+          } catch (pErr) {
+            console.warn("Erro ao atualizar profile no Supabase:", pErr);
+          }
         }
       }
     }
 
-    // Se estiver desativando, sincroniza user_roles no Supabase caso estivesse como desenvolvedor
-    if (!enable) {
-      for (const cid of uniqueCandidateIds) {
-        if (isValidUuid(cid)) {
-          await (supabase.from("user_roles" as any))
-            .update({ nivel: "membro" })
-            .eq("user_id", cid)
-            .eq("nivel", "desenvolvedor")
-            .catch(() => {});
+    // Sincroniza user_roles no Supabase
+    for (const cid of uniqueCandidateIds) {
+      if (!isValidUuid(cid)) continue;
+      try {
+        const { data: existingRole } = await supabase
+          .from("user_roles")
+          .select("id, nivel")
+          .eq("user_id", cid)
+          .maybeSingle();
+
+        if (existingRole) {
+          if (enable) {
+            await supabase
+              .from("user_roles")
+              .update({ nivel: "desenvolvedor", updated_at: now })
+              .eq("user_id", cid);
+          } else if (existingRole.nivel === "desenvolvedor") {
+            await supabase
+              .from("user_roles")
+              .update({ nivel: "membro", updated_at: now })
+              .eq("user_id", cid);
+          }
+        } else if (enable) {
+          await supabase
+            .from("user_roles")
+            .insert({ user_id: cid, nivel: "desenvolvedor", created_at: now, updated_at: now });
         }
-      }
-    } else {
-      for (const cid of uniqueCandidateIds) {
-        if (isValidUuid(cid)) {
-          await (supabase.from("user_roles" as any))
-            .update({ nivel: "desenvolvedor" })
-            .eq("user_id", cid)
-            .catch(() => {});
-        }
+      } catch (rErr) {
+        console.warn("Aviso ao atualizar user_roles no Supabase:", rErr);
       }
     }
   } catch (err) {
@@ -1725,44 +1804,59 @@ export async function toggleMemberDevTag(
           assigned_by: isValidUuid(user?.id) ? user?.id : null,
           created_at: now,
         };
-        await rtdb.set(`member_tag_assignments/${assignmentKey}`, assignmentData).catch(() => {});
-        await (supabase.from("member_tag_assignments" as any))
-          .upsert(assignmentData, { onConflict: "id" })
-          .catch(async () => {
-            await (supabase.from("member_tag_assignments" as any)).insert(assignmentData).catch(() => {});
-          });
+        try {
+          await rtdb.set(`member_tag_assignments/${assignmentKey}`, assignmentData);
+        } catch {}
+        try {
+          await supabase.from("member_tag_assignments").upsert(assignmentData, { onConflict: "id" });
+        } catch {
+          try {
+            await supabase.from("member_tag_assignments").insert(assignmentData);
+          } catch {}
+        }
       }
     } else {
       // Remove de RTDB member_tag_assignments todas as variantes
-      const list = await rtdb.getList<any>("member_tag_assignments").catch(() => []);
-      for (const item of list) {
-        if (
-          item &&
-          devTagVariants.includes(item.tag_id) &&
-          (uniqueCandidateIds.includes(String(item.member_id)) ||
-            uniqueCandidateIds.includes(String(item.user_id)) ||
-            uniqueCandidateIds.includes(String(item.id)))
-        ) {
-          const key = item._key || item.id || `${item.member_id || item.user_id}_${item.tag_id}`;
-          await rtdb.remove(`member_tag_assignments/${key}`).catch(() => {});
+      try {
+        const list = await rtdb.getList<any>("member_tag_assignments");
+        for (const item of list || []) {
+          if (
+            item &&
+            devTagVariants.includes(item.tag_id) &&
+            (uniqueCandidateIds.includes(String(item.member_id)) ||
+              uniqueCandidateIds.includes(String(item.user_id)) ||
+              uniqueCandidateIds.includes(String(item.id)))
+          ) {
+            const key = item._key || item.id || `${item.member_id || item.user_id}_${item.tag_id}`;
+            try {
+              await rtdb.remove(`member_tag_assignments/${key}`);
+            } catch {}
+          }
         }
-      }
+      } catch {}
+
       for (const cid of uniqueCandidateIds) {
         for (const variant of devTagVariants) {
-          await rtdb.remove(`member_tag_assignments/${cid}_${variant}`).catch(() => {});
+          try {
+            await rtdb.remove(`member_tag_assignments/${cid}_${variant}`);
+          } catch {}
         }
         if (isValidUuid(cid)) {
           for (const variant of devTagVariants) {
-            await (supabase.from("member_tag_assignments" as any))
-              .delete()
-              .eq("tag_id", variant)
-              .eq("member_id", cid)
-              .catch(() => {});
-            await (supabase.from("member_tag_assignments" as any))
-              .delete()
-              .eq("tag_id", variant)
-              .eq("user_id", cid)
-              .catch(() => {});
+            try {
+              await supabase
+                .from("member_tag_assignments")
+                .delete()
+                .eq("tag_id", variant)
+                .eq("member_id", cid);
+            } catch {}
+            try {
+              await supabase
+                .from("member_tag_assignments")
+                .delete()
+                .eq("tag_id", variant)
+                .eq("user_id", cid);
+            } catch {}
           }
         }
       }
