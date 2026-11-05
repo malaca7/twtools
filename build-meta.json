@@ -1,0 +1,5 @@
+{
+  "deployed_at": "2026-11-05T19:41:00.781Z",
+  "timestamp": 1793907660782,
+  "message": "fix(deploy): rastrear deploy.cjs com timestamp e .nojekyll"
+}
