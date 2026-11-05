@@ -4,6 +4,7 @@ logs
 ssr-error.log
 .continue
 *.cjs
+!deploy.cjs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
