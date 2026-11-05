@@ -20,18 +20,27 @@ export type DevMenuConfig = {
   items: DevMenuItemConfig[];
 };
 
-export const DEFAULT_DEV_CATEGORIES = ["DEV"];
+export const DEFAULT_DEV_CATEGORIES = ["Dev Tools", "Dev Gestão"];
+
+export const DEFAULT_DEV_CATEGORY_ICONS: Record<string, string> = {
+  "Dev Gestão": "Gauge",
+  "Dev Tools": "Wrench",
+};
 
 export const DEFAULT_DEV_MENU_ITEMS: DevMenuItemConfig[] = [
-  { id: "dev-bot", title: "Bot", url: "/dev/bot", iconName: "Bot", visible: true, category: "DEV", order: 0 },
-  { id: "dev-estoque", title: "Estoque", url: "/dev/estoque", iconName: "Boxes", visible: true, category: "DEV", order: 1 },
-  { id: "dev-patch-notes", title: "Patch Notes & Releases", url: "/dev/patch-notes", iconName: "Sparkles", visible: true, category: "DEV", order: 2 },
-  { id: "dev-desempenho", title: "Gestão Desempenho", url: "/dev/desempenho", iconName: "TrendingUp", visible: true, category: "DEV", order: 3 },
-  { id: "dev-permissoes", title: "Permissões (Painéis)", url: "/dev/permissoes", iconName: "KeyRound", visible: true, category: "DEV", order: 7 },
-  { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", iconName: "Code2", visible: true, category: "DEV", order: 8 },
-  { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", iconName: "Sliders", visible: true, category: "DEV", order: 9 },
-  { id: "dev-notificacoes", title: "Central de Notificações", url: "/dev/notificacoes", iconName: "BellRing", visible: true, category: "DEV", order: 10 },
-  { id: "dev-advertencias", title: "Advertências & Suspensões", url: "/dev/advertencias", iconName: "ShieldAlert", visible: true, category: "DEV", order: 11 },
+  { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", iconName: "Code2", visible: true, category: "Dev Tools", order: 0 },
+  { id: "dev-bot", title: "Gerenciar Bot", url: "/dev/bot", iconName: "Bot", visible: true, category: "Dev Tools", order: 1 },
+  { id: "dev-estoque", title: "Estoque", url: "/dev/estoque", iconName: "Boxes", visible: true, category: "Dev Gestão", order: 2 },
+  { id: "dev-xp-insignias", title: "Xp e insígnias", url: "/dev/xp-insignias", iconName: "Award", visible: true, category: "Dev Gestão", order: 3 },
+  { id: "dev-permissoes", title: "Permissões (Paineis)", url: "/dev/permissoes", iconName: "KeyRound", visible: true, category: "Dev Tools", order: 4 },
+  { id: "dev-coins", title: "Gestão de TW Coins", url: "/dev/coins", iconName: "Coins", visible: true, category: "Dev Gestão", order: 5 },
+  { id: "dev-loja", title: "Gestão da Loja", url: "/dev/gestaoloja", iconName: "ShoppingBag", visible: true, category: "Dev Gestão", order: 6 },
+  { id: "dev-notificacoes", title: "Central de Notificações", url: "/dev/notificacoes", iconName: "BellRing", visible: true, category: "Dev Gestão", order: 7 },
+  { id: "dev-advertencias", title: "Advertências & Suspensões", url: "/dev/advertencias", iconName: "ShieldAlert", visible: true, category: "Dev Gestão", order: 8 },
+  { id: "dev-loja-oficial", title: "Loja", url: "/dev/loja", iconName: "Store", visible: false, category: "Dev Gestão", order: 9 },
+  { id: "dev-menu-lateral", title: "Menu Lateral (Paineis)", url: "/dev/menu-lateral", iconName: "Sliders", visible: true, category: "Dev Tools", order: 10 },
+  { id: "dev-patch-notes", title: "Patch Notes", url: "/dev/patch-notes", iconName: "Sparkles", visible: false, category: "Dev Tools", order: 11 },
+  { id: "dev-desempenho", title: "Gestão Desempenho", url: "/dev/desempenho", iconName: "TrendingUp", visible: false, category: "Dev Tools", order: 12 },
 ];
 
 const STORAGE_KEY = "tw_dev_menu_config";
@@ -62,7 +71,7 @@ export function normalizeDevMenuConfig(cfg: DevMenuConfig): DevMenuConfig {
       : [];
 
   cats = Array.from(new Set(cats));
-  if (cats.length === 0) {
+  if (cats.length === 0 || (cats.length === 1 && cats[0] === "DEV")) {
     cats = [...DEFAULT_DEV_CATEGORIES];
   }
 
@@ -140,6 +149,7 @@ export function normalizeDevMenuConfig(cfg: DevMenuConfig): DevMenuConfig {
   return {
     ...cfg,
     categories: cats,
+    categoryIcons: cfg.categoryIcons && Object.keys(cfg.categoryIcons).length > 0 ? cfg.categoryIcons : DEFAULT_DEV_CATEGORY_ICONS,
     items: [...merged, ...customItems].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
   };
 }
@@ -268,6 +278,7 @@ export function useDevMenuConfig() {
       if (!raw || raw === "{}" || raw === "null" || raw === "undefined") {
         return {
           categories: [...DEFAULT_DEV_CATEGORIES],
+          categoryIcons: { ...DEFAULT_DEV_CATEGORY_ICONS },
           items: [...DEFAULT_DEV_MENU_ITEMS],
         };
       }
@@ -277,11 +288,13 @@ export function useDevMenuConfig() {
       }
       return {
         categories: [...DEFAULT_DEV_CATEGORIES],
+        categoryIcons: { ...DEFAULT_DEV_CATEGORY_ICONS },
         items: [...DEFAULT_DEV_MENU_ITEMS],
       };
     } catch {
       return {
         categories: [...DEFAULT_DEV_CATEGORIES],
+        categoryIcons: { ...DEFAULT_DEV_CATEGORY_ICONS },
         items: [...DEFAULT_DEV_MENU_ITEMS],
       };
     }

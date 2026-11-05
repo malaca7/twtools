@@ -287,15 +287,18 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
 };
 
 const DEV_MODULE_NAV_ITEMS: BaseNavItem[] = [
-  { id: "dev-bot", title: "Bot", url: "/dev/bot", icon: Bot, defaultCat: "DEV", defaultOrder: 0 },
-  { id: "dev-estoque", title: "Estoque", url: "/dev/estoque", icon: Boxes, defaultCat: "DEV", defaultOrder: 2 },
-  { id: "dev-patch-notes", title: "Patch Notes & Releases", url: "/dev/patch-notes", icon: Sparkles, defaultCat: "DEV", defaultOrder: 3 },
-  { id: "dev-desempenho", title: "Gestão Desempenho", url: "/dev/desempenho", icon: TrendingUp, defaultCat: "DEV", defaultOrder: 4 },
-  { id: "dev-permissoes", title: "Permissões (Painéis)", url: "/dev/permissoes", icon: KeyRound, defaultCat: "DEV", defaultOrder: 8 },
-  { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", icon: Code2, defaultCat: "DEV", defaultOrder: 9 },
-  { id: "dev-menu-lateral", title: "Menu Lateral Dev", url: "/dev/menu-lateral", icon: Sliders, defaultCat: "DEV", defaultOrder: 10 },
-  { id: "dev-notificacoes", title: "Central de Notificações", url: "/dev/notificacoes", icon: BellRing, defaultCat: "DEV", defaultOrder: 11 },
-  { id: "dev-advertencias", title: "Advertências & Suspensões", url: "/dev/advertencias", icon: ShieldAlert, defaultCat: "DEV", defaultOrder: 12 },
+  { id: "dev-configuracao", title: "Configurações Dev", url: "/dev/configuracao", icon: Code2, defaultCat: "Dev Tools", defaultOrder: 0 },
+  { id: "dev-bot", title: "Gerenciar Bot", url: "/dev/bot", icon: Bot, defaultCat: "Dev Tools", defaultOrder: 1 },
+  { id: "dev-estoque", title: "Estoque", url: "/dev/estoque", icon: Boxes, defaultCat: "Dev Gestão", defaultOrder: 2 },
+  { id: "dev-xp-insignias", title: "Xp e insígnias", url: "/dev/xp-insignias", icon: Award, defaultCat: "Dev Gestão", defaultOrder: 3 },
+  { id: "dev-permissoes", title: "Permissões (Paineis)", url: "/dev/permissoes", icon: KeyRound, defaultCat: "Dev Tools", defaultOrder: 4 },
+  { id: "dev-coins", title: "Gestão de TW Coins", url: "/dev/coins", icon: Coins, defaultCat: "Dev Gestão", defaultOrder: 5 },
+  { id: "dev-loja", title: "Gestão da Loja", url: "/dev/gestaoloja", icon: ShoppingBag, defaultCat: "Dev Gestão", defaultOrder: 6 },
+  { id: "dev-notificacoes", title: "Central de Notificações", url: "/dev/notificacoes", icon: BellRing, defaultCat: "Dev Gestão", defaultOrder: 7 },
+  { id: "dev-advertencias", title: "Advertências & Suspensões", url: "/dev/advertencias", icon: ShieldAlert, defaultCat: "Dev Gestão", defaultOrder: 8 },
+  { id: "dev-menu-lateral", title: "Menu Lateral (Paineis)", url: "/dev/menu-lateral", icon: Sliders, defaultCat: "Dev Tools", defaultOrder: 10 },
+  { id: "dev-patch-notes", title: "Patch Notes & Releases", url: "/dev/patch-notes", icon: Sparkles, defaultCat: "Dev Tools", defaultOrder: 11 },
+  { id: "dev-desempenho", title: "Gestão Desempenho", url: "/dev/desempenho", icon: TrendingUp, defaultCat: "Dev Tools", defaultOrder: 12 },
 ];
 
 const CEO_MODULE_NAV_ITEMS: BaseNavItem[] = [
@@ -635,11 +638,11 @@ function DynamicSidebarNavigation() {
       const ceoValidItems = ceoMenuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
       const ceoConfigMap = new Map(ceoValidItems.map((c) => [c.id || c.url, c]));
       const ceoCategoryOrder = ceoMenuConfig?.categories?.length
-        ? ceoMenuConfig.categories
-        : ["CEO Tools"];
+        ? ceoMenuConfig.categories.map((c) => c === "CEO Tools" ? "CEO" : c)
+        : ["CEO"];
 
       const defaultCeoIds = new Set(DEFAULT_CEO_MENU_ITEMS.map((d) => d.id));
-      const primaryCeoCat = ceoCategoryOrder[0] || "CEO Tools";
+      const primaryCeoCat = ceoCategoryOrder[0] || "CEO";
 
       const ceoDeletedIds = new Set(ceoMenuConfig?.deletedItemIds || []);
       const customizedCeo: MasterNavItem[] = DEFAULT_CEO_MENU_ITEMS
@@ -768,13 +771,15 @@ function DynamicSidebarNavigation() {
       const devValidItems = devMenuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
       const devConfigMap = new Map(devValidItems.map((c) => [c.id || c.url, c]));
       const rawDevCats = devMenuConfig?.categories?.length
-        ? devMenuConfig.categories
-        : ["DEV"];
+        ? (devMenuConfig.categories.length === 1 && devMenuConfig.categories[0] === "DEV"
+            ? ["Dev Tools", "Dev Gestão"]
+            : devMenuConfig.categories)
+        : ["Dev Tools", "Dev Gestão"];
       const devCategoryOrder = Array.from(
         new Set(
           rawDevCats.map((c) =>
             c.toLowerCase() === "ferramentas dev" || c.toLowerCase() === "ferramenta dev"
-              ? (rawDevCats.includes("DEV") ? "DEV" : rawDevCats[0] || "DEV")
+              ? "Dev Tools"
               : c
           )
         )

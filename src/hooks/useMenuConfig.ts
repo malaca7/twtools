@@ -44,36 +44,36 @@ function subscribe(callback: () => void) {
   return () => listeners.delete(callback);
 }
 
-export const DEFAULT_MENU_CATEGORIES = ["Produções", "Gestão", "Administração", "CEO"];
+export const DEFAULT_MENU_CATEGORIES = ["Eu", "Twin Wheels", "Produção", "Moderação", "Administração"];
 
 export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
-  { id: "produzir", title: "Produzir", url: "/producoes/produzir", visible: true, category: "Produções", order: 0, iconName: "Factory" },
-  { id: "materias-primas", title: "Matérias-Primas", url: "/producoes/materias-primas", visible: true, category: "Produções", order: 1, iconName: "Layers" },
-  { id: "armazem", title: "Armazém", url: "/producoes/armazem", visible: true, category: "Produções", order: 2, iconName: "Warehouse" },
-  { id: "gestao-producao", title: "Gestão de Produção", url: "/producoes/gestao", visible: true, category: "Produções", order: 3, iconName: "Sliders" },
-  { id: "vendas", title: "Vendas", url: "/vendas", visible: true, category: "Produções", order: 4, iconName: "ShoppingCart" },
-  { id: "dashboard", title: "Dashboard", url: "/dashboard", visible: true, category: "Gestão", order: 5, iconName: "LayoutDashboard" },
-  { id: "escalas", title: "Escala de Ação", url: "/escalas", visible: true, category: "Gestão", order: 5.5, iconName: "Swords" },
-  { id: "movimentacoes", title: "Movimentações", url: "/movimentacoes", visible: true, category: "Gestão", order: 6, iconName: "ArrowLeftRight" },
-  { id: "notificacoes", title: "Notificações", url: "/notificacoes", visible: true, category: "Gestão", order: 6, iconName: "Bell" },
-  { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", visible: true, category: "Gestão", order: 7, iconName: "LifeBuoy" },
-  { id: "atendimento-tickets", title: "Atendimento Ticket", url: "/atendimento-tickets", visible: true, category: "Administração", order: 7.5, iconName: "Headphones" },
-  { id: "estoque", title: "Controle de Estoque", url: "/controledeestoque", visible: true, category: "Gestão", order: 9, iconName: "Boxes" },
-  { id: "gestao-estoque", title: "Gestão de Estoque", url: "/gestao-estoque", visible: true, category: "Gestão", order: 10, iconName: "PackageCheck" },
-  { id: "membros", title: "Membros", url: "/membros", visible: true, category: "Gestão", order: 11 },
-  { id: "hierarquia", title: "Hierarquia", url: "/hierarquia", visible: true, category: "Gestão", order: 12 },
-  { id: "fundo-caixa", title: "Fundo de Caixa", url: "/fundo-caixa", visible: true, category: "Gestão", order: 13 },
-  { id: "ausencias", title: "Ausências", url: "/ausencias", visible: true, category: "Gestão", order: 14 },
-  { id: "rankings", title: "Rankings", url: "/rankings", visible: true, category: "Gestão", order: 15 },
-  { id: "desempenho", title: "Meu Desempenho", url: "/desempenho", visible: true, category: "Gestão", order: 16 },
-  { id: "solicitar-selo", title: "Solicitar Verificação", url: "/solicitar-selo", visible: true, category: "Gestão", order: 16.5, iconName: "BadgeCheck" },
-  { id: "metas", title: "Metas", url: "/metas", visible: true, category: "Gestão", order: 17 },
-  { id: "avisos", title: "Enviar Avisos", url: "/avisos", visible: true, category: "Gestão", order: 18 },
-  { id: "cargos", title: "Gerenciamento de Cargos", url: "/cargos", visible: true, category: "Administração", order: 19 },
-  { id: "perfil", title: "Meu Perfil", url: "/perfil", visible: true, category: "Gestão", order: 20 },
-  { id: "advertencias", title: "Advertências", url: "/advertencias", visible: true, category: "Administração", order: 21, iconName: "ShieldAlert" },
-  { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", visible: true, category: "Administração", order: 22, iconName: "Tags" },
-  { id: "ceo-selos", title: "Gerenciar Selos", url: "/ceo/selos", visible: true, category: "CEO", order: 23, iconName: "BadgeCheck" },
+  { id: "perfil", title: "Meu Perfil", url: "/perfil", visible: true, category: "Eu", order: 0, iconName: "User" },
+  { id: "notificacoes", title: "Notificações", url: "/notificacoes", visible: true, category: "Eu", order: 1, iconName: "Bell" },
+  { id: "desempenho", title: "Meu Desempenho", url: "/desempenho", visible: true, category: "Eu", order: 2, iconName: "User" },
+  { id: "solicitar-selo", title: "Solicitar Verificação", url: "/solicitar-selo", visible: true, category: "Eu", order: 3, iconName: "BadgeCheck" },
+  { id: "ceo-selos", title: "Gerenciar Selos", url: "/ceo/selos", visible: true, category: "Eu", order: 4, iconName: "BadgeCheck" },
+  { id: "loja", title: "Loja Twin Wheels", url: "/loja", visible: false, category: "Eu", order: 5, iconName: "ShoppingBag" },
+  { id: "dashboard", title: "Dashboard", url: "/dashboard", visible: true, category: "Twin Wheels", order: 6, iconName: "LayoutDashboard" },
+  { id: "movimentacoes", title: "Movimentações", url: "/movimentacoes", visible: true, category: "Twin Wheels", order: 7, iconName: "ArrowLeftRight" },
+  { id: "hierarquia", title: "Hierarquia", url: "/hierarquia", visible: true, category: "Twin Wheels", order: 8, iconName: "Workflow" },
+  { id: "membros", title: "Membros", url: "/membros", visible: true, category: "Twin Wheels", order: 9, iconName: "Users" },
+  { id: "metas", title: "Metas", url: "/metas", visible: true, category: "Twin Wheels", order: 10, iconName: "Target" },
+  { id: "escalas", title: "Escala de Ação", url: "/escalas", visible: true, category: "Twin Wheels", order: 11, iconName: "Swords" },
+  { id: "tickets", title: "Tickets / Ouvidoria", url: "/tickets", visible: true, category: "Twin Wheels", order: 12, iconName: "LifeBuoy" },
+  { id: "ausencias", title: "Ausências", url: "/ausencias", visible: true, category: "Twin Wheels", order: 13, iconName: "CalendarOff" },
+  { id: "rankings", title: "Rankings", url: "/rankings", visible: false, category: "Twin Wheels", order: 14, iconName: "Trophy" },
+  { id: "vendas", title: "Vendas", url: "/vendas", visible: true, category: "Produção", order: 15, iconName: "ShoppingCart" },
+  { id: "produzir", title: "Produzir", url: "/producoes/produzir", visible: true, category: "Produção", order: 16, iconName: "Factory" },
+  { id: "materias-primas", title: "Matérias-Primas", url: "/producoes/materias-primas", visible: true, category: "Produção", order: 17, iconName: "Layers" },
+  { id: "gestao-producao", title: "Gestão de Produção", url: "/producoes/gestao", visible: true, category: "Produção", order: 18, iconName: "Sliders" },
+  { id: "armazem", title: "Armazém", url: "/producoes/armazem", visible: true, category: "Produção", order: 19, iconName: "Warehouse" },
+  { id: "avisos", title: "Enviar Avisos", url: "/avisos", visible: true, category: "Moderação", order: 20, iconName: "Megaphone" },
+  { id: "atendimento-tickets", title: "Atendimento Ticket", url: "/atendimento-tickets", visible: true, category: "Moderação", order: 21, iconName: "Headphones" },
+  { id: "advertencias", title: "Advertências", url: "/advertencias", visible: true, category: "Moderação", order: 22, iconName: "ShieldAlert" },
+  { id: "fundo-caixa", title: "Fundo de Caixa", url: "/fundo-caixa", visible: true, category: "Administração", order: 23, iconName: "Landmark" },
+  { id: "gestao-estoque", title: "Gestão de Estoque", url: "/gestao-estoque", visible: true, category: "Administração", order: 24, iconName: "PackageCheck" },
+  { id: "cargos", title: "Gerenciamento de Cargos", url: "/cargos", visible: true, category: "Administração", order: 25, iconName: "ShieldCheck" },
+  { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", visible: false, category: "Administração", order: 26, iconName: "Tags" },
 ];
 
 export type PlatformSystemModule = {
@@ -150,10 +150,17 @@ export function syncMenuConfig(raw: Partial<MenuConfig> | null | undefined): Men
 
   // Se o usuário especificou uma lista de categorias (mesmo com nomes customizados), respeita estritamente
   const cleanSavedCats = savedCats.filter((c) => c !== "Operação");
-  if (cleanSavedCats.length > 0) {
+  const isOldDefault =
+    cleanSavedCats.length === 4 &&
+    cleanSavedCats.includes("Produções") &&
+    cleanSavedCats.includes("Gestão") &&
+    cleanSavedCats.includes("Administração") &&
+    cleanSavedCats.includes("CEO");
+
+  if (cleanSavedCats.length > 0 && !isOldDefault) {
     cleanSavedCats.forEach(addCategory);
   } else {
-    // Apenas se não houver nenhuma categoria configurada usa o padrão
+    // Apenas se não houver nenhuma categoria configurada ou se for o padrão antigo usa o padrão de 3 dias atrás
     DEFAULT_MENU_CATEGORIES.forEach(addCategory);
   }
 

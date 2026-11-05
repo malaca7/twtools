@@ -9,41 +9,59 @@ const firebaseRtdb = {
   url: FIREBASE_RTDB_URL,
 
   async get(nodePath) {
-    const cleanPath = nodePath.replace(/^\/+|\/+$/g, '');
-    const res = await fetch(`${FIREBASE_RTDB_URL}/${cleanPath}.json`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
-    return await res.json();
+    try {
+      const cleanPath = nodePath.replace(/^\/+|\/+$/g, '');
+      const res = await fetch(`${FIREBASE_RTDB_URL}/${cleanPath}.json`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data && typeof data === 'object' && data.error) return null;
+      return data;
+    } catch {
+      return null;
+    }
   },
 
   async set(nodePath, data) {
-    const cleanPath = nodePath.replace(/^\/+|\/+$/g, '');
-    const res = await fetch(`${FIREBASE_RTDB_URL}/${cleanPath}.json`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
-    return await res.json();
+    try {
+      const cleanPath = nodePath.replace(/^\/+|\/+$/g, '');
+      const res = await fetch(`${FIREBASE_RTDB_URL}/${cleanPath}.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
   },
 
   async update(nodePath, data) {
-    const cleanPath = nodePath.replace(/^\/+|\/+$/g, '');
-    const res = await fetch(`${FIREBASE_RTDB_URL}/${cleanPath}.json`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
-    return await res.json();
+    try {
+      const cleanPath = nodePath.replace(/^\/+|\/+$/g, '');
+      const res = await fetch(`${FIREBASE_RTDB_URL}/${cleanPath}.json`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
   },
 
   async remove(nodePath) {
-    const cleanPath = nodePath.replace(/^\/+|\/+$/g, '');
-    const res = await fetch(`${FIREBASE_RTDB_URL}/${cleanPath}.json`, {
-      method: 'DELETE',
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
-    return await res.json();
+    try {
+      const cleanPath = nodePath.replace(/^\/+|\/+$/g, '');
+      const res = await fetch(`${FIREBASE_RTDB_URL}/${cleanPath}.json`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
   },
 };
 

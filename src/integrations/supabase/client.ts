@@ -1,12 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
+import { BACKUP_SEED_DATABASE } from '@/data/backupSeedData';
 
 const SUPABASE_URL =
   (import.meta.env?.['VITE_SUPABASE_URL'] as string) ||
-  "https://eptcwuzfnarrvextneuu.supabase.co";
+  "https://efwqhqevfxlschyhbiao.supabase.co";
 
 const SUPABASE_PUBLISHABLE_KEY =
   (import.meta.env?.['VITE_SUPABASE_PUBLISHABLE_KEY'] as string) ||
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVwdGN3dXpmbmFycnZleHRuZXV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyMDI0MjksImV4cCI6MjEwNTc3ODQyOX0.WrXZZ-oxdBqhbrQx3tLrqtbbk1tFsaweJwROV3ThtPI";
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVmd3FocWV2Znhsc2NoeWhiaWFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0MTA0NTksImV4cCI6MjEwNDk4NjQ1OX0.NphUbLaJbJfU7dZvq8JZYoGWBYruAtvduDD0yrULy9k";
 
 const FIREBASE_RTDB_URL =
   (import.meta.env?.['VITE_FIREBASE_RTDB_URL'] as string) ||
@@ -207,6 +208,9 @@ export async function fastRtdbFetch(url: string, ttlMs = 2000): Promise<any> {
   const reqPromise = fetch(url)
     .then((r) => r.json())
     .then((data) => {
+      if (data && typeof data === 'object' && (data as any).error) {
+        return null;
+      }
       rtdbFetchCache.set(url, { data, expiry: Date.now() + ttlMs });
       return data;
     })
@@ -1955,6 +1959,11 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
           for (const item of items) {
             const key = getRecordKey(table, item);
             if (!item.id && !key.includes('_')) item.id = key;
+            if (typeof window !== 'undefined') {
+              try {
+                localStorage.setItem(`tw_rtdb_${table}/${key}`, JSON.stringify(item));
+              } catch {}
+            }
             await fetch(`${FIREBASE_RTDB_URL}/${table}/${key}.json`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
@@ -2022,6 +2031,14 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
           if (directKeyFilter && directKeyFilter.val) {
             // Caminho ultra-rápido (<50ms): atualiza diretamente o nó específico
             const directKey = String(directKeyFilter.val);
+            if (typeof window !== 'undefined') {
+              try {
+                const existing = (BACKUP_SEED_DATABASE as any)[table]?.[directKey] || {};
+                const localRaw = localStorage.getItem(`tw_rtdb_${table}/${directKey}`);
+                const prev = localRaw ? JSON.parse(localRaw) : existing;
+                localStorage.setItem(`tw_rtdb_${table}/${directKey}`, JSON.stringify({ ...prev, ...body }));
+              } catch {}
+            }
             await fetch(`${FIREBASE_RTDB_URL}/${table}/${directKey}.json`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
@@ -2064,6 +2081,11 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
         if (directKeyFilter && directKeyFilter.val) {
           // Caminho ultra-rápido (<50ms): deleta diretamente o nó específico
           const directKey = String(directKeyFilter.val);
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem(`tw_rtdb_${table}/${directKey}`, JSON.stringify(null));
+            } catch {}
+          }
           await fetch(`${FIREBASE_RTDB_URL}/${table}/${directKey}.json`, { method: 'DELETE' }).catch(() => {});
         } else {
           const checkRecordMatches = (v: any, k: string) => {
@@ -2123,22 +2145,63 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
       const singleIdFilter = filters.find((f) => f.field === 'id' && f.op === 'eq');
       if (singleIdFilter && singleIdFilter.val && !singleIdFilter.val.includes(',')) {
         // Busca direta de um item específico por ID (<50ms)
-        const directItem = await fastRtdbFetch(`${FIREBASE_RTDB_URL}/${table}/${singleIdFilter.val}.json`);
-        if (directItem && typeof directItem === 'object' && !(directItem as any)._schema_info) {
+        let directItem = await fastRtdbFetch(`${FIREBASE_RTDB_URL}/${table}/${singleIdFilter.val}.json`);
+        if (!directItem && typeof window !== 'undefined') {
+          try {
+            const raw = localStorage.getItem(`tw_rtdb_${table}/${singleIdFilter.val}`);
+            if (raw) directItem = JSON.parse(raw);
+          } catch {}
+        }
+        if (!directItem) {
+          directItem = (BACKUP_SEED_DATABASE as any)[table]?.[singleIdFilter.val];
+        }
+        if (directItem && typeof directItem === 'object' && !(directItem as any)._schema_info && !(directItem as any).error) {
           if (!directItem.id) directItem.id = singleIdFilter.val;
           items = [directItem];
         }
       } else {
         const rtdbRes = await fastRtdbFetch(`${FIREBASE_RTDB_URL}/${table}.json`);
-        if (rtdbRes && typeof rtdbRes === 'object') {
+        if (rtdbRes && typeof rtdbRes === 'object' && !rtdbRes.error) {
           items = Object.entries(rtdbRes)
-            .filter(([_, item]: any) => item && !item._schema_info)
+            .filter(([_, item]: any) => item && !item._schema_info && !item.error)
             .map(([k, item]: any) => {
               if (typeof item === 'object' && !item.id && !k.includes('_')) {
                 return { ...item, id: k };
               }
               return item;
             });
+        }
+        if (items.length === 0) {
+          // Fallback garantido para a base de dados de 3 dias atrás
+          const seedMap: Record<string, any> = {};
+          const seedData = (BACKUP_SEED_DATABASE as any)[table];
+          if (seedData && typeof seedData === 'object') {
+            for (const [k, v] of Object.entries(seedData)) {
+              if (v && !(v as any)._schema_info && !(v as any).error) {
+                seedMap[k] = (typeof v === 'object' && !(v as any).id && !k.includes('_')) ? { ...(v as any), id: k } : v;
+              }
+            }
+          }
+          if (typeof window !== 'undefined') {
+            try {
+              const prefix = `tw_rtdb_${table}/`;
+              for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k && k.startsWith(prefix)) {
+                  const subKey = k.slice(prefix.length);
+                  const raw = localStorage.getItem(k);
+                  if (raw) {
+                    try {
+                      const parsed = JSON.parse(raw);
+                      if (parsed === null) delete seedMap[subKey];
+                      else seedMap[subKey] = parsed;
+                    } catch {}
+                  }
+                }
+              }
+            } catch {}
+          }
+          items = Object.values(seedMap);
         }
       }
 
@@ -2164,7 +2227,7 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
         }
         items = expanded;
 
-        const matRes = await fastRtdbFetch(`${FIREBASE_RTDB_URL}/raw_materials.json`);
+        const matRes = (await fastRtdbFetch(`${FIREBASE_RTDB_URL}/raw_materials.json`)) || (BACKUP_SEED_DATABASE as any)['raw_materials'];
         const matMap: Record<string, any> = matRes && typeof matRes === 'object' ? matRes : {};
         items = items.map((rec) => {
           const rm = matMap[rec.raw_material_id] || Object.values(matMap).find((m: any) => m && m.id === rec.raw_material_id);
@@ -2182,7 +2245,7 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
           };
         });
       } else if (table === 'warehouse_stock') {
-        const prodRes = await fastRtdbFetch(`${FIREBASE_RTDB_URL}/products.json`);
+        const prodRes = (await fastRtdbFetch(`${FIREBASE_RTDB_URL}/products.json`)) || (BACKUP_SEED_DATABASE as any)['products'];
         const prodMap: Record<string, any> = prodRes && typeof prodRes === 'object' ? prodRes : {};
         items = items.map((ws) => {
           const p = prodMap[ws.product_id] || Object.values(prodMap).find((prod: any) => prod && prod.id === ws.product_id);
@@ -2192,9 +2255,9 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
           };
         });
       } else if (table === 'productions') {
-        const prodRes = await fastRtdbFetch(`${FIREBASE_RTDB_URL}/products.json`);
-        const prmRes = await fastRtdbFetch(`${FIREBASE_RTDB_URL}/production_raw_materials.json`);
-        const rmRes = await fastRtdbFetch(`${FIREBASE_RTDB_URL}/raw_materials.json`);
+        const prodRes = (await fastRtdbFetch(`${FIREBASE_RTDB_URL}/products.json`)) || (BACKUP_SEED_DATABASE as any)['products'];
+        const prmRes = (await fastRtdbFetch(`${FIREBASE_RTDB_URL}/production_raw_materials.json`)) || (BACKUP_SEED_DATABASE as any)['production_raw_materials'];
+        const rmRes = (await fastRtdbFetch(`${FIREBASE_RTDB_URL}/raw_materials.json`)) || (BACKUP_SEED_DATABASE as any)['raw_materials'];
 
         const prodMap: Record<string, any> = prodRes && typeof prodRes === 'object' ? prodRes : {};
         const prmList: any[] = prmRes && typeof prmRes === 'object' ? Object.values(prmRes) : [];
@@ -2369,6 +2432,16 @@ export const supabase = createClient<any>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY
     fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
       const urlStr = typeof input === 'string' ? input : input instanceof URL ? input.toString() : (input as Request).url;
       if (urlStr.includes('supabase.co')) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 4000);
+          const reqInit = { ...init, signal: init?.signal || controller.signal };
+          const res = await fetch(input, reqInit);
+          clearTimeout(timeoutId);
+          if (res.ok) {
+            return res;
+          }
+        } catch {}
         return handleSupabaseFallback(urlStr, init);
       }
       return fetch(input, init);

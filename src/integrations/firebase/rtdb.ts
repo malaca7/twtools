@@ -220,6 +220,104 @@ export interface FirebaseDiscordStockConfig {
   updated_at?: string;
 }
 
+import { BACKUP_SEED_DATABASE } from '@/data/backupSeedData';
+
+function getSeedFallback(path: string): any {
+  const clean = path.replace(/^\/+|\/+$/g, '');
+  const parts = clean.split('/');
+
+  // 1. Verifica se há alteração local no localStorage
+  if (typeof window !== 'undefined') {
+    try {
+      const localItem = localStorage.getItem(`tw_rtdb_${clean}`);
+      if (localItem !== null) {
+        return JSON.parse(localItem);
+      }
+    } catch {}
+  }
+
+  // 2. Busca na base de backup de 3 dias atrás
+  if (parts.length === 1) {
+    const col = parts[0];
+    const data = (BACKUP_SEED_DATABASE as any)[col];
+    return data !== undefined ? data : null;
+  }
+  if (parts.length === 2) {
+    const [col, key] = parts;
+    const data = (BACKUP_SEED_DATABASE as any)[col]?.[key];
+    return data !== undefined ? data : null;
+  }
+  if (parts.length >= 3) {
+    let curr = (BACKUP_SEED_DATABASE as any)[parts[0]];
+    for (let i = 1; i < parts.length; i++) {
+      if (!curr) return null;
+      curr = curr[parts[i]];
+    }
+    return curr !== undefined ? curr : null;
+  }
+  return null;
+}
+
+function getSeedFallbackList(collectionName: string): any[] {
+  const clean = collectionName.replace(/^\/+|\/+$/g, '');
+  let baseObj = (BACKUP_SEED_DATABASE as any)[clean];
+  const map: Record<string, any> = {};
+
+  if (baseObj && typeof baseObj === 'object') {
+    for (const [k, v] of Object.entries(baseObj)) {
+      if (v && !(v as any)._schema_info && !(v as any).error) {
+        map[k] = v;
+      }
+    }
+  }
+
+  // Mescla com modificações salvas no localStorage
+  if (typeof window !== 'undefined') {
+    try {
+      const prefix = `tw_rtdb_${clean}/`;
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(prefix)) {
+          const subKey = key.slice(prefix.length);
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            try {
+              const val = JSON.parse(raw);
+              if (val === null) {
+                delete map[subKey];
+              } else {
+                map[subKey] = val;
+              }
+            } catch {}
+          }
+        }
+      }
+    } catch {}
+  }
+
+  return Object.values(map);
+}
+
+let rtdbCheckPromise: Promise<boolean> | null = null;
+let isRtdbReachable: boolean | null = null;
+
+export async function checkRtdbReachable(): Promise<boolean> {
+  if (isRtdbReachable !== null) return isRtdbReachable;
+  if (rtdbCheckPromise) return rtdbCheckPromise;
+
+  rtdbCheckPromise = fetch(`${FIREBASE_RTDB_URL}/.json?shallow=true`, { method: 'GET' })
+    .then((r) => {
+      isRtdbReachable = r.ok;
+      return r.ok;
+    })
+    .catch(() => {
+      isRtdbReachable = false;
+      return false;
+    });
+
+  return rtdbCheckPromise;
+}
+
 /**
  * Utilitários convenientes para operações CRUD no Firebase RTDB
  */
@@ -228,43 +326,73 @@ export const rtdb = {
    * Obtém os dados de um nó ou coleção com proteção contra travamento (timeout padrão de 2.5s)
    */
   async get<T = any>(path: string, timeoutMs = 2500): Promise<T | null> {
+    const reachable = await checkRtdbReachable();
+    if (!reachable) {
+      const fallback = getSeedFallback(path);
+      return fallback !== undefined ? (fallback as T) : null;
+    }
+
     try {
       const nodeRef = ref(db, path);
       let timer: any;
       const timeoutPromise = new Promise<null>((resolve) => {
         timer = setTimeout(() => resolve(null), timeoutMs);
       });
-      const fetchPromise = get(nodeRef).then((snapshot) =>
-        snapshot.exists() ? (snapshot.val() as T) : null
-      ).catch(() => null);
+      const fetchPromise = get(nodeRef).then((snapshot) => {
+        if (!snapshot.exists()) return null;
+        const val = snapshot.val();
+        if (val && typeof val === 'object' && (val as any).error) return null;
+        return val as T;
+      }).catch(() => null);
 
+      let result: any = null;
       try {
-        return await Promise.race([fetchPromise, timeoutPromise]);
+        result = await Promise.race([fetchPromise, timeoutPromise]);
       } finally {
         clearTimeout(timer);
       }
-    } catch {
-      return null;
-    }
+
+      if (result !== null && result !== undefined) {
+        return result as T;
+      }
+    } catch {}
+
+    // Fallback garantido com os dados de 3 dias atrás
+    const fallback = getSeedFallback(path);
+    return fallback !== undefined ? (fallback as T) : null;
   },
 
   /**
    * Obtém uma coleção como lista (array de itens)
    */
   async getList<T = any>(collectionName: string, timeoutMs = 2500): Promise<T[]> {
+    const reachable = await checkRtdbReachable();
+    if (!reachable) {
+      return getSeedFallbackList(collectionName);
+    }
+
     try {
       const data = await this.get<Record<string, T>>(collectionName, timeoutMs);
-      if (!data || typeof data !== 'object') return [];
-      return Object.values(data).filter((item: any) => !item?._schema_info);
-    } catch {
-      return [];
-    }
+      if (data && typeof data === 'object' && !(data as any).error) {
+        const list = Object.values(data).filter((item: any) => item && !item?._schema_info && !item?.error);
+        if (list.length > 0) return list;
+      }
+    } catch {}
+
+    // Fallback garantido com a coleção de 3 dias atrás
+    return getSeedFallbackList(collectionName);
   },
 
   /**
    * Grava dados sobrescrevendo o nó indicado com proteção contra travamento
    */
   async set<T = any>(path: string, data: T, timeoutMs = 2500): Promise<void> {
+    const clean = path.replace(/^\/+|\/+$/g, '');
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(`tw_rtdb_${clean}`, JSON.stringify(data));
+      } catch {}
+    }
     try {
       const nodeRef = ref(db, path);
       let timer: any;
@@ -277,14 +405,22 @@ export const rtdb = {
       } finally {
         clearTimeout(timer);
       }
-      this.triggerRealtimeNotification(path, 'UPDATE', data);
     } catch {}
+    this.triggerRealtimeNotification(path, 'UPDATE', data);
   },
 
   /**
    * Atualiza campos específicos em um nó com proteção contra travamento
    */
   async update(path: string, data: Record<string, any>, timeoutMs = 2500): Promise<void> {
+    const clean = path.replace(/^\/+|\/+$/g, '');
+    if (typeof window !== 'undefined') {
+      try {
+        const existing = getSeedFallback(clean) || {};
+        const merged = { ...existing, ...data };
+        localStorage.setItem(`tw_rtdb_${clean}`, JSON.stringify(merged));
+      } catch {}
+    }
     try {
       const nodeRef = ref(db, path);
       let timer: any;
@@ -297,14 +433,20 @@ export const rtdb = {
       } finally {
         clearTimeout(timer);
       }
-      this.triggerRealtimeNotification(path, 'UPDATE', data);
     } catch {}
+    this.triggerRealtimeNotification(path, 'UPDATE', data);
   },
 
   /**
    * Remove um nó com proteção contra travamento
    */
   async remove(path: string, timeoutMs = 2500): Promise<void> {
+    const clean = path.replace(/^\/+|\/+$/g, '');
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(`tw_rtdb_${clean}`, JSON.stringify(null));
+      } catch {}
+    }
     try {
       const nodeRef = ref(db, path);
       let timer: any;
@@ -317,8 +459,8 @@ export const rtdb = {
       } finally {
         clearTimeout(timer);
       }
-      this.triggerRealtimeNotification(path, 'DELETE', null);
     } catch {}
+    this.triggerRealtimeNotification(path, 'DELETE', null);
   },
 
   /**

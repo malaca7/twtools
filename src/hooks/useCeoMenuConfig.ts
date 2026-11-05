@@ -21,30 +21,30 @@ export type CeoMenuConfig = {
   deletedItemIds?: string[];
 };
 
-export const DEFAULT_CEO_CATEGORIES = ["CEO Tools"];
+export const DEFAULT_CEO_CATEGORIES = ["CEO"];
 
 export const DEFAULT_CEO_MENU_ITEMS: CeoMenuItemConfig[] = [
-  { id: "ceo-dashboard", title: "Visão Geral & Métricas", url: "/ceo/dashboard", iconName: "LayoutDashboard", visible: true, category: "CEO Tools", order: 0 },
-  { id: "ceo-bot", title: "Gerenciar Bot", url: "/ceo/bot", iconName: "Bot", visible: true, category: "CEO Tools", order: 1 },
-  { id: "ceo-webhooks", title: "WebHook Discord", url: "/ceo/webhooks", iconName: "Webhook", visible: true, category: "CEO Tools", order: 2 },
-  { id: "ceo-financas", title: "Fundo de Caixa & Finanças", url: "/ceo/financas", iconName: "Landmark", visible: true, category: "CEO Tools", order: 3 },
-  { id: "ceo-ajustes-estoque", title: "Ajustes de Estoque", url: "/ceo/ajustes-estoque", iconName: "Sliders", visible: true, category: "CEO Tools", order: 4 },
-  { id: "ceo-notificacoes", title: "Central de Notificações", url: "/ceo/notificacoes", iconName: "BellRing", visible: true, category: "CEO Tools", order: 5 },
-  { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", iconName: "Tags", visible: true, category: "CEO Tools", order: 6 },
-  { id: "ceo-advertencias", title: "Advertências & Suspensões", url: "/ceo/advertencias", iconName: "ShieldAlert", visible: true, category: "CEO Tools", order: 7 },
-  { id: "ceo-selos", title: "Gerenciar Selos", url: "/ceo/selos", iconName: "BadgeCheck", visible: true, category: "CEO Tools", order: 8 },
+  { id: "ceo-dashboard", title: "Visão Geral & Métricas", url: "/ceo/dashboard", iconName: "LayoutDashboard", visible: true, category: "CEO", order: 0 },
+  { id: "ceo-bot", title: "Gerenciar Bot", url: "/ceo/bot", iconName: "Bot", visible: true, category: "CEO", order: 1 },
+  { id: "ceo-webhooks", title: "WebHook Discord", url: "/ceo/webhooks", iconName: "Webhook", visible: true, category: "CEO", order: 2 },
+  { id: "ceo-financas", title: "Fundo de Caixa & Finanças", url: "/ceo/financas", iconName: "Landmark", visible: false, category: "CEO", order: 3 },
+  { id: "ceo-ajustes-estoque", title: "Ajustes de Estoque", url: "/ceo/ajustes-estoque", iconName: "Sliders", visible: true, category: "CEO", order: 4 },
+  { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", iconName: "Tags", visible: true, category: "CEO", order: 5 },
+  { id: "ceo-selos", title: "Gerenciar Selos", url: "/ceo/selos", iconName: "BadgeCheck", visible: true, category: "CEO", order: 6 },
+  { id: "ceo-notificacoes", title: "Central de Notificações", url: "/ceo/notificacoes", iconName: "BellRing", visible: true, category: "CEO", order: 7 },
+  { id: "ceo-advertencias", title: "Advertências & Suspensões", url: "/ceo/advertencias", iconName: "ShieldAlert", visible: true, category: "CEO", order: 8 },
 ];
 
 export const CEO_SYSTEM_MODULES = [
-  { id: "ceo-dashboard", title: "Visão Geral & Métricas", url: "/ceo/dashboard", defaultCat: "CEO Tools", iconName: "LayoutDashboard", description: "Painel executivo com métricas consolidadas e faturamento geral" },
-  { id: "ceo-bot", title: "Gerenciar Bot", url: "/ceo/bot", defaultCat: "CEO Tools", iconName: "Bot", description: "Configuração do bot Discloud e sincronização do Discord" },
-  { id: "ceo-webhooks", title: "WebHook Discord", url: "/ceo/webhooks", defaultCat: "CEO Tools", iconName: "Webhook", description: "Integração de canais de avisos e notificações no Discord" },
-  { id: "ceo-financas", title: "Fundo de Caixa & Finanças", url: "/ceo/financas", defaultCat: "CEO Tools", iconName: "Landmark", description: "Gestão executiva de cofres, metas monetárias e auditoria" },
-  { id: "ceo-ajustes-estoque", title: "Ajustes de Estoque", url: "/ceo/ajustes-estoque", defaultCat: "CEO Tools", iconName: "Sliders", description: "Ajustes administrativos manuais de quantidades em baús" },
-  { id: "ceo-notificacoes", title: "Central de Notificações", url: "/ceo/notificacoes", defaultCat: "CEO Tools", iconName: "BellRing", description: "Disparo e broadcast de notificações e avisos em massa" },
-  { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", defaultCat: "CEO Tools", iconName: "Tags", description: "Criação, cores, ícones e vinculação de tags da facção" },
-  { id: "ceo-advertencias", title: "Advertências & Suspensões", url: "/ceo/advertencias", defaultCat: "CEO Tools", iconName: "ShieldAlert", description: "Auditoria e gestão de punições, advertências e suspensões" },
-  { id: "ceo-selos", title: "Gerenciar Selos", url: "/ceo/selos", defaultCat: "CEO Tools", iconName: "BadgeCheck", description: "Painel de gestão, análise de pedidos e aprovação de Selos de Verificação" },
+  { id: "ceo-dashboard", title: "Visão Geral & Métricas", url: "/ceo/dashboard", defaultCat: "CEO", iconName: "LayoutDashboard", description: "Painel executivo com métricas consolidadas e faturamento geral" },
+  { id: "ceo-bot", title: "Gerenciar Bot", url: "/ceo/bot", defaultCat: "CEO", iconName: "Bot", description: "Configuração do bot Discloud e sincronização do Discord" },
+  { id: "ceo-webhooks", title: "WebHook Discord", url: "/ceo/webhooks", defaultCat: "CEO", iconName: "Webhook", description: "Integração de canais de avisos e notificações no Discord" },
+  { id: "ceo-financas", title: "Fundo de Caixa & Finanças", url: "/ceo/financas", defaultCat: "CEO", iconName: "Landmark", description: "Gestão executiva de cofres, metas monetárias e auditoria" },
+  { id: "ceo-ajustes-estoque", title: "Ajustes de Estoque", url: "/ceo/ajustes-estoque", defaultCat: "CEO", iconName: "Sliders", description: "Ajustes administrativos manuais de quantidades em baús" },
+  { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", defaultCat: "CEO", iconName: "Tags", description: "Criação, cores, ícones e vinculação de tags da facção" },
+  { id: "ceo-selos", title: "Gerenciar Selos", url: "/ceo/selos", defaultCat: "CEO", iconName: "BadgeCheck", description: "Painel de gestão, análise de pedidos e aprovação de Selos de Verificação" },
+  { id: "ceo-notificacoes", title: "Central de Notificações", url: "/ceo/notificacoes", defaultCat: "CEO", iconName: "BellRing", description: "Disparo e broadcast de notificações e avisos em massa" },
+  { id: "ceo-advertencias", title: "Advertências & Suspensões", url: "/ceo/advertencias", defaultCat: "CEO", iconName: "ShieldAlert", description: "Auditoria e gestão de punições, advertências e suspensões" },
 ];
 
 const STORAGE_KEY = "tw_ceo_menu_config";
@@ -73,7 +73,7 @@ export function sanitizeCeoConfig(parsed: any): CeoMenuConfig {
       : [];
 
   categories = Array.from(new Set(categories));
-  if (categories.length === 0) {
+  if (categories.length === 0 || (categories.length === 1 && categories[0] === "CEO Tools")) {
     categories = [...DEFAULT_CEO_CATEGORIES];
   }
 
@@ -82,7 +82,7 @@ export function sanitizeCeoConfig(parsed: any): CeoMenuConfig {
   );
 
   const defaultIds = new Set(DEFAULT_CEO_MENU_ITEMS.map((d) => d.id));
-  const primaryCat = categories[0] || "CEO Tools";
+  const primaryCat = categories[0] || "CEO";
 
   const rawItems = Array.isArray(parsed?.items) ? parsed.items : [];
   const savedMap = new Map<string, CeoMenuItemConfig>();
