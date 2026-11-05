@@ -1,5 +1,5 @@
 {
-  "deployed_at": "2026-11-05T21:38:55.484Z",
-  "timestamp": 1793914735485,
-  "message": "^fix:^ resolver^ erro^ de^ inicializacao^ da^ plataforma^"
+  "deployed_at": "2026-11-05T22:15:08.188Z",
+  "timestamp": 1793916908189,
+  "message": "^fix^(auth^):^ restringir^ acesso^ ao^ painel^ dev^ apenas^ para^ membros^ com^ tag^ dev^ ativa^"
 }
