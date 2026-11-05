@@ -153,6 +153,54 @@ function isSystemEventMessage(content: string): boolean {
   );
 }
 
+const POKE_PRESETS = [
+  {
+    icon: "⏰",
+    title: "Aguardando Retorno",
+    message: "⏰ Aguardando seu retorno com urgência no chamado para prosseguirmos.",
+  },
+  {
+    icon: "📝",
+    title: "Informações Pendentes",
+    message: "📝 Por favor, forneça as informações, dados ou prints solicitados para darmos andamento.",
+  },
+  {
+    icon: "🔔",
+    title: "Notificação de Prioridade",
+    message: "🔔 Notificação de prioridade: favor conferir as mensagens e o andamento do ticket.",
+  },
+  {
+    icon: "⚠️",
+    title: "Aviso de Inatividade",
+    message: "⚠️ Último aviso: chamado sem interação recente. Caso não haja retorno, será encerrado.",
+  },
+  {
+    icon: "🚨",
+    title: "Atenção Imediata",
+    message: "🚨 Chamado prioritário: sua presença e atenção são necessárias no ticket neste momento.",
+  },
+  {
+    icon: "🤝",
+    title: "Equipe Disponível",
+    message: "🤝 Nossa equipe de atendimento está disponível no chamado, favor responder assim que possível.",
+  },
+  {
+    icon: "💬",
+    title: "Dúvida Operacional",
+    message: "💬 Temos uma pendência operacional sobre sua solicitação, favor verificar o chat do chamado.",
+  },
+  {
+    icon: "🔍",
+    title: "Confirmação de Solução",
+    message: "🔍 Favor confirmar se o procedimento orientado resolveu sua solicitação.",
+  },
+  {
+    icon: "📌",
+    title: "Alinhamento Final",
+    message: "📌 Chamado em fase de encerramento: precisamos de sua confirmação para finalizar.",
+  },
+];
+
 interface TicketDetailViewProps {
   ticket: Ticket;
   onClose: () => void;
@@ -289,10 +337,12 @@ export function TicketDetailView({
   const [muteReason, setMuteReason] = useState("");
 
   const [pokeDialogOpen, setPokeDialogOpen] = useState(false);
-  const [memberToPoke, setMemberToPoke] = useState<{ id: string; name: string; avatar?: string } | null>(null);
-  const [pokeMessage, setPokeMessage] = useState("");
-  const [pokeUrgency, setPokeUrgency] = useState<"baixa" | "normal" | "alta" | "urgente">("normal");
-  const [pokeDiscordId, setPokeDiscordId] = useState("");
+  const [selectedMembersToPoke, setSelectedMembersToPoke] = useState<
+    { id: string; name: string; avatar?: string; role?: string }[]
+  >([]);
+  const [selectedPokePreset, setSelectedPokePreset] = useState<string>("");
+  const [customPokeMessage, setCustomPokeMessage] = useState<string>("");
+  const [isCustomPokeSelected, setIsCustomPokeSelected] = useState<boolean>(false);
 
   const [memberDialogOpen, setMemberDialogOpen] = useState(false);
   const [memberSearchTerm, setMemberSearchTerm] = useState("");
@@ -474,13 +524,68 @@ export function TicketDetailView({
     return "";
   };
 
-  const handleOpenPokeDialog = (target: { id: string; name: string; avatar?: string }) => {
-    setMemberToPoke(target);
-    const discId = findMemberDiscordId(target.id, target.name, target.avatar);
-    setPokeDiscordId(discId);
-    setPokeMessage("");
-    setPokeUrgency("normal");
+  // Participantes do chamado elegíveis para receber alertas
+  const availableTicketParticipants = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; avatar?: string; role: string }>();
+
+    // 1. Autor do chamado
+    const authorId = ticket.creator_id || ticket.user_id;
+    const authorName = ticket.creator_nickname || ticket.creator_name;
+    if (authorId && authorId !== user?.id) {
+      map.set(authorId, {
+        id: authorId,
+        name: authorName || "Autor",
+        avatar: ticket.creator_avatar || undefined,
+        role: "Autor do Chamado",
+      });
+    }
+
+    // 2. Atendente Responsável
+    if (ticket.assigned_to_id && ticket.assigned_to_name && ticket.assigned_to_id !== user?.id) {
+      map.set(ticket.assigned_to_id, {
+        id: ticket.assigned_to_id,
+        name: ticket.assigned_to_nickname || ticket.assigned_to_name,
+        avatar: ticket.assigned_to_avatar || undefined,
+        role: "Atendente Responsável",
+      });
+    }
+
+    // 3. Participantes convidados
+    (ticket.members || []).forEach((m) => {
+      if (m.user_id && m.user_id !== user?.id && !map.has(m.user_id)) {
+        map.set(m.user_id, {
+          id: m.user_id,
+          name: m.nickname || m.name || "Participante",
+          avatar: m.avatar || undefined,
+          role: "Participante",
+        });
+      }
+    });
+
+    return Array.from(map.values());
+  }, [ticket, user?.id]);
+
+  const handleOpenPokeDialog = (target: { id: string; name: string; avatar?: string; role?: string }) => {
+    setSelectedMembersToPoke([target]);
+    setSelectedPokePreset(POKE_PRESETS[0].message);
+    setIsCustomPokeSelected(false);
+    setCustomPokeMessage("");
     setPokeDialogOpen(true);
+  };
+
+  const handleTogglePokeMember = (mem: { id: string; name: string; avatar?: string; role?: string }) => {
+    setSelectedMembersToPoke((prev) => {
+      const exists = prev.some((p) => p.id === mem.id);
+      if (exists) {
+        if (prev.length <= 1) {
+          toast.info("Ao menos um membro deve permanecer selecionado para o alerta.");
+          return prev;
+        }
+        return prev.filter((p) => p.id !== mem.id);
+      } else {
+        return [...prev, mem];
+      }
+    });
   };
 
   // Verificações robustas de Silenciamento de Membros
@@ -730,33 +835,43 @@ export function TicketDetailView({
     } catch {}
   };
 
-  const handleConfirmPokeMember = async () => {
-    if (!memberToPoke || !pokeMessage.trim()) return;
-    try {
-      const targetDiscordId =
-        pokeDiscordId.trim() ||
-        findMemberDiscordId(memberToPoke.id, memberToPoke.name, memberToPoke.avatar) ||
-        null;
+  const finalPokeMessage = isCustomPokeSelected ? customPokeMessage.trim() : selectedPokePreset.trim();
 
-      await pokeMemberMutation.mutateAsync({
-        ticketId: ticket.id,
-        payload: {
-          targetUserId: memberToPoke.id,
-          targetName: memberToPoke.name,
-          target_id: memberToPoke.id,
-          target_name: memberToPoke.name,
-          targetDiscordId: targetDiscordId,
-          target_discord_id: targetDiscordId,
-          reason: pokeMessage.trim(),
-          message: pokeMessage.trim(),
-          urgency: pokeUrgency,
-        },
-      });
+  const handleConfirmPokeMember = async () => {
+    if (selectedMembersToPoke.length === 0 || !finalPokeMessage) return;
+    try {
+      for (const member of selectedMembersToPoke) {
+        const targetDiscordId = findMemberDiscordId(member.id, member.name, member.avatar) || null;
+
+        await pokeMemberMutation.mutateAsync({
+          ticketId: ticket.id,
+          payload: {
+            targetUserId: member.id,
+            targetName: member.name,
+            target_id: member.id,
+            target_name: member.name,
+            targetDiscordId: targetDiscordId,
+            target_discord_id: targetDiscordId,
+            reason: finalPokeMessage,
+            message: finalPokeMessage,
+            urgency: "normal",
+          },
+        });
+      }
+
+      toast.success(
+        selectedMembersToPoke.length > 1
+          ? `Alerta enviado para ${selectedMembersToPoke.length} membros com sucesso!`
+          : `Alerta enviado para ${selectedMembersToPoke[0].name} com sucesso!`
+      );
       setPokeDialogOpen(false);
-      setMemberToPoke(null);
-      setPokeMessage("");
-      setPokeDiscordId("");
-    } catch {}
+      setSelectedMembersToPoke([]);
+      setSelectedPokePreset("");
+      setCustomPokeMessage("");
+      setIsCustomPokeSelected(false);
+    } catch (err: any) {
+      toast.error(err?.message || "Erro ao despachar alerta.");
+    }
   };
 
   // Auto-scroll on new messages
@@ -3351,7 +3466,7 @@ export function TicketDetailView({
 
       {/* MODAL 10: ALERTAR MEMBRO (POKE 🔔) COM DM NO DISCORD */}
       <Dialog open={pokeDialogOpen} onOpenChange={setPokeDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-md border-border/80 rounded-2xl shadow-2xl">
+        <DialogContent className="sm:max-w-lg bg-card/95 backdrop-blur-md border-border/80 rounded-2xl shadow-2xl">
           <DialogHeader>
             <div className="flex items-center gap-2 text-amber-400">
               <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
@@ -3360,120 +3475,215 @@ export function TicketDetailView({
               <DialogTitle className="text-base font-bold">Alertar Membro (Poke 🔔)</DialogTitle>
             </div>
             <DialogDescription className="text-xs text-muted-foreground pt-1">
-              Envie um alerta sonoro e visual no chamado e dispare uma DM direta no Discord através do bot oficial.
+              Envie um alerta sonoro e visual no chamado e dispare uma notificação privada no Discord via bot oficial.
             </DialogDescription>
           </DialogHeader>
 
-          {memberToPoke && (
+          {selectedMembersToPoke.length > 0 && (
             <div className="space-y-3.5 pt-2">
-              <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-secondary/40 border border-border/50">
-                <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={memberToPoke.avatar} />
-                  <AvatarFallback className="text-xs font-bold">
-                    {memberToPoke.name.slice(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="text-xs font-bold text-foreground">{memberToPoke.name}</p>
-                  <p className="text-[10px] text-muted-foreground">Destinatário do Alerta</p>
-                </div>
-              </div>
-
-              {/* Bloco de Notificação e Envio de DM pelo Bot do Discord */}
-              <div className="space-y-2 p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/25">
+              {/* CARD(S) DOS MEMBROS SELECIONADOS (SEM CAMPO DE ID DISCORD) */}
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-300">
-                    <MessageSquare className="h-3.5 w-3.5" />
-                    <span>Notificação no Discord (DM Privada via Bot)</span>
-                  </div>
-                  {pokeDiscordId.trim() ? (
-                    <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-emerald-500/15 text-emerald-300 border-emerald-500/30 font-medium">
-                      ● ID Detectado
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-amber-500/15 text-amber-300 border-amber-500/30 font-medium">
-                      ⚠️ ID não vinculado
-                    </Badge>
+                  <Label className="text-xs font-semibold text-foreground">
+                    Membro(s) Selecionado(s) ({selectedMembersToPoke.length})
+                  </Label>
+                  {availableTicketParticipants.length > 1 && (
+                    <span className="text-[10px] text-muted-foreground">
+                      Pode selecionar mais de um membro abaixo
+                    </span>
                   )}
                 </div>
-                <p className="text-[11px] text-muted-foreground leading-snug">
-                  {pokeDiscordId.trim()
-                    ? "O bot oficial do Discord (twin) enviará uma DM privada automática com alerta e link direto:"
-                    : "Para enviar uma DM privada no Discord pelo bot (twin), confirme ou informe o ID numérico do usuário abaixo:"}
-                </p>
-                <Input
-                  value={pokeDiscordId}
-                  onChange={(e) => setPokeDiscordId(e.target.value.trim())}
-                  placeholder="ID do Discord (ex: 722320491767136346)"
-                  className="h-8 text-xs font-mono bg-secondary/50 border-border/70 rounded-lg"
-                />
-                {!pokeDiscordId.trim() && (
-                  <p className="text-[10px] text-amber-400/90 leading-tight">
-                    * Se deixar vazio, o alerta será registrado no chamado, mas a DM externa não será disparada.
-                  </p>
-                )}
-              </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-foreground">Mensagens Rápidas de Alerta:</Label>
-                <div className="flex flex-col gap-1.5">
-                  {[
-                    "⏰ Aguardando seu retorno com urgência no chamado.",
-                    "📝 Por favor, forneça as informações solicitadas para prosseguirmos.",
-                    "🔔 Notificação de prioridade: favor conferir o andamento do ticket.",
-                    "⚠️ Último aviso antes do encerramento do chamado por inatividade.",
-                  ].map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => setPokeMessage(preset)}
-                      className="text-left text-xs p-2 rounded-xl bg-secondary/30 hover:bg-amber-500/15 border border-border/50 hover:border-amber-500/40 text-muted-foreground hover:text-amber-200 transition-all font-medium"
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {selectedMembersToPoke.map((m) => (
+                    <div
+                      key={m.id}
+                      className="flex items-center justify-between p-2.5 rounded-xl bg-secondary/40 border border-amber-500/30"
                     >
-                      {preset}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-foreground">Mensagem Personalizada do Alerta:</Label>
-                <Textarea
-                  value={pokeMessage}
-                  onChange={(e) => setPokeMessage(e.target.value)}
-                  placeholder="Digite a mensagem de alerta..."
-                  rows={2}
-                  className="text-xs bg-secondary/40 border-border/70 rounded-xl"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-foreground">Nível de Urgência:</Label>
-                <div className="grid grid-cols-3 gap-1.5 text-xs">
-                  {[
-                    { label: "Normal", val: "normal" as const },
-                    { label: "Alta", val: "alta" as const },
-                    { label: "Urgente", val: "urgente" as const },
-                  ].map((u) => (
-                    <button
-                      key={u.val}
-                      type="button"
-                      onClick={() => setPokeUrgency(u.val)}
-                      className={cn(
-                        "px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-all",
-                        pokeUrgency === u.val
-                          ? "bg-amber-500/20 border-amber-500/50 text-amber-300 shadow-2xs font-bold"
-                          : "bg-secondary/30 border-border/60 text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <Avatar className="h-8 w-8 rounded-lg shrink-0">
+                          <AvatarImage src={m.avatar} />
+                          <AvatarFallback className="text-xs font-bold">
+                            {m.name.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-foreground truncate">{m.name}</p>
+                          <span className="text-[10px] text-muted-foreground block truncate">
+                            {m.role || "Participante"}
+                          </span>
+                        </div>
+                      </div>
+                      {selectedMembersToPoke.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePokeMember(m)}
+                          className="p-1 text-muted-foreground hover:text-rose-400 transition-colors cursor-pointer"
+                          title="Remover do alerta"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
                       )}
-                    >
-                      {u.label}
-                    </button>
+                    </div>
                   ))}
                 </div>
               </div>
+
+              {/* SELEÇÃO MULTIPLA DE PARTICIPANTES DO CHAMADO */}
+              {availableTicketParticipants.length > 1 && (
+                <div className="space-y-1.5 pt-2 border-t border-border/40">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-muted-foreground">
+                      Participantes do chamado:
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        if (selectedMembersToPoke.length === availableTicketParticipants.length) {
+                          setSelectedMembersToPoke([availableTicketParticipants[0]]);
+                        } else {
+                          setSelectedMembersToPoke([...availableTicketParticipants]);
+                        }
+                      }}
+                      className="h-6 text-[10px] text-amber-400 hover:text-amber-300 px-2 cursor-pointer"
+                    >
+                      {selectedMembersToPoke.length === availableTicketParticipants.length
+                        ? "Desmarcar outros"
+                        : "Selecionar todos"}
+                    </Button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5">
+                    {availableTicketParticipants.map((p) => {
+                      const isSelected = selectedMembersToPoke.some((s) => s.id === p.id);
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => handleTogglePokeMember(p)}
+                          className={cn(
+                            "flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-medium border transition-all cursor-pointer",
+                            isSelected
+                              ? "bg-amber-500/20 border-amber-500/60 text-amber-200 font-bold"
+                              : "bg-secondary/30 border-border/60 text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+                          )}
+                        >
+                          <Avatar className="h-4 w-4 rounded-full">
+                            <AvatarImage src={p.avatar} />
+                            <AvatarFallback className="text-[8px]">
+                              {p.name.slice(0, 1).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="truncate max-w-[120px]">{p.name}</span>
+                          {isSelected ? (
+                            <Check className="h-3 w-3 text-amber-400 shrink-0" />
+                          ) : (
+                            <Plus className="h-3 w-3 opacity-60 shrink-0" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* MODELOS RÁPIDOS DE ALERTA (DIFERENTES E VARIADOS) */}
+              <div className="space-y-1.5 pt-2 border-t border-border/40">
+                <Label className="text-xs font-semibold text-foreground">
+                  Escolha o Modelo de Alerta:
+                </Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1 mobile-touch-scroll">
+                  {POKE_PRESETS.map((preset) => {
+                    const isSelected = !isCustomPokeSelected && selectedPokePreset === preset.message;
+                    return (
+                      <button
+                        key={preset.title}
+                        type="button"
+                        onClick={() => {
+                          setSelectedPokePreset(preset.message);
+                          setIsCustomPokeSelected(false);
+                        }}
+                        className={cn(
+                          "text-left p-2 rounded-xl border text-xs transition-all flex flex-col justify-between gap-1 cursor-pointer",
+                          isSelected
+                            ? "bg-amber-500/20 border-amber-500/70 text-amber-200 shadow-xs"
+                            : "bg-secondary/30 border-border/50 text-muted-foreground hover:bg-secondary/60 hover:text-foreground hover:border-border"
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-bold flex items-center gap-1.5">
+                            <span>{preset.icon}</span>
+                            <span>{preset.title}</span>
+                          </span>
+                          {isSelected && <Check className="h-3.5 w-3.5 text-amber-400 shrink-0" />}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground line-clamp-2 leading-relaxed">
+                          {preset.message}
+                        </p>
+                      </button>
+                    );
+                  })}
+
+                  {/* Botão de Mensagem Personalizada */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCustomPokeSelected(true);
+                    }}
+                    className={cn(
+                      "text-left p-2 rounded-xl border text-xs transition-all flex flex-col justify-between gap-1 cursor-pointer",
+                      isCustomPokeSelected
+                        ? "bg-amber-500/20 border-amber-500/70 text-amber-200 shadow-xs"
+                        : "bg-secondary/30 border-border/50 text-muted-foreground hover:bg-secondary/60 hover:text-foreground hover:border-border"
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-bold flex items-center gap-1.5">
+                        <span>✍️</span>
+                        <span>Mensagem Personalizada</span>
+                      </span>
+                      {isCustomPokeSelected && <Check className="h-3.5 w-3.5 text-amber-400 shrink-0" />}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground line-clamp-2 leading-relaxed">
+                      Digite um texto customizado para enviar aos membros selecionados.
+                    </p>
+                  </button>
+                </div>
+              </div>
+
+              {/* OPÇÃO DE DIGITAR MENSAGEM PERSONALIZADA (APENAS SE SELECIONADA) */}
+              {isCustomPokeSelected && (
+                <div className="space-y-1.5 pt-1 animate-in fade-in duration-200">
+                  <Label className="text-xs font-semibold text-foreground flex items-center gap-1">
+                    <span>Mensagem Personalizada do Alerta:</span>
+                    <span className="text-amber-400">*</span>
+                  </Label>
+                  <Textarea
+                    value={customPokeMessage}
+                    onChange={(e) => setCustomPokeMessage(e.target.value)}
+                    placeholder="Digite a mensagem de alerta que será enviada..."
+                    rows={3}
+                    className="text-xs bg-secondary/40 border-border/70 rounded-xl resize-none focus-visible:ring-amber-500"
+                    autoFocus
+                  />
+                </div>
+              )}
+
+              {/* PRÉVIA DA MENSAGEM SELECIONADA */}
+              {finalPokeMessage && !isCustomPokeSelected && (
+                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200/90 flex items-start gap-2">
+                  <Bell className="h-3.5 w-3.5 text-amber-400 mt-0.5 shrink-0" />
+                  <span className="text-[11px] leading-relaxed">
+                    <strong>Prévia:</strong> &quot;{finalPokeMessage}&quot;
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
-          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+          <DialogFooter className="gap-2 sm:gap-0 pt-2 border-t border-border/40">
             <Button
               variant="ghost"
               size="sm"
@@ -3485,11 +3695,17 @@ export function TicketDetailView({
             <Button
               size="sm"
               onClick={handleConfirmPokeMember}
-              disabled={pokeMemberMutation.isPending || !pokeMessage.trim()}
-              className="bg-amber-500 hover:bg-amber-600 text-black font-bold text-xs rounded-xl gap-1.5"
+              disabled={pokeMemberMutation.isPending || selectedMembersToPoke.length === 0 || !finalPokeMessage}
+              className="bg-amber-500 hover:bg-amber-600 text-black font-bold text-xs rounded-xl gap-1.5 cursor-pointer"
             >
               <Bell className="h-3.5 w-3.5" />
-              <span>{pokeMemberMutation.isPending ? "Enviando..." : "Enviar Alerta (Poke + DM Bot)"}</span>
+              <span>
+                {pokeMemberMutation.isPending
+                  ? "Enviando..."
+                  : selectedMembersToPoke.length > 1
+                  ? `Enviar Alerta (${selectedMembersToPoke.length} membros)`
+                  : "Enviar Alerta (Poke + DM Bot)"}
+              </span>
             </Button>
           </DialogFooter>
         </DialogContent>
