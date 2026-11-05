@@ -228,6 +228,7 @@ export async function saveAdminTagPermissions(
 
 export const DEV_DISCORD_IDS: string[] = [
   "722320491767136346", // Malaca (Fundador & Dev)
+  "917826984778797087", // Malaca (Fundador & Dev)
 ];
 
 /**

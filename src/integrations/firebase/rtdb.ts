@@ -225,48 +225,100 @@ export interface FirebaseDiscordStockConfig {
  */
 export const rtdb = {
   /**
-   * Obtém os dados de um nó ou coleção
+   * Obtém os dados de um nó ou coleção com proteção contra travamento (timeout padrão de 2.5s)
    */
-  async get<T = any>(path: string): Promise<T | null> {
-    const nodeRef = ref(db, path);
-    const snapshot = await get(nodeRef);
-    return snapshot.exists() ? (snapshot.val() as T) : null;
+  async get<T = any>(path: string, timeoutMs = 2500): Promise<T | null> {
+    try {
+      const nodeRef = ref(db, path);
+      let timer: any;
+      const timeoutPromise = new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), timeoutMs);
+      });
+      const fetchPromise = get(nodeRef).then((snapshot) =>
+        snapshot.exists() ? (snapshot.val() as T) : null
+      ).catch(() => null);
+
+      try {
+        return await Promise.race([fetchPromise, timeoutPromise]);
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch {
+      return null;
+    }
   },
 
   /**
    * Obtém uma coleção como lista (array de itens)
    */
-  async getList<T = any>(collectionName: string): Promise<T[]> {
-    const data = await this.get<Record<string, T>>(collectionName);
-    if (!data) return [];
-    return Object.values(data).filter((item: any) => !item?._schema_info);
+  async getList<T = any>(collectionName: string, timeoutMs = 2500): Promise<T[]> {
+    try {
+      const data = await this.get<Record<string, T>>(collectionName, timeoutMs);
+      if (!data || typeof data !== 'object') return [];
+      return Object.values(data).filter((item: any) => !item?._schema_info);
+    } catch {
+      return [];
+    }
   },
 
   /**
-   * Grava dados sobrescrevendo o nó indicado
+   * Grava dados sobrescrevendo o nó indicado com proteção contra travamento
    */
-  async set<T = any>(path: string, data: T): Promise<void> {
-    const nodeRef = ref(db, path);
-    await set(nodeRef, data);
-    this.triggerRealtimeNotification(path, 'UPDATE', data);
+  async set<T = any>(path: string, data: T, timeoutMs = 2500): Promise<void> {
+    try {
+      const nodeRef = ref(db, path);
+      let timer: any;
+      const timeoutPromise = new Promise<void>((resolve) => {
+        timer = setTimeout(() => resolve(), timeoutMs);
+      });
+      const setPromise = set(nodeRef, data).catch(() => {});
+      try {
+        await Promise.race([setPromise, timeoutPromise]);
+      } finally {
+        clearTimeout(timer);
+      }
+      this.triggerRealtimeNotification(path, 'UPDATE', data);
+    } catch {}
   },
 
   /**
-   * Atualiza campos específicos em um nó
+   * Atualiza campos específicos em um nó com proteção contra travamento
    */
-  async update(path: string, data: Record<string, any>): Promise<void> {
-    const nodeRef = ref(db, path);
-    await update(nodeRef, data);
-    this.triggerRealtimeNotification(path, 'UPDATE', data);
+  async update(path: string, data: Record<string, any>, timeoutMs = 2500): Promise<void> {
+    try {
+      const nodeRef = ref(db, path);
+      let timer: any;
+      const timeoutPromise = new Promise<void>((resolve) => {
+        timer = setTimeout(() => resolve(), timeoutMs);
+      });
+      const updatePromise = update(nodeRef, data).catch(() => {});
+      try {
+        await Promise.race([updatePromise, timeoutPromise]);
+      } finally {
+        clearTimeout(timer);
+      }
+      this.triggerRealtimeNotification(path, 'UPDATE', data);
+    } catch {}
   },
 
   /**
-   * Remove um nó
+   * Remove um nó com proteção contra travamento
    */
-  async remove(path: string): Promise<void> {
-    const nodeRef = ref(db, path);
-    await remove(nodeRef);
-    this.triggerRealtimeNotification(path, 'DELETE', null);
+  async remove(path: string, timeoutMs = 2500): Promise<void> {
+    try {
+      const nodeRef = ref(db, path);
+      let timer: any;
+      const timeoutPromise = new Promise<void>((resolve) => {
+        timer = setTimeout(() => resolve(), timeoutMs);
+      });
+      const removePromise = remove(nodeRef).catch(() => {});
+      try {
+        await Promise.race([removePromise, timeoutPromise]);
+      } finally {
+        clearTimeout(timer);
+      }
+      this.triggerRealtimeNotification(path, 'DELETE', null);
+    } catch {}
   },
 
   /**

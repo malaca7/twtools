@@ -28,6 +28,7 @@ import { ProductThumbnail } from "@/components/ui-kit";
 import { submitMultiSale } from "@/lib/app-api";
 import { currency, formatCurrencyInput, parseCurrencyInput, errorMessage, num } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 export const PAYMENT_METHODS = ["dinheiro", "dinheiro_sujo", "parceria"] as const;
 
