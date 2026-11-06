@@ -148,17 +148,7 @@ function setLocalNotifications(notifications: AppNotification[], emitEvent: bool
  * Busca a lista de todas as notificações gravadas no banco de dados (crua)
  */
 export async function fetchAllRawNotifications(): Promise<AppNotification[]> {
-  try {
-    const rtdbEntry = await rtdb.get<any>(`role_permissions/${NOTIFICATIONS_DB_LEVEL}`);
-    if (rtdbEntry && rtdbEntry.permissions && typeof rtdbEntry.permissions === "object") {
-      const parsed = rtdbEntry.permissions as any;
-      if (Array.isArray(parsed.notifications)) {
-        setLocalNotifications(parsed.notifications, false);
-        return parsed.notifications as AppNotification[];
-      }
-    }
-  } catch {}
-
+  // 1. Prioriza SEMPRE o banco de dados oficial Supabase
   try {
     const { data, error } = await supabase
       .from("role_permissions")
@@ -174,8 +164,21 @@ export async function fetchAllRawNotifications(): Promise<AppNotification[]> {
       }
     }
   } catch (err) {
-    console.warn("Erro ao carregar notificações do banco:", err);
+    console.warn("Erro ao carregar notificações do Supabase:", err);
   }
+
+  // 2. Fallback RTDB caso Supabase retorne vazio
+  try {
+    const rtdbEntry = await rtdb.get<any>(`role_permissions/${NOTIFICATIONS_DB_LEVEL}`);
+    if (rtdbEntry && rtdbEntry.permissions && typeof rtdbEntry.permissions === "object") {
+      const parsed = rtdbEntry.permissions as any;
+      if (Array.isArray(parsed.notifications)) {
+        setLocalNotifications(parsed.notifications, false);
+        return parsed.notifications as AppNotification[];
+      }
+    }
+  } catch {}
+
   return getLocalNotifications();
 }
 

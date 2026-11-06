@@ -153,10 +153,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     is_developer: Boolean(supaProf.is_developer === true),
                   };
                 }
-
-                sessionStorage.setItem("tw_dev_impersonate", JSON.stringify(sim));
-                localStorage.setItem("tw_dev_impersonate", JSON.stringify(sim));
               }
+
+              if (currentUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(currentUserId))) {
+                const { data: roleRow } = await supabase
+                  .from("user_roles")
+                  .select("nivel")
+                  .eq("user_id", currentUserId)
+                  .maybeSingle();
+                if (roleRow?.nivel) {
+                  sim.nivel = roleRow.nivel;
+                }
+
+                const { data: userTags } = await supabase
+                  .from("member_tag_assignments" as any)
+                  .select("tag_id")
+                  .or(`user_id.eq.${currentUserId},member_id.eq.${currentUserId}`);
+                const hasCeoTag = Array.isArray(userTags) && userTags.some((t: any) => String(t.tag_id || "").toLowerCase().trim() === "ceo");
+                const hasDevTag = Array.isArray(userTags) && userTags.some((t: any) => {
+                  const clean = String(t.tag_id || "").toLowerCase().trim();
+                  return clean === "dev" || clean === "desenvolvedor";
+                });
+                if (!hasCeoTag && sim.nivel !== "ceo") {
+                  sim.is_ceo = false;
+                }
+                if (!hasDevTag && sim.nivel !== "desenvolvedor") {
+                  sim.is_developer = false;
+                }
+                if (!sim.is_ceo && typeof window !== "undefined") {
+                  if (localStorage.getItem("tw_panel_mode") === "ceo") {
+                    localStorage.setItem("tw_panel_mode", "member");
+                    sessionStorage.setItem("tw_panel_mode", "member");
+                  }
+                }
+              }
+
+              sessionStorage.setItem("tw_dev_impersonate", JSON.stringify(sim));
+              localStorage.setItem("tw_dev_impersonate", JSON.stringify(sim));
             }
           } catch {}
 
@@ -255,10 +288,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     is_developer: Boolean(supaProf.is_developer === true),
                   };
                 }
-
-                localStorage.setItem("tw_dev_impersonate", JSON.stringify(dev));
-                sessionStorage.setItem("tw_dev_impersonate", JSON.stringify(dev));
               }
+
+              if (currentUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(currentUserId))) {
+                const { data: roleRow } = await supabase
+                  .from("user_roles")
+                  .select("nivel")
+                  .eq("user_id", currentUserId)
+                  .maybeSingle();
+                if (roleRow?.nivel) {
+                  dev.nivel = roleRow.nivel;
+                }
+
+                const { data: userTags } = await supabase
+                  .from("member_tag_assignments" as any)
+                  .select("tag_id")
+                  .or(`user_id.eq.${currentUserId},member_id.eq.${currentUserId}`);
+                const hasCeoTag = Array.isArray(userTags) && userTags.some((t: any) => String(t.tag_id || "").toLowerCase().trim() === "ceo");
+                const hasDevTag = Array.isArray(userTags) && userTags.some((t: any) => {
+                  const clean = String(t.tag_id || "").toLowerCase().trim();
+                  return clean === "dev" || clean === "desenvolvedor";
+                });
+                if (!hasCeoTag && dev.nivel !== "ceo") {
+                  dev.is_ceo = false;
+                }
+                if (!hasDevTag && dev.nivel !== "desenvolvedor") {
+                  dev.is_developer = false;
+                }
+                if (!dev.is_ceo && typeof window !== "undefined") {
+                  if (localStorage.getItem("tw_panel_mode") === "ceo") {
+                    localStorage.setItem("tw_panel_mode", "member");
+                    sessionStorage.setItem("tw_panel_mode", "member");
+                  }
+                }
+              }
+
+              localStorage.setItem("tw_dev_impersonate", JSON.stringify(dev));
+              sessionStorage.setItem("tw_dev_impersonate", JSON.stringify(dev));
             }
           } catch {}
 
@@ -844,18 +910,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             activeUserId,
             activeProfileId,
             activeDiscordId,
-            activeGameId,
-            profile?.game_id,
-            (profile as any)?.passaporte,
             profile?.user_id,
             profile?.id,
             session?.user?.id,
             profile?.discord_id,
             profile?.discord_email,
             session?.user?.email,
-            profile?.discord_username,
-            profile?.nickname,
-            profile?.nome,
           ]
             .filter(Boolean)
             .map((id) => String(id).trim().toLowerCase())
@@ -1359,7 +1419,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (profile?.discord_id && DEV_DISCORD_IDS.includes(String(profile.discord_id))) return true;
     if ((session?.user as any)?.discord_id && DEV_DISCORD_IDS.includes(String((session?.user as any).discord_id))) return true;
-    if (session?.user?.id === "c5ef6dc6-e126-4027-80c3-319f0a870315") return true;
+    if (session?.user?.id === "c5ef6dc6-e126-4027-80c3-319f0a870315" || session?.user?.id === "6e2f5d10-d684-4caf-8c1e-636b9d1a84d6") return true;
 
     return false;
   }, [session?.user, profile, level, memberTags, isDevTagItem]);
@@ -1371,13 +1431,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (t.is_active === false) return false;
       const cleanId = (t.id || "").toLowerCase().trim();
       const cleanName = (t.name || "").toLowerCase().trim();
-      if (cleanId === "ceo" || cleanName === "ceo") return true;
-      if (t.rules?.can_access_ceo === true || t.rules?.is_ceo === true) return true;
-      return false;
+      const cleanSlug = (t.slug || "").toLowerCase().trim();
+      return cleanId === "ceo" || cleanName === "ceo" || cleanSlug === "ceo";
     });
 
     // Se o perfil tem explicitamente is_ceo === false ou custom_theme.is_ceo === false e não tem tag ativa CEO e não tem cargo ceo, NUNCA é CEO
-    if (profile && ((profile as any).is_ceo === false || (profile as any)?.custom_theme?.is_ceo === false) && !hasActiveCeoTag && level !== "ceo") {
+    if (
+      profile &&
+      ((profile as any).is_ceo === false || (profile as any)?.custom_theme?.is_ceo === false) &&
+      !hasActiveCeoTag &&
+      level !== "ceo"
+    ) {
       return false;
     }
 

@@ -228,6 +228,7 @@ export async function saveAdminTagPermissions(
 
 export const DEV_DISCORD_IDS: string[] = [
   "722320491767136346", // Malaca (Fundador & Dev Master)
+  "917826984778797087", // Dev (Developers)
 ];
 
 /**
@@ -255,8 +256,11 @@ export function isUserDeveloper(
   if ((user as any)?.discord_id && DEV_DISCORD_IDS.includes(String((user as any).discord_id))) return true;
   if (
     user?.id === "c5ef6dc6-e126-4027-80c3-319f0a870315" ||
+    user?.id === "6e2f5d10-d684-4caf-8c1e-636b9d1a84d6" ||
     profile?.id === "860f8be7-6e51-4a47-8c14-9ca912d3c20a" ||
-    (profile as any)?.user_id === "c5ef6dc6-e126-4027-80c3-319f0a870315"
+    profile?.id === "8f78c340-bcb0-452b-80ee-fd49ee7ce471" ||
+    (profile as any)?.user_id === "c5ef6dc6-e126-4027-80c3-319f0a870315" ||
+    (profile as any)?.user_id === "6e2f5d10-d684-4caf-8c1e-636b9d1a84d6"
   ) {
     return true;
   }

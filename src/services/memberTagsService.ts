@@ -192,12 +192,12 @@ export async function getMemberTags(): Promise<MemberTag[]> {
       .order("order_index", { ascending: true })
       .order("created_at", { ascending: true });
 
-    if (!tagsErr && Array.isArray(data) && data.length > 0) {
+    if (!tagsErr && Array.isArray(data)) {
       tags = data;
     }
   } catch {}
 
-  // Fallback imediato ao Firebase RTDB caso Supabase não retorne ou falhe
+  // Fallback imediato ao Firebase RTDB caso Supabase retorne erro
   if (tags.length === 0) {
     try {
       const { rtdb } = await import("@/integrations/firebase/rtdb");
@@ -282,8 +282,8 @@ export async function getMemberTagAssignments(): Promise<MemberTagAssignment[]> 
       .select("*")
       .order("assigned_at", { ascending: false });
 
-    if (!error && Array.isArray(data) && data.length > 0) {
-      return (data || []).map((d: any) => ({
+    if (!error && Array.isArray(data)) {
+      return data.map((d: any) => ({
         id: d.id,
         member_id: d.member_id || d.user_id,
         tag_id: d.tag_id,

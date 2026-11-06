@@ -548,18 +548,18 @@ export async function syncDiscordUser({ data }: { data: { token: string } }): Pr
 export async function getCategories(): Promise<Category[]> {
   let listData: any[] = [];
   try {
-    listData = await rtdb.getList<any>("categories");
+    const { data, error } = await supabase
+      .from("categories")
+      .select("id, nome, descricao, ativo, created_at")
+      .order("nome");
+    if (!error && Array.isArray(data)) {
+      listData = data;
+    }
   } catch {}
 
   if (!listData || listData.length === 0) {
     try {
-      const { data, error } = await supabase
-        .from("categories")
-        .select("id, nome, descricao, ativo, created_at")
-        .order("nome");
-      if (!error && data && data.length > 0) {
-        listData = data;
-      }
+      listData = await rtdb.getList<any>("categories");
     } catch {}
   }
 
@@ -576,29 +576,29 @@ export async function getBaus(): Promise<Bau[]> {
   let listData: any[] = [];
   let configData: any = null;
   try {
-    const [fbBaus, fbConfig] = await Promise.all([
-      rtdb.getList<any>("baus"),
-      rtdb.getList<any>("discord_stock_config"),
+    const [bausRes, configRes] = await Promise.all([
+      supabase.from("baus").select("*").order("created_at", { ascending: true }),
+      (supabase.from("discord_stock_config" as any)).select("bau_channels").limit(1).maybeSingle(),
     ]);
-    if (fbBaus && fbBaus.length > 0) {
-      listData = fbBaus;
+    if (!bausRes.error && Array.isArray(bausRes.data) && bausRes.data.length > 0) {
+      listData = bausRes.data;
     }
-    if (fbConfig && fbConfig.length > 0) {
-      configData = fbConfig[0];
+    if (!configRes.error && configRes.data) {
+      configData = configRes.data;
     }
   } catch {}
 
   if (listData.length === 0) {
     try {
-      const [bausRes, configRes] = await Promise.all([
-        supabase.from("baus").select("*").order("created_at", { ascending: true }),
-        (supabase.from("discord_stock_config" as any)).select("bau_channels").limit(1).maybeSingle(),
+      const [fbBaus, fbConfig] = await Promise.all([
+        rtdb.getList<any>("baus"),
+        rtdb.getList<any>("discord_stock_config"),
       ]);
-      if (!bausRes.error && bausRes.data && bausRes.data.length > 0) {
-        listData = bausRes.data;
+      if (fbBaus && fbBaus.length > 0) {
+        listData = fbBaus;
       }
-      if (!configRes.error && configRes.data) {
-        configData = configRes.data;
+      if (fbConfig && fbConfig.length > 0) {
+        configData = fbConfig[0];
       }
     } catch {}
   }
@@ -845,16 +845,16 @@ export interface ProductBauStock {
 export async function getProductBaus(): Promise<ProductBauStock[]> {
   let data: any[] = [];
   try {
-    data = await rtdb.getList<any>("product_baus");
+    const res = await (supabase.from("product_baus" as any))
+      .select("product_id, bau_id, quantidade");
+    if (!res.error && Array.isArray(res.data) && res.data.length > 0) {
+      data = res.data;
+    }
   } catch {}
 
   if (!data || data.length === 0) {
     try {
-      const res = await (supabase.from("product_baus" as any))
-        .select("product_id, bau_id, quantidade");
-      if (!res.error && res.data && res.data.length > 0) {
-        data = res.data;
-      }
+      data = await rtdb.getList<any>("product_baus");
     } catch {}
   }
 
@@ -868,18 +868,18 @@ export async function getProductBaus(): Promise<ProductBauStock[]> {
 export async function getProducts(): Promise<Product[]> {
   let listData: any[] = [];
   try {
-    listData = await rtdb.getList<any>("products");
+    const { data, error } = await supabase
+      .from("products")
+      .select("id, nome, cda_name, descricao, categoria_id, bau_id, unidade, estoque_atual, estoque_minimo, preco_sugerido, imagem_url, can_be_produced, can_be_sold, sale_available_quantity, production_yield, ativo, created_at, updated_at")
+      .order("nome");
+    if (!error && Array.isArray(data) && data.length > 0) {
+      listData = data;
+    }
   } catch {}
 
   if (!listData || listData.length === 0) {
     try {
-      const { data, error } = await supabase
-        .from("products")
-        .select("id, nome, cda_name, descricao, categoria_id, bau_id, unidade, estoque_atual, estoque_minimo, preco_sugerido, imagem_url, can_be_produced, can_be_sold, sale_available_quantity, production_yield, ativo, created_at, updated_at")
-        .order("nome");
-      if (!error && data && data.length > 0) {
-        listData = data;
-      }
+      listData = await rtdb.getList<any>("products");
     } catch {}
   }
 
@@ -929,20 +929,20 @@ export async function getMovements(limit = 250): Promise<Movement[]> {
 
   let data: any[] = [];
   try {
-    data = await rtdb.getList<any>("stock_movements");
-    data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    if (limit && limit > 0) data = data.slice(0, limit);
+    const res = await (supabase.from("stock_movements" as any))
+      .select("id, product_id, user_id, bau_id, type, quantity, previous_balance, resulting_balance, reason, sale_id, reversal_of, created_at, origin, discord_message_id")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (!res.error && Array.isArray(res.data) && res.data.length > 0) {
+      data = res.data;
+    }
   } catch {}
 
   if (!data || data.length === 0) {
     try {
-      const res = await (supabase.from("stock_movements" as any))
-        .select("id, product_id, user_id, bau_id, type, quantity, previous_balance, resulting_balance, reason, sale_id, reversal_of, created_at, origin, discord_message_id")
-        .order("created_at", { ascending: false })
-        .limit(limit);
-      if (!res.error && res.data && res.data.length > 0) {
-        data = res.data;
-      }
+      data = await rtdb.getList<any>("stock_movements");
+      data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      if (limit && limit > 0) data = data.slice(0, limit);
     } catch {}
   }
 
@@ -983,19 +983,19 @@ export async function getMovements(limit = 250): Promise<Movement[]> {
 export async function getSales(limit = 250): Promise<Sale[]> {
   let listData: any[] = [];
   try {
-    listData = await rtdb.getList<any>("sales");
-    listData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    if (limit && limit > 0) listData = listData.slice(0, limit);
+    const { data, error } = await supabase
+      .from("sales")
+      .select("id, product_id, seller_id, buyer_name, quantity, unit_price, total_price, payment_method, notes, status, created_at")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (!error && Array.isArray(data)) listData = data;
   } catch {}
 
   if (!listData || listData.length === 0) {
     try {
-      const { data, error } = await supabase
-        .from("sales")
-        .select("id, product_id, seller_id, buyer_name, quantity, unit_price, total_price, payment_method, notes, status, created_at")
-        .order("created_at", { ascending: false })
-        .limit(limit);
-      if (!error && data) listData = data;
+      listData = await rtdb.getList<any>("sales");
+      listData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      if (limit && limit > 0) listData = listData.slice(0, limit);
     } catch {}
   }
 
@@ -1017,17 +1017,17 @@ export async function getSales(limit = 250): Promise<Sale[]> {
 export async function getGoals(): Promise<Goal[]> {
   let listData: any[] = [];
   try {
-    listData = await rtdb.getList<any>("goals");
-    listData.sort((a, b) => new Date(b.period_end || b.deadline || 0).getTime() - new Date(a.period_end || a.deadline || 0).getTime());
+    const { data, error } = await supabase
+      .from("goals")
+      .select("id, user_id, type, target_value, period_start, period_end, descricao, created_at")
+      .order("period_end", { ascending: false });
+    if (!error && Array.isArray(data)) listData = data;
   } catch {}
 
   if (!listData || listData.length === 0) {
     try {
-      const { data, error } = await supabase
-        .from("goals")
-        .select("id, user_id, type, target_value, period_start, period_end, descricao, created_at")
-        .order("period_end", { ascending: false });
-      if (!error && data) listData = data;
+      listData = await rtdb.getList<any>("goals");
+      listData.sort((a, b) => new Date(b.period_end || b.deadline || 0).getTime() - new Date(a.period_end || a.deadline || 0).getTime());
     } catch {}
   }
 
@@ -1773,16 +1773,16 @@ export async function deleteMember(targetUserId: string): Promise<void> {
 export async function getAnnouncements(): Promise<Announcement[]> {
   let listData: any[] = [];
   try {
-    listData = await rtdb.getList<any>("announcements");
-    listData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    const { data, error } = await (supabase.from("announcements" as any))
+      .select("id, author_id, title, content, priority, created_at, updated_at")
+      .order("created_at", { ascending: false });
+    if (!error && Array.isArray(data)) listData = data;
   } catch {}
 
   if (!listData || listData.length === 0) {
     try {
-      const { data, error } = await (supabase.from("announcements" as any))
-        .select("id, author_id, title, content, priority, created_at, updated_at")
-        .order("created_at", { ascending: false });
-      if (!error && data) listData = data;
+      listData = await rtdb.getList<any>("announcements");
+      listData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     } catch {}
   }
 
@@ -2390,20 +2390,23 @@ export async function getAuditLogs(_enabled?: boolean, _offset = 0, _limit = 500
 
 export async function getRolePermissions(): Promise<Record<AppLevel, Permission[]>> {
   let rows: any[] = [];
+
+  // 1. Prioriza SEMPRE o banco de dados oficial Supabase
   try {
-    const fbPerms = await rtdb.getList<any>("role_permissions");
-    rows = fbPerms.filter((r) => !String(r.level || r.nivel || "").startsWith("system_"));
+    const res = await supabase
+      .from("role_permissions")
+      .select("level, nivel, permissions")
+      .not("level", "like", "system_%");
+    if (!res.error && res.data && res.data.length > 0) {
+      rows = res.data;
+    }
   } catch {}
 
+  // 2. Fallback RTDB caso Supabase retorne vazio
   if (!rows || rows.length === 0) {
     try {
-      const res = await supabase
-        .from("role_permissions")
-        .select("level, nivel, permissions")
-        .not("level", "like", "system_%");
-      if (!res.error && res.data && res.data.length > 0) {
-        rows = res.data;
-      }
+      const fbPerms = await rtdb.getList<any>("role_permissions");
+      rows = fbPerms.filter((r) => !String(r.level || r.nivel || "").startsWith("system_"));
     } catch {}
   }
 
@@ -3525,17 +3528,20 @@ export async function deleteGoal(id: string): Promise<void> {
 
 export async function getCashMovements(): Promise<CashMovement[]> {
   let data: any[] = [];
+
+  // 1. Prioriza SEMPRE o banco de dados oficial Supabase
   try {
-    data = await rtdb.getList<any>("cash_fund_movements");
+    const res = await (supabase.from("cash_fund_movements" as any))
+      .select("id, user_id, type, amount, motive, notes, status, previous_balance, resulting_balance, reversal_of, created_at");
+    if (!res.error && res.data && res.data.length > 0) {
+      data = res.data;
+    }
   } catch {}
 
+  // 2. Fallback RTDB caso Supabase retorne vazio
   if (!data || data.length === 0) {
     try {
-      const res = await (supabase.from("cash_fund_movements" as any))
-        .select("id, user_id, type, amount, motive, notes, status, previous_balance, resulting_balance, reversal_of, created_at");
-      if (!res.error && res.data && res.data.length > 0) {
-        data = res.data;
-      }
+      data = await rtdb.getList<any>("cash_fund_movements");
     } catch {}
   }
 
@@ -3670,16 +3676,19 @@ export async function deleteCashMovement(movementId: string): Promise<void> {
 
 export async function getCustomRoles(): Promise<CustomRole[]> {
   let list: any[] = [];
+
+  // 1. Prioriza SEMPRE o banco de dados oficial Supabase
   try {
-    list = await rtdb.getList<any>("custom_roles");
+    const { data } = await (supabase.from("custom_roles" as any))
+      .select("id, nome, descricao, rank, is_system, module_permissions, created_at, updated_at")
+      .order("rank", { ascending: false });
+    if (data && data.length > 0) list = data;
   } catch {}
 
+  // 2. Fallback RTDB caso Supabase retorne vazio
   if (!list || list.length === 0) {
     try {
-      const { data } = await (supabase.from("custom_roles" as any))
-        .select("id, nome, descricao, rank, is_system, module_permissions, created_at, updated_at")
-        .order("rank", { ascending: false });
-      if (data) list = data;
+      list = await rtdb.getList<any>("custom_roles");
     } catch {}
   }
 
@@ -3870,17 +3879,7 @@ function setLocalAbsences(absences: MemberAbsence[], emitEvent: boolean = true):
 }
 
 export async function getAbsences(): Promise<MemberAbsence[]> {
-  try {
-    const rtdbEntry = await rtdb.get<any>(`role_permissions/${ABSENCES_DB_LEVEL}`);
-    if (rtdbEntry && rtdbEntry.permissions && typeof rtdbEntry.permissions === "object") {
-      const parsed = rtdbEntry.permissions as any;
-      if (Array.isArray(parsed.absences)) {
-        setLocalAbsences(parsed.absences, false);
-        return parsed.absences;
-      }
-    }
-  } catch {}
-
+  // 1. Prioriza SEMPRE o banco de dados oficial Supabase
   try {
     const { data } = await supabase
       .from("role_permissions")
@@ -3896,8 +3895,21 @@ export async function getAbsences(): Promise<MemberAbsence[]> {
       }
     }
   } catch (err) {
-    console.warn("Erro ao carregar ausências do banco:", err);
+    console.warn("Erro ao carregar ausências do Supabase:", err);
   }
+
+  // 2. Fallback RTDB caso Supabase retorne vazio
+  try {
+    const rtdbEntry = await rtdb.get<any>(`role_permissions/${ABSENCES_DB_LEVEL}`);
+    if (rtdbEntry && rtdbEntry.permissions && typeof rtdbEntry.permissions === "object") {
+      const parsed = rtdbEntry.permissions as any;
+      if (Array.isArray(parsed.absences)) {
+        setLocalAbsences(parsed.absences, false);
+        return parsed.absences;
+      }
+    }
+  } catch {}
+
   return getLocalAbsences();
 }
 
@@ -4210,75 +4222,61 @@ function setLocalGoalSubmissions(submissions: GoalSubmission[], emitEvent: boole
 export async function getWeeklyGoals(): Promise<WeeklyGoal[]> {
   const goalsMap = new Map<string, WeeklyGoal>();
 
-  // 1. Coleção direta no Firebase RTDB
+  // 1. Prioriza SEMPRE o banco de dados oficial Supabase
   try {
-    const directGoals = await rtdb.get<Record<string, WeeklyGoal>>("weekly_goals");
-    if (directGoals && typeof directGoals === "object") {
-      Object.values(directGoals).forEach((g: any) => {
-        if (g && g.id && !g._schema_info) goalsMap.set(g.id, g);
-      });
-    }
-  } catch {}
+    const { data } = await supabase
+      .from("role_permissions")
+      .select("permissions")
+      .eq("level", WEEKLY_GOALS_DB_LEVEL)
+      .maybeSingle();
 
-  // 2. Nó role_permissions/system_weekly_goals
-  try {
-    const rtdbEntry = await rtdb.get<any>(`role_permissions/${WEEKLY_GOALS_DB_LEVEL}`);
-    if (rtdbEntry) {
-      const candidate = Array.isArray(rtdbEntry)
-        ? rtdbEntry
-        : Array.isArray(rtdbEntry.permissions)
-        ? rtdbEntry.permissions
-        : Array.isArray(rtdbEntry.permissions?.goals)
-        ? rtdbEntry.permissions.goals
-        : Array.isArray(rtdbEntry.goals)
-        ? rtdbEntry.goals
+    if (data) {
+      const candidate = Array.isArray(data.permissions)
+        ? data.permissions
+        : Array.isArray(data.permissions?.goals)
+        ? data.permissions.goals
         : null;
-
       if (candidate && candidate.length > 0) {
         candidate.forEach((g: any) => {
           if (g && g.id && !goalsMap.has(g.id)) goalsMap.set(g.id, g);
         });
       }
     }
-  } catch {}
+  } catch (err) {
+    console.warn("Erro ao carregar metas semanais do Supabase:", err);
+  }
 
-  // 3. Fallback REST direto do Firebase
-  if (goalsMap.size === 0 && typeof fetch !== "undefined") {
+  // 2. Fallbacks RTDB caso Supabase retorne vazio
+  if (goalsMap.size === 0) {
     try {
-      const res = await fetch(`${FIREBASE_RTDB_URL}/weekly_goals.json`);
-      const data = await res.json();
-      if (data && typeof data === "object") {
-        Object.values(data).forEach((g: any) => {
-          if (g && g.id && !g._schema_info) goalsMap.set(g.id, g as WeeklyGoal);
+      const directGoals = await rtdb.get<Record<string, WeeklyGoal>>("weekly_goals");
+      if (directGoals && typeof directGoals === "object") {
+        Object.values(directGoals).forEach((g: any) => {
+          if (g && g.id && !g._schema_info) goalsMap.set(g.id, g);
         });
       }
     } catch {}
-  }
 
-  // 4. Fallback Supabase
-  if (goalsMap.size === 0) {
     try {
-      const { data } = await supabase
-        .from("role_permissions")
-        .select("permissions")
-        .eq("level", WEEKLY_GOALS_DB_LEVEL)
-        .maybeSingle();
-
-      if (data) {
-        const candidate = Array.isArray(data.permissions)
-          ? data.permissions
-          : Array.isArray(data.permissions?.goals)
-          ? data.permissions.goals
+      const rtdbEntry = await rtdb.get<any>(`role_permissions/${WEEKLY_GOALS_DB_LEVEL}`);
+      if (rtdbEntry) {
+        const candidate = Array.isArray(rtdbEntry)
+          ? rtdbEntry
+          : Array.isArray(rtdbEntry.permissions)
+          ? rtdbEntry.permissions
+          : Array.isArray(rtdbEntry.permissions?.goals)
+          ? rtdbEntry.permissions.goals
+          : Array.isArray(rtdbEntry.goals)
+          ? rtdbEntry.goals
           : null;
+
         if (candidate && candidate.length > 0) {
           candidate.forEach((g: any) => {
             if (g && g.id && !goalsMap.has(g.id)) goalsMap.set(g.id, g);
           });
         }
       }
-    } catch (err) {
-      console.warn("Erro ao carregar metas semanais do banco:", err);
-    }
+    } catch {}
   }
 
   const list = Array.from(goalsMap.values());
@@ -4518,79 +4516,64 @@ export async function deleteWeeklyGoal(id: string): Promise<void> {
 export async function getGoalSubmissions(): Promise<GoalSubmission[]> {
   const subsMap = new Map<string, GoalSubmission>();
 
-  // 1. Coleção direta goal_submissions no Firebase RTDB
+  // 1. Prioriza SEMPRE o banco de dados oficial Supabase
   try {
-    const directSubs = await rtdb.get<Record<string, GoalSubmission>>("goal_submissions");
-    if (directSubs && typeof directSubs === "object") {
-      Object.values(directSubs).forEach((s: any) => {
-        if (s && s.id && !s._schema_info) subsMap.set(s.id, s);
-      });
-    }
-  } catch {}
+    const { data } = await supabase
+      .from("role_permissions")
+      .select("permissions")
+      .eq("level", GOAL_SUBMISSIONS_DB_LEVEL)
+      .maybeSingle();
 
-  // 2. Nó role_permissions/system_goal_submissions no Firebase RTDB
-  try {
-    const rtdbEntry = await rtdb.get<any>(`role_permissions/${GOAL_SUBMISSIONS_DB_LEVEL}`);
-    if (rtdbEntry) {
-      const candidate = Array.isArray(rtdbEntry)
-        ? rtdbEntry
-        : Array.isArray(rtdbEntry.permissions)
-        ? rtdbEntry.permissions
-        : Array.isArray(rtdbEntry.permissions?.submissions)
-        ? rtdbEntry.permissions.submissions
-        : Array.isArray(rtdbEntry.submissions)
-        ? rtdbEntry.submissions
+    if (data) {
+      const candidate = Array.isArray(data.permissions)
+        ? data.permissions
+        : Array.isArray(data.permissions?.submissions)
+        ? data.permissions.submissions
         : null;
-
       if (candidate && candidate.length > 0) {
         candidate.forEach((s: any) => {
-          if (s && s.id) {
-            const existing = subsMap.get(s.id);
-            subsMap.set(s.id, existing ? { ...existing, ...s } : s);
-          }
+          if (s && s.id) subsMap.set(s.id, s);
         });
       }
     }
-  } catch {}
+  } catch (err) {
+    console.warn("Erro ao carregar entregas de metas do Supabase:", err);
+  }
 
-  // 3. Fallback REST direto do Firebase RTDB (bypassa qualquer timeout do SDK)
-  if (subsMap.size === 0 && typeof fetch !== "undefined") {
+  // 2. Fallbacks RTDB caso Supabase retorne vazio
+  if (subsMap.size === 0) {
     try {
-      const res = await fetch(`${FIREBASE_RTDB_URL}/role_permissions/system_goal_submissions.json`);
-      const data = await res.json();
-      const list = data?.permissions?.submissions || (Array.isArray(data) ? data : null);
-      if (Array.isArray(list) && list.length > 0) {
-        list.forEach((s: any) => {
-          if (s && s.id) subsMap.set(s.id, s as GoalSubmission);
+      const directSubs = await rtdb.get<Record<string, GoalSubmission>>("goal_submissions");
+      if (directSubs && typeof directSubs === "object") {
+        Object.values(directSubs).forEach((s: any) => {
+          if (s && s.id && !s._schema_info) subsMap.set(s.id, s);
         });
       }
     } catch {}
-  }
 
-  // 4. Fallback Supabase
-  if (subsMap.size === 0) {
     try {
-      const { data } = await supabase
-        .from("role_permissions")
-        .select("permissions")
-        .eq("level", GOAL_SUBMISSIONS_DB_LEVEL)
-        .maybeSingle();
-
-      if (data) {
-        const candidate = Array.isArray(data.permissions)
-          ? data.permissions
-          : Array.isArray(data.permissions?.submissions)
-          ? data.permissions.submissions
+      const rtdbEntry = await rtdb.get<any>(`role_permissions/${GOAL_SUBMISSIONS_DB_LEVEL}`);
+      if (rtdbEntry) {
+        const candidate = Array.isArray(rtdbEntry)
+          ? rtdbEntry
+          : Array.isArray(rtdbEntry.permissions)
+          ? rtdbEntry.permissions
+          : Array.isArray(rtdbEntry.permissions?.submissions)
+          ? rtdbEntry.permissions.submissions
+          : Array.isArray(rtdbEntry.submissions)
+          ? rtdbEntry.submissions
           : null;
+
         if (candidate && candidate.length > 0) {
           candidate.forEach((s: any) => {
-            if (s && s.id) subsMap.set(s.id, s);
+            if (s && s.id) {
+              const existing = subsMap.get(s.id);
+              subsMap.set(s.id, existing ? { ...existing, ...s } : s);
+            }
           });
         }
       }
-    } catch (err) {
-      console.warn("Erro ao carregar entregas de metas do banco:", err);
-    }
+    } catch {}
   }
 
   const result = Array.from(subsMap.values());
@@ -4985,16 +4968,7 @@ function setLocalTickets(tickets: Ticket[], emitEvent: boolean = true): void {
 }
 
 async function fetchAllRawTickets(): Promise<Ticket[]> {
-  try {
-    const rtdbEntry = await rtdb.get<any>(`role_permissions/${TICKETS_DB_LEVEL}`);
-    if (rtdbEntry && rtdbEntry.permissions && typeof rtdbEntry.permissions === "object") {
-      const parsed = rtdbEntry.permissions as any;
-      if (Array.isArray(parsed.tickets)) {
-        return parsed.tickets as Ticket[];
-      }
-    }
-  } catch {}
-
+  // 1. Prioriza SEMPRE o banco de dados oficial Supabase
   try {
     const { data } = await supabase
       .from("role_permissions")
@@ -5009,8 +4983,20 @@ async function fetchAllRawTickets(): Promise<Ticket[]> {
       }
     }
   } catch (err) {
-    console.warn("Erro ao carregar tickets do banco:", err);
+    console.warn("Erro ao carregar tickets do Supabase:", err);
   }
+
+  // 2. Fallback RTDB caso Supabase retorne vazio
+  try {
+    const rtdbEntry = await rtdb.get<any>(`role_permissions/${TICKETS_DB_LEVEL}`);
+    if (rtdbEntry && rtdbEntry.permissions && typeof rtdbEntry.permissions === "object") {
+      const parsed = rtdbEntry.permissions as any;
+      if (Array.isArray(parsed.tickets)) {
+        return parsed.tickets as Ticket[];
+      }
+    }
+  } catch {}
+
   return getLocalTickets();
 }
 

@@ -614,7 +614,19 @@ export function MembrosPage() {
 
                   // Tags ativas no sistema vinculadas a este membro (excluindo ceo e dev que já possuem badges dedicados)
                   const assignedTags = (memberTagsMap[m.user_id] || (m.id ? memberTagsMap[m.id] : []) || []).filter(
-                    (t) => t.is_active !== false && t.id !== "ceo" && t.id !== "dev" && t.id !== "desenvolvedor"
+                    (t) =>
+                      t.is_active !== false &&
+                      t.id !== "ceo" &&
+                      t.id !== "dev" &&
+                      t.id !== "desenvolvedor" &&
+                      (t.name || "").toLowerCase().trim() !== "ceo" &&
+                      (t.name || "").toLowerCase().trim() !== "dev" &&
+                      (t.name || "").toLowerCase().trim() !== "desenvolvedor" &&
+                      (t.slug || "").toLowerCase().trim() !== "ceo" &&
+                      (t.slug || "").toLowerCase().trim() !== "dev" &&
+                      !t.rules?.is_ceo &&
+                      !t.rules?.can_access_ceo &&
+                      !t.rules?.can_access_dev
                   );
 
                   // Tag no nível mais alto que o membro possui (e ativa no sistema)
@@ -893,7 +905,19 @@ export function MembrosPage() {
 
                       // Tags ativas no sistema vinculadas a este membro (excluindo ceo e dev que já possuem badges dedicados)
                       const assignedTags = (memberTagsMap[m.user_id] || (m.id ? memberTagsMap[m.id] : []) || []).filter(
-                        (t) => t.is_active !== false && t.id !== "ceo" && t.id !== "dev" && t.id !== "desenvolvedor"
+                        (t) =>
+                          t.is_active !== false &&
+                          t.id !== "ceo" &&
+                          t.id !== "dev" &&
+                          t.id !== "desenvolvedor" &&
+                          (t.name || "").toLowerCase().trim() !== "ceo" &&
+                          (t.name || "").toLowerCase().trim() !== "dev" &&
+                          (t.name || "").toLowerCase().trim() !== "desenvolvedor" &&
+                          (t.slug || "").toLowerCase().trim() !== "ceo" &&
+                          (t.slug || "").toLowerCase().trim() !== "dev" &&
+                          !t.rules?.is_ceo &&
+                          !t.rules?.can_access_ceo &&
+                          !t.rules?.can_access_dev
                       );
 
                       const primaryTag = getPrimaryRelevantTag(assignedTags);

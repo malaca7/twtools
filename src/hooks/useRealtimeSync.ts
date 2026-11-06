@@ -216,8 +216,9 @@ export function useRealtimeSync() {
             void getCeoConfiguration();
             if (typeof window !== "undefined") {
               window.dispatchEvent(new CustomEvent("tw_ceo_config_updated"));
+              window.dispatchEvent(new CustomEvent("tw_auth_reload"));
             }
-            return;
+            break;
           }
           if (changedLevel === "system_platform_settings") {
             void fetchRemotePlatformSettings();
@@ -694,6 +695,7 @@ export function useRealtimeSync() {
               "member_tags",
               "member_tag_assignments",
               "profiles",
+              "tickets",
             ];
             triggerInvalidations(authKeys);
             broadcastCrossTab(authKeys);

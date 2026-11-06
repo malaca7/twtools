@@ -473,7 +473,12 @@ function DynamicSidebarNavigation() {
       }
     } else if (p.startsWith("/ceo")) {
       if (!canAccessCeo) {
-        navigate({ to: "/dashboard", replace: true });
+        if (isDevUser) {
+          const clean = p.replace(/^\/ceo/, "");
+          navigate({ to: `/dev/ceo${clean}`, replace: true });
+        } else {
+          navigate({ to: "/dashboard", replace: true });
+        }
       } else if (panelMode !== "ceo") {
         setPanelMode("ceo");
       }
@@ -485,11 +490,11 @@ function DynamicSidebarNavigation() {
   }, [pathname, isDevUser, canAccessCeo, panelMode, setPanelMode, navigate]);
 
   const lowerPath = (pathname || "").toLowerCase();
-  const isDevArea = Boolean(isDevUser && lowerPath.startsWith("/dev"));
+  const isDevArea = Boolean(isDevUser && (lowerPath.startsWith("/dev") || panelMode === "dev"));
   const isCeoArea = Boolean(
     canAccessCeo &&
       !isDevArea &&
-      lowerPath.startsWith("/ceo")
+      (lowerPath.startsWith("/ceo") || panelMode === "ceo")
   );
 
   const activePanelStyle = useMemo(() => {
@@ -708,7 +713,7 @@ function DynamicSidebarNavigation() {
         }
         return item;
       });
-      const canSeeCeo = Boolean(canAccessCeo);
+      const canSeeCeo = isDevArea ? (canAccessCeo || isDevUser) : Boolean(canAccessCeo);
 
       const targetRole: "dev" | "ceo" = isDevArea ? "dev" : "ceo";
 
@@ -716,7 +721,12 @@ function DynamicSidebarNavigation() {
         ? allCeoItems.filter((item) => {
             if (!item.visible) return false;
             if (
-              (item.id === "ceo-dashboard" || item.id === "ceo-executivo" || item.url === "/ceo" || item.url === "/ceo/dashboard") &&
+              (item.id === "ceo-dashboard" ||
+                item.id === "ceo-executivo" ||
+                item.url === "/ceo" ||
+                item.url === "/ceo/dashboard" ||
+                item.url === "/dev/ceo" ||
+                item.url === "/dev/ceo/dashboard") &&
               !hasPermission("view_ceo", targetRole) &&
               !hasPermission("view_ceo_dashboard", targetRole)
             ) {
@@ -728,7 +738,7 @@ function DynamicSidebarNavigation() {
             if (item.id === "ceo-ajustes-estoque" && !hasPermission("view_ceo_stock_adjustments", targetRole)) return false;
             if (item.id === "ceo-notificacoes" && !hasPermission("view_ceo_notifications", targetRole)) return false;
             if (item.id === "ceo-tags" && !hasPermission("view_ceo_tag_permissions", targetRole)) return false;
-            if (item.id === "ceo-selos" || item.url === "/ceo/selos") {
+            if (item.id === "ceo-selos" || item.url === "/ceo/selos" || item.url === "/dev/ceo/selos") {
               if (!hasPermission("verification.manage", targetRole)) {
                 return false;
               }
@@ -1307,8 +1317,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const hasMultiplePanels = Boolean(canAccessCeo || canAccessDev);
 
   const lowerCurrentPath = (pathname || "").toLowerCase();
-  const isDevActive = Boolean(isDevUser && lowerCurrentPath.startsWith("/dev"));
-  const isCeoActive = Boolean(canAccessCeo && !isDevActive && lowerCurrentPath.startsWith("/ceo"));
+  const isDevActive = Boolean(isDevUser && (lowerCurrentPath.startsWith("/dev") || panelMode === "dev"));
+  const isCeoActive = Boolean(canAccessCeo && !isDevActive && (lowerCurrentPath.startsWith("/ceo") || panelMode === "ceo"));
 
   const { devStyle, ceoStyle, memberStyle, DevIcon, CeoIcon, MemberIcon } = usePanelTheme();
 
