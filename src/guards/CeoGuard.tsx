@@ -61,7 +61,7 @@ export function CeoGuard({ children }: CeoGuardProps) {
                 DIRETORIA EXECUTIVA · 403
               </Badge>
               <CardTitle className="text-lg font-black text-foreground">
-                Painel Restrito à Diretoria (Tag CEO)
+                Painel Restrito à Diretoria (Emblema CEO)
               </CardTitle>
             </div>
           </CardHeader>
@@ -78,7 +78,7 @@ export function CeoGuard({ children }: CeoGuardProps) {
                 <Lock className="h-3 w-3" style={{ color: ceoStyle.primaryHex }} /> Política de Acesso Executivo:
               </span>
               <p className="text-muted-foreground">
-                Apenas quem possui a Tag Dev pode atribuir a Tag CEO a um membro do grupo. Se você deveria ter acesso a este painel, contate a diretoria de desenvolvimento.
+                Apenas quem possui o Emblema Dev pode atribuir o Emblema CEO a um membro do grupo. Se você deveria ter acesso a este painel, contate a diretoria de desenvolvimento.
               </p>
             </div>
           </CardContent>

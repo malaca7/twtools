@@ -5478,19 +5478,19 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
     const hasSystemTagPerm = satisfiesPermission(regularTagPerms, perm);
 
     if (isDevPanel) {
-      // Painel Dev: cargo + tags de sistema (Gerenciar Tags) + tag ceo (se ele possuir) + tag dev (se ele possuir)
-      const hasCeoTag = isCeoUser && satisfiesPermission(ceoPerms, perm);
-      const hasDevTag = isDevUser && (perm === "view_dev_hub" || perm === "view_dev" || satisfiesPermission(devPerms, perm));
-      return hasRolePerm || hasSystemTagPerm || hasCeoTag || hasDevTag;
+      // Painel Dev: cargo + tags de sistema (Gerenciar Tags) + emblema ceo (se ele possuir) + emblema dev (se ele possuir)
+      const hasCeoBadge = isCeoUser && satisfiesPermission(ceoPerms, perm);
+      const hasDevBadge = isDevUser && (perm === "view_dev_hub" || perm === "view_dev" || satisfiesPermission(devPerms, perm));
+      return hasRolePerm || hasSystemTagPerm || hasCeoBadge || hasDevBadge;
     }
 
     if (isCeoPanel) {
-      // Painel CEO: cargo + tags de sistema (Gerenciar Tags) + tag ceo (se ele possuir)
-      const hasCeoTag = isCeoUser && satisfiesPermission(ceoPerms, perm);
-      return hasRolePerm || hasSystemTagPerm || hasCeoTag;
+      // Painel CEO: cargo + tags de sistema (Gerenciar Tags) + emblema ceo (se ele possuir)
+      const hasCeoBadge = isCeoUser && satisfiesPermission(ceoPerms, perm);
+      return hasRolePerm || hasSystemTagPerm || hasCeoBadge;
     }
 
-    // Painel Membro: cargo + tags de sistema (Gerenciar Tags) - sem tag dev e sem tag ceo
+    // Painel Membro: cargo + tags de sistema (Gerenciar Tags) - sem emblema dev e sem emblema ceo
     return hasRolePerm || hasSystemTagPerm;
   };
 

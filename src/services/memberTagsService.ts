@@ -242,8 +242,15 @@ export async function getMemberTags(): Promise<MemberTag[]> {
     .filter((t: any) => {
       const cleanId = (t.id || "").toLowerCase().trim();
       const cleanName = (t.name || "").toLowerCase().trim();
-      // Tag CEO é exclusiva do painel dev em /dev/permissoes
-      return cleanId !== "ceo" && cleanName !== "ceo";
+      // Emblemas CEO e Dev não são tratados como tags do sistema de gerenciar tags
+      return (
+        cleanId !== "ceo" &&
+        cleanName !== "ceo" &&
+        cleanId !== "dev" &&
+        cleanName !== "dev" &&
+        cleanId !== "desenvolvedor" &&
+        cleanName !== "desenvolvedor"
+      );
     })
     .map((t: any) => ({
       id: t.id,
@@ -464,11 +471,22 @@ export async function saveMemberTag(tag: {
     : null;
   const isRenaming = Boolean(cleanPreviousId && cleanPreviousId !== cleanId);
 
-  if (cleanId === "ceo" || tag.name.trim().toLowerCase() === "ceo") {
-    throw new Error("A tag CEO não pode ser criada ou modificada por esta função.");
+  if (
+    cleanId === "ceo" ||
+    tag.name.trim().toLowerCase() === "ceo" ||
+    cleanId === "dev" ||
+    cleanId === "desenvolvedor" ||
+    tag.name.trim().toLowerCase() === "dev" ||
+    tag.name.trim().toLowerCase() === "desenvolvedor"
+  ) {
+    throw new Error("Emblemas Dev e CEO não são tags do sistema e não podem ser gerenciados nesta página.");
   }
-  if (cleanPreviousId === "ceo") {
-    throw new Error("A tag CEO não pode ter seu identificador modificado.");
+  if (
+    cleanPreviousId === "ceo" ||
+    cleanPreviousId === "dev" ||
+    cleanPreviousId === "desenvolvedor"
+  ) {
+    throw new Error("Emblemas Dev e CEO não podem ter seus identificadores modificados.");
   }
 
   // Se estiver renomeando o slug, valida colisão com tags existentes

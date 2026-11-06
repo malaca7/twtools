@@ -268,8 +268,14 @@ export function syncMenuConfig(raw: Partial<MenuConfig> | null | undefined): Men
 
   const finalCategories = categories.length > 0 ? categories : [...DEFAULT_MENU_CATEGORIES];
 
+  const categoryIcons: Record<string, string> =
+    raw?.categoryIcons && typeof raw.categoryIcons === "object"
+      ? { ...raw.categoryIcons }
+      : {};
+
   return {
     categories: finalCategories,
+    categoryIcons,
     items,
     deletedItemIds: Array.from(deletedSet),
   };

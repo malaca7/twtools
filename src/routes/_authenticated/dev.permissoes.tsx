@@ -103,7 +103,7 @@ function DevPermissoesContent() {
   const { isMobile, open: isSidebarOpen, sidebarWidth } = useSidebar();
   const sidebarLeftOffset = isMobile ? 0 : (isSidebarOpen ? sidebarWidth : 56);
 
-  // Aba ativa: Tag CEO vs Tag Dev vs Cargos da Plataforma (Padrão: CEO)
+  // Aba ativa: Emblema CEO vs Emblema Dev vs Cargos da Plataforma (Padrão: CEO)
   const [activeTab, setActiveTab] = useState<"ceo" | "dev" | "cargos">("ceo");
 
   // Lista de cargos ativos configurados no Gerenciamento de Cargos (/cargos)
@@ -210,7 +210,7 @@ function DevPermissoesContent() {
         return;
       }
 
-      // Nas abas Tag Dev e Tag CEO:
+      // Nas abas Emblema Dev e Emblema CEO:
       // Mostra a opção "Ir para o final" até a exibição completa da barra de filtros da página.
       // Quando a barra de filtros é completamente ultrapassada (rect.bottom <= 65), alterna para "Ir para o início".
       const activeFilterEl = activeTab === "dev" ? devFiltersRef.current : activeTab === "ceo" ? ceoFiltersRef.current : null;
@@ -246,24 +246,24 @@ function DevPermissoesContent() {
   const devInitialLoadedRef = useRef(false);
   const ceoInitialLoadedRef = useRef(false);
 
-  // Estado das Permissões da Tag Dev
+  // Estado das Permissões da Emblema Dev
   const [activeDevPermissions, setActiveDevPermissions] = useState<Permission[]>([]);
   const [isDevSyncing, setIsDevSyncing] = useState(false);
   const [loadingDev, setLoadingDev] = useState(true);
 
-  // Estado das Permissões da Tag CEO
+  // Estado das Permissões da Emblema CEO
   const [activeCeoPermissions, setActiveCeoPermissions] = useState<Permission[]>(
     DEFAULT_CEO_PERMISSIONS as Permission[]
   );
   const [isCeoSyncing, setIsCeoSyncing] = useState(false);
   const [loadingCeo, setLoadingCeo] = useState(true);
 
-  // Gestão de membros com Tag Dev
+  // Gestão de membros com Emblema Dev
   const [searchDevMember, setSearchDevMember] = useState("");
   const [filterDevOnly, setFilterDevOnly] = useState<"all" | "dev_only" | "non_dev">("all");
   const [isDevMembersOpen, setIsDevMembersOpen] = useState(false);
 
-  // Gestão de membros com Tag CEO
+  // Gestão de membros com Emblema CEO
   const [searchMember, setSearchMember] = useState("");
   const [filterCeoOnly, setFilterCeoOnly] = useState<"all" | "ceo_only" | "non_ceo">("all");
   const [isCeoMembersOpen, setIsCeoMembersOpen] = useState(false);
@@ -294,7 +294,7 @@ function DevPermissoesContent() {
     };
   }, [queryClient]);
 
-  // 1. Carrega as permissões da Tag Dev ao inicializar sincronizado com dbPermissions
+  // 1. Carrega as permissões da Emblema Dev ao inicializar sincronizado com dbPermissions
   useEffect(() => {
     let isMounted = true;
     if (!devInitialLoadedRef.current) {
@@ -334,7 +334,7 @@ function DevPermissoesContent() {
     };
   }, [user?.id, level, dbPermissions]);
 
-  // 2. Carrega as permissões da Tag CEO sincronizado com dbPermissions
+  // 2. Carrega as permissões da Emblema CEO sincronizado com dbPermissions
   useEffect(() => {
     let isMounted = true;
     if (!ceoInitialLoadedRef.current) {
@@ -358,7 +358,7 @@ function DevPermissoesContent() {
         }
       })
       .catch((err) => {
-        console.warn("Erro ao carregar dados da Tag CEO:", err);
+        console.warn("Erro ao carregar dados da Emblema CEO:", err);
       })
       .finally(() => {
         if (isMounted) setLoadingCeo(false);
@@ -665,7 +665,7 @@ function DevPermissoesContent() {
     void autoSaveCargoPermissions(selectedCargo, next);
   };
 
-  // Sincronização e autosave da Tag Dev
+  // Sincronização e autosave da Emblema Dev
   const autoSaveDevTagPermissions = useCallback(
     async (nextPerms: Permission[]) => {
       setIsDevSyncing(true);
@@ -677,7 +677,7 @@ function DevPermissoesContent() {
           desenvolvedor: nextPerms,
         } as Record<AppLevel, Permission[]>));
       } catch (err) {
-        toast.error("Falha ao sincronizar permissões da Tag Dev.");
+        toast.error("Falha ao sincronizar permissões da Emblema Dev.");
       } finally {
         setIsDevSyncing(false);
       }
@@ -685,7 +685,7 @@ function DevPermissoesContent() {
     [queryClient, user, profile, level]
   );
 
-  // Sincronização e autosave da Tag CEO
+  // Sincronização e autosave da Emblema CEO
   const autoSaveCeoTagPermissions = useCallback(
     async (nextPerms: Permission[]) => {
       setIsCeoSyncing(true);
@@ -697,7 +697,7 @@ function DevPermissoesContent() {
           ceo: nextPerms,
         } as Record<AppLevel, Permission[]>));
       } catch (err) {
-        toast.error("Falha ao sincronizar permissões da Tag CEO.");
+        toast.error("Falha ao sincronizar permissões da Emblema CEO.");
       } finally {
         setIsCeoSyncing(false);
       }
@@ -706,7 +706,7 @@ function DevPermissoesContent() {
   );
 
 
-  // Handlers para Tag Dev
+  // Handlers para Emblema Dev
   const toggleDevPermission = (permKey: Permission) => {
     const next = activeDevPermissions.includes(permKey)
       ? activeDevPermissions.filter((p) => p !== permKey)
@@ -731,7 +731,7 @@ function DevPermissoesContent() {
     void autoSaveDevTagPermissions(next);
   };
 
-  // Handlers para Tag CEO
+  // Handlers para Emblema CEO
   const toggleCeoPermission = (permKey: Permission) => {
     const next = activeCeoPermissions.includes(permKey)
       ? activeCeoPermissions.filter((p) => p !== permKey)
@@ -764,10 +764,10 @@ function DevPermissoesContent() {
     void autoSaveCeoTagPermissions(next);
   };
 
-  // Atribuição de Tag Dev com verificação e feedback
+  // Atribuição de Emblema Dev com verificação e feedback
   const handleToggleDevTag = async (targetMember: any, currentStatus: boolean, memberNameFallback?: string) => {
     if (!isDevUser) {
-      toast.error("Acesso Negado: Apenas membros com a Tag Dev podem alterar a Tag Dev.");
+      toast.error("Acesso Negado: Apenas membros com a Emblema Dev podem alterar a Emblema Dev.");
       return;
     }
 
@@ -823,8 +823,8 @@ function DevPermissoesContent() {
 
       toast.success(
         nextStatus
-          ? `Tag Dev concedida com sucesso para ${memberName}! 💻`
-          : `Tag Dev revogada de ${memberName}.`,
+          ? `Emblema Dev concedida com sucesso para ${memberName}! 💻`
+          : `Emblema Dev revogada de ${memberName}.`,
         { icon: nextStatus ? "💻" : "🛡️" }
       );
     } catch (err: any) {
@@ -842,16 +842,16 @@ function DevPermissoesContent() {
           return m;
         });
       });
-      toast.error(err?.message || "Falha ao alterar Tag Dev do membro.");
+      toast.error(err?.message || "Falha ao alterar Emblema Dev do membro.");
     } finally {
       setTogglingMemberId(null);
     }
   };
 
-  // Atribuição de Tag CEO com verificação e feedback
+  // Atribuição de Emblema CEO com verificação e feedback
   const handleToggleCeoTag = async (targetMember: any, currentStatus: boolean, memberNameFallback?: string) => {
     if (!isDevUser) {
-      toast.error("Acesso Negado: Apenas membros com a Tag Dev podem alterar a Tag CEO.");
+      toast.error("Acesso Negado: Apenas membros com a Emblema Dev podem alterar a Emblema CEO.");
       return;
     }
 
@@ -910,8 +910,8 @@ function DevPermissoesContent() {
 
       toast.success(
         nextStatus
-          ? `Tag CEO concedida com sucesso para ${memberName}! 👑`
-          : `Tag CEO revogada de ${memberName}.`,
+          ? `Emblema CEO concedida com sucesso para ${memberName}! 👑`
+          : `Emblema CEO revogada de ${memberName}.`,
         { icon: nextStatus ? "👑" : "🛡️" }
       );
     } catch (err: any) {
@@ -933,13 +933,13 @@ function DevPermissoesContent() {
           return m;
         });
       });
-      toast.error(err?.message || "Falha ao alterar Tag CEO do membro.");
+      toast.error(err?.message || "Falha ao alterar Emblema CEO do membro.");
     } finally {
       setTogglingMemberId(null);
     }
   };
 
-  // Membros filtrados para a gestão rápida da Tag Dev
+  // Membros filtrados para a gestão rápida da Emblema Dev
   const activeDevsCount = useMemo(() => {
     const seen = new Set<string>();
     return members.filter((m) => {
@@ -983,7 +983,7 @@ function DevPermissoesContent() {
     });
   }, [members, searchDevMember, filterDevOnly]);
 
-  // Membros filtrados para a gestão rápida da Tag CEO
+  // Membros filtrados para a gestão rápida da Emblema CEO
   const activeCeosCount = useMemo(() => {
     const seen = new Set<string>();
     return members.filter((m) => {
@@ -1033,16 +1033,16 @@ function DevPermissoesContent() {
       <PageHeader
         title={
           activeTab === "ceo"
-            ? "Dev → Configuração & Permissões da Tag CEO"
+            ? "Dev → Configuração & Permissões da Emblema CEO"
             : activeTab === "dev"
-            ? "Dev → Permissões da Tag Desenvolvedor"
+            ? "Dev → Permissões da Emblema Desenvolvedor"
             : "Dev → Permissões dos Cargos da Plataforma"
         }
         description={
           activeTab === "ceo"
-            ? "Configure a matriz de permissões da Tag CEO [Diretoria Executiva 👑] e gerencie quais membros possuem a tag. Apenas usuários com a Tag Dev têm autorização para atribuir a Tag CEO."
+            ? "Configure a matriz de permissões da Emblema CEO [Diretoria Executiva 👑] e gerencie quais membros possuem a tag. Apenas usuários com a Emblema Dev têm autorização para atribuir a Emblema CEO."
             : activeTab === "dev"
-            ? "Configure as permissões operacionais vinculadas exclusivamente à Tag Desenvolvedor [Dev System 💻] e gerencie os membros com a tag ativa. As permissões se somam às do cargo do membro."
+            ? "Configure as permissões operacionais vinculadas exclusivamente à Emblema Desenvolvedor [Dev System 💻] e gerencie os membros com a tag ativa. As permissões se somam às do cargo do membro."
             : "Gerencie a matriz de permissões de cada cargo da plataforma (01, 02, Gerente, etc.). Sincronizado automaticamente e em tempo real com /permissoes e o banco de dados."
         }
         actions={
@@ -1082,7 +1082,7 @@ function DevPermissoesContent() {
       {/* SELETOR DE ABAS MODERNAS: TAG CEO vs TAG DEV vs CARGOS */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-2 bg-secondary/40 rounded-2xl border border-border/50 backdrop-blur-md">
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Aba Tag CEO */}
+          {/* Aba Emblema CEO */}
           <button
             type="button"
             onClick={() => setActiveTab("ceo")}
@@ -1103,7 +1103,7 @@ function DevPermissoesContent() {
             }
           >
             <CeoIcon className="h-4 w-4" style={{ color: activeTab === "ceo" ? ceoStyle.primaryHex : undefined }} />
-            Tag CEO
+            Emblema CEO
             <Badge
               variant="outline"
               className="text-[9px] font-mono py-0 px-1.5 ml-1 font-bold"
@@ -1113,11 +1113,11 @@ function DevPermissoesContent() {
                 backgroundColor: `${ceoStyle.primaryHex}15`,
               }}
             >
-              Tag CEO ({activeCeosCount})
+              Emblema CEO ({activeCeosCount})
             </Badge>
           </button>
 
-          {/* Aba Tag Dev */}
+          {/* Aba Emblema Dev */}
           <button
             type="button"
             onClick={() => setActiveTab("dev")}
@@ -1138,7 +1138,7 @@ function DevPermissoesContent() {
             }
           >
             <DevIcon className="h-4 w-4" style={{ color: activeTab === "dev" ? devStyle.primaryHex : undefined }} />
-            Tag Desenvolvedor
+            Emblema Desenvolvedor
             <Badge
               variant="outline"
               className="text-[9px] font-mono py-0 px-1.5 ml-1 font-bold"
@@ -1185,7 +1185,7 @@ function DevPermissoesContent() {
 
         <div className="text-[0.75rem] text-muted-foreground px-2 font-medium flex items-center gap-1.5">
           <ShieldAlert className="h-3.5 w-3.5 text-rose-400" />
-          Acesso e gerenciamento restritos à Tag Dev
+          Acesso e gerenciamento restritos à Emblema Dev
         </div>
       </div>
 
@@ -1728,7 +1728,7 @@ function DevPermissoesContent() {
           ========================================================================= */}
       {activeTab === "dev" && (
         <div className="space-y-6 animate-in fade-in-50 duration-200">
-          {/* Card Informativo Tag Dev Aditiva */}
+          {/* Card Informativo Emblema Dev Aditiva */}
           <Card
             className="surface-card transition-all"
             style={{
@@ -1752,12 +1752,12 @@ function DevPermissoesContent() {
                   </div>
                   <div>
                     <CardTitle className="text-base font-black text-foreground flex items-center gap-2">
-                      Tag Desenvolvedor — Acesso Total ao Sistema
+                      Emblema Desenvolvedor — Acesso Total ao Sistema
                       <DevBadge size="xs" />
                     </CardTitle>
                     <CardDescription className="text-xs mt-1">
                       As permissões marcadas abaixo são concedidas aos integrantes com a tag <strong>desenvolvedor</strong> e se somam aos privilégios do cargo.
-                      O status da Tag Dev é controlado de forma 100% dinâmica pelo interruptor abaixo.
+                      O status da Emblema Dev é controlado de forma 100% dinâmica pelo interruptor abaixo.
                     </CardDescription>
                   </div>
                 </div>
@@ -1810,7 +1810,7 @@ function DevPermissoesContent() {
                   <DevIcon className="h-4 w-4" />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-extrabold">Membros do grupo & Atribuição da Tag Dev</span>
+                  <span className="font-extrabold">Membros do grupo & Atribuição da Emblema Dev</span>
                   <Badge
                     variant="outline"
                     className="text-[10px] font-mono px-2 py-0.5"
@@ -1851,7 +1851,7 @@ function DevPermissoesContent() {
                       <div className="flex items-center justify-between gap-2">
                         <CardTitle className="text-sm font-extrabold flex items-center gap-2">
                           <DevIcon className="h-4 w-4" style={{ color: devStyle.primaryHex }} />
-                          Membros do grupo & Atribuição da Tag Dev
+                          Membros do grupo & Atribuição da Emblema Dev
                         </CardTitle>
                         <Button
                           type="button"
@@ -1865,7 +1865,7 @@ function DevPermissoesContent() {
                         </Button>
                       </div>
                       <CardDescription className="text-xs mt-0.5">
-                        Ative ou desative a Tag Dev instantaneamente para qualquer integrante com 1 clique.
+                        Ative ou desative a Emblema Dev instantaneamente para qualquer integrante com 1 clique.
                       </CardDescription>
                     </div>
 
@@ -2064,7 +2064,7 @@ function DevPermissoesContent() {
             )}
           </div>
 
-          {/* Barra de Controles Rápidos Tag Dev */}
+          {/* Barra de Controles Rápidos Emblema Dev */}
           <Card className="surface-card p-4">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-3">
@@ -2073,13 +2073,13 @@ function DevPermissoesContent() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="font-extrabold text-sm text-foreground">Matriz de Privilégios da Tag Dev</h3>
+                    <h3 className="font-extrabold text-sm text-foreground">Matriz de Privilégios da Emblema Dev</h3>
                     <Badge variant="outline" className="text-[10px] font-mono border-rose-500/40 text-rose-400 bg-rose-500/10">
                       Dev System
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {activeDevPermissions.length} de {ALL_PERMISSIONS.length} permissões ativadas para a Tag Dev
+                    {activeDevPermissions.length} de {ALL_PERMISSIONS.length} permissões ativadas para a Emblema Dev
                   </p>
                 </div>
               </div>
@@ -2123,7 +2123,7 @@ function DevPermissoesContent() {
               <Input
                 value={devPermSearch}
                 onChange={(e) => setDevPermSearch(e.target.value)}
-                placeholder="Buscar módulo, rota ou permissão na Tag Dev..."
+                placeholder="Buscar módulo, rota ou permissão na Emblema Dev..."
                 className="pl-8 h-8 text-xs rounded-xl bg-background/60"
               />
             </div>
@@ -2153,12 +2153,12 @@ function DevPermissoesContent() {
             </div>
           </div>
 
-          {/* Módulos de Permissões Tag Dev */}
+          {/* Módulos de Permissões Emblema Dev */}
           {loadingDev ? (
             <div className="flex items-center justify-center p-12 text-center">
               <div className="flex flex-col items-center gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-rose-400" />
-                <p className="text-xs text-muted-foreground font-medium">Carregando permissões da Tag Dev...</p>
+                <p className="text-xs text-muted-foreground font-medium">Carregando permissões da Emblema Dev...</p>
               </div>
             </div>
           ) : filteredDevGroups.length === 0 ? (
@@ -2321,7 +2321,7 @@ function DevPermissoesContent() {
           ========================================================================= */}
       {activeTab === "ceo" && (
         <div className="space-y-6 animate-in fade-in-50 duration-200">
-          {/* Card Informativo Tag CEO */}
+          {/* Card Informativo Emblema CEO */}
           <Card
             className="surface-card transition-all"
             style={{
@@ -2345,12 +2345,12 @@ function DevPermissoesContent() {
                   </div>
                   <div>
                     <CardTitle className="text-base font-black text-foreground flex items-center gap-2">
-                      Tag CEO — Diretoria Executiva
+                      Emblema CEO — Diretoria Executiva
                       <CeoBadge size="xs" />
                     </CardTitle>
                     <CardDescription className="text-xs mt-1">
-                      A Tag CEO concede distinção executiva com emblema oficial em perfis, chat e lista de membros.
-                      Toda a matriz de permissões abaixo se soma ao cargo do membro, e <strong>apenas Desenvolvedores com a Tag Dev têm o poder de atribuir ou revogar a Tag CEO</strong>.
+                      A Emblema CEO concede distinção executiva com emblema oficial em perfis, chat e lista de membros.
+                      Toda a matriz de permissões abaixo se soma ao cargo do membro, e <strong>apenas Desenvolvedores com a Emblema Dev têm o poder de atribuir ou revogar a Emblema CEO</strong>.
                     </CardDescription>
                   </div>
                 </div>
@@ -2403,7 +2403,7 @@ function DevPermissoesContent() {
                   <CeoIcon className="h-4 w-4" />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-extrabold">Membros do grupo & Atribuição da Tag CEO</span>
+                  <span className="font-extrabold">Membros do grupo & Atribuição da Emblema CEO</span>
                   <Badge
                     variant="outline"
                     className="text-[10px] font-mono px-2 py-0.5"
@@ -2444,7 +2444,7 @@ function DevPermissoesContent() {
                       <div className="flex items-center justify-between gap-2">
                         <CardTitle className="text-sm font-extrabold flex items-center gap-2">
                           <CeoIcon className="h-4 w-4" style={{ color: ceoStyle.primaryHex }} />
-                          Membros do grupo & Atribuição da Tag CEO
+                          Membros do grupo & Atribuição da Emblema CEO
                         </CardTitle>
                         <Button
                           type="button"
@@ -2458,7 +2458,7 @@ function DevPermissoesContent() {
                         </Button>
                       </div>
                       <CardDescription className="text-xs mt-0.5">
-                        Ative ou desative a Tag CEO instantaneamente para qualquer integrante com 1 clique.
+                        Ative ou desative a Emblema CEO instantaneamente para qualquer integrante com 1 clique.
                       </CardDescription>
                     </div>
 
@@ -2660,7 +2660,7 @@ function DevPermissoesContent() {
                                   id={`ceo-toggle-${memberId}`}
                                   checked={isCeo}
                                   disabled={isToggling}
-                                  aria-label={`Alternar Tag CEO para ${member.nickname || member.nome}`}
+                                  aria-label={`Alternar Emblema CEO para ${member.nickname || member.nome}`}
                                   onCheckedChange={() =>
                                     handleToggleCeoTag(member, isCeo)
                                   }
@@ -2687,14 +2687,14 @@ function DevPermissoesContent() {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="font-extrabold text-sm text-foreground">
-                      Matriz de Privilégios da Tag CEO
+                      Matriz de Privilégios da Emblema CEO
                     </h3>
                     <Badge variant="outline" className="text-[10px] font-mono border-amber-500/40 text-amber-300 bg-amber-500/10">
                       Aditivo aos Cargos
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {activeCeoPermissions.length} de {ALL_PERMISSIONS.length} permissões ativadas para a Tag CEO
+                    {activeCeoPermissions.length} de {ALL_PERMISSIONS.length} permissões ativadas para a Emblema CEO
                   </p>
                 </div>
               </div>
@@ -2747,7 +2747,7 @@ function DevPermissoesContent() {
               <Input
                 value={ceoPermSearch}
                 onChange={(e) => setCeoPermSearch(e.target.value)}
-                placeholder="Buscar módulo, rota ou permissão na Tag CEO..."
+                placeholder="Buscar módulo, rota ou permissão na Emblema CEO..."
                 className="pl-8 h-8 text-xs rounded-xl bg-background/60"
               />
             </div>
@@ -2782,7 +2782,7 @@ function DevPermissoesContent() {
             <div className="flex items-center justify-center p-12 text-center">
               <div className="flex flex-col items-center gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-amber-400" />
-                <p className="text-xs text-muted-foreground font-medium">Carregando permissões da Tag CEO...</p>
+                <p className="text-xs text-muted-foreground font-medium">Carregando permissões da Emblema CEO...</p>
               </div>
             </div>
           ) : filteredCeoGroups.length === 0 ? (
@@ -2972,9 +2972,9 @@ function DevPermissoesContent() {
                 : `0 20px 50px rgba(0,0,0,0.75), 0 0 30px ${ceoStyle.primaryHex}25`,
             }}
           >
-            {/* Seletor Rápido de Abas: Tag CEO vs Tag Dev vs Cargos */}
+            {/* Seletor Rápido de Abas: Emblema CEO vs Emblema Dev vs Cargos */}
             <div className="flex items-center gap-1 bg-secondary/40 p-1 rounded-xl border border-border/50">
-              {/* Botão Tag CEO */}
+              {/* Botão Emblema CEO */}
               <button
                 type="button"
                 onClick={() => setActiveTab("ceo")}
@@ -2994,10 +2994,10 @@ function DevPermissoesContent() {
                       }
                     : undefined
                 }
-                title="Alternar para Permissões da Tag CEO"
+                title="Alternar para Permissões da Emblema CEO"
               >
                 <CeoIcon className="h-3.5 w-3.5 shrink-0" style={{ color: activeTab === "ceo" ? ceoStyle.primaryHex : undefined }} />
-                <span className="hidden xs:inline">Tag CEO</span>
+                <span className="hidden xs:inline">Emblema CEO</span>
                 <span className="xs:hidden">CEO</span>
                 <Badge
                   variant="outline"
@@ -3016,7 +3016,7 @@ function DevPermissoesContent() {
                 </Badge>
               </button>
 
-              {/* Botão Tag Dev */}
+              {/* Botão Emblema Dev */}
               <button
                 type="button"
                 onClick={() => setActiveTab("dev")}
@@ -3036,10 +3036,10 @@ function DevPermissoesContent() {
                       }
                     : undefined
                 }
-                title="Alternar para Permissões da Tag Dev"
+                title="Alternar para Permissões da Emblema Dev"
               >
                 <DevIcon className="h-3.5 w-3.5 shrink-0" style={{ color: activeTab === "dev" ? devStyle.primaryHex : undefined }} />
-                <span className="hidden xs:inline">Tag Dev</span>
+                <span className="hidden xs:inline">Emblema Dev</span>
                 <span className="xs:hidden">Dev</span>
                 <Badge
                   variant="outline"
@@ -3125,7 +3125,7 @@ function DevPermissoesContent() {
                 className="w-56 max-h-[300px] overflow-y-auto z-[10000] p-1.5 rounded-xl border-border/80 shadow-2xl bg-card/95 backdrop-blur-xl"
               >
                 <DropdownMenuLabel className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-1">
-                  Categorias ({activeTab === "dev" ? "Tag Dev" : "Tag CEO"})
+                  Categorias ({activeTab === "dev" ? "Emblema Dev" : "Emblema CEO"})
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator className="my-1" />
                 <DropdownMenuItem

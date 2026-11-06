@@ -656,7 +656,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (typeof window !== "undefined") {
               const currentPath = (window.location.pathname || "").toLowerCase();
               if (currentPath.startsWith("/ceo")) {
-                toast.error("Seu acesso à Tag CEO foi revogado pela liderança.", { id: "ceo-tag-revoked" });
+                toast.error("Seu acesso ao Emblema CEO foi revogado pela liderança.", { id: "ceo-tag-revoked" });
                 window.location.replace("/dashboard");
               }
             }
@@ -683,7 +683,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (typeof window !== "undefined") {
               const currentPath = (window.location.pathname || "").toLowerCase();
               if (currentPath.startsWith("/dev")) {
-                toast.error("Seu acesso à Tag Dev foi revogado pela liderança.", { id: "dev-tag-revoked" });
+                toast.error("Seu acesso ao Emblema Dev foi revogado pela liderança.", { id: "dev-tag-revoked" });
                 window.location.replace("/dashboard");
               }
             }
@@ -739,13 +739,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               localStorage.setItem("tw_ceo_config_v1", JSON.stringify(cfg));
             } catch {}
 
-            toast.success("Você recebeu a Tag CEO! O painel executivo e suas permissões foram ativados em tempo real. 👑", {
+            toast.success("Você recebeu o Emblema CEO! O painel executivo e suas permissões foram ativados em tempo real. 👑", {
               id: "ceo-tag-granted",
             });
           }
 
           if (addedTag === "dev" || addedTag === "desenvolvedor") {
-            toast.success("Você recebeu a Tag Dev! O painel de desenvolvedor e suas ferramentas foram ativados em tempo real. 💻", {
+            toast.success("Você recebeu o Emblema Dev! O painel de desenvolvedor e suas ferramentas foram ativados em tempo real. 💻", {
               id: "dev-tag-granted",
             });
           }
@@ -1966,7 +1966,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // =========================================================================
       // 1. PAINEL DO MEMBRO:
       // O membro só terá as permissões do seu cargo + da sua tag do sistema (Gerenciar Tags).
-      // NÃO ter permissões das tag dev e tag ceo no painel de membro!
+      // NÃO ter permissões do emblema dev e emblema ceo no painel de membro!
       // =========================================================================
       if (activePanel === "member") {
         // Bloqueia permissões exclusivas dos painéis executivos CEO e Dev no painel de membro
@@ -2027,8 +2027,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // =========================================================================
       // 2. PAINEL CEO:
-      // O membro terá permissões do seu cargo + da sua tag do sistema (Gerenciar Tags) + da tag ceo (se ele possuir).
-      // NÃO ter permissões das tag dev no painel de ceo!
+      // O membro terá permissões do seu cargo + da sua tag do sistema (Gerenciar Tags) + do emblema ceo (se ele possuir).
+      // NÃO ter permissões do emblema dev no painel de ceo!
       // =========================================================================
       if (activePanel === "ceo") {
         if (!isCeoUser) return checkCargoHasPermission(permission) || checkSystemTagHasPermission(permission);
@@ -2052,7 +2052,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // =========================================================================
       // 3. PAINEL DEV:
-      // O membro terá permissões do seu cargo + da sua tag do sistema (Gerenciar Tags) + da tag ceo (se ele possuir) + da tag dev (se ele possuir).
+      // O membro terá permissões do seu cargo + da sua tag do sistema (Gerenciar Tags) + do emblema ceo (se ele possuir) + do emblema dev (se ele possuir).
       // =========================================================================
       if (activePanel === "dev") {
         if (!isDevUser) return checkCargoHasPermission(permission) || checkSystemTagHasPermission(permission);

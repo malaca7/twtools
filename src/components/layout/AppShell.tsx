@@ -873,10 +873,10 @@ function DynamicSidebarNavigation() {
     if (isDevArea) {
       const devGroups = buildDevGroups();
 
-      // Menus do painel da tag CEO acessíveis conforme permissões da Tag Dev
+      // Menus do painel do emblema CEO acessíveis conforme permissões do Emblema Dev
       const ceoGroups = buildCeoGroups();
 
-      // Menus do painel admin / plataforma que o membro possui permissão na TAG DEV (soma dev + cargo)
+      // Menus do painel admin / plataforma que o membro possui permissão no EMBLEMA DEV (soma dev + cargo)
       const visibleDevPlatform = allPlatformItems
         .filter((item) => {
           if (item.url.startsWith("/dev") || item.url.startsWith("/ceo")) return false;
@@ -936,7 +936,7 @@ function DynamicSidebarNavigation() {
     if (isCeoArea) {
       const ceoGroups = buildCeoGroups();
 
-      // Menus do painel admin / plataforma que o membro possui permissão na TAG CEO (soma ceo + cargo)
+      // Menus do painel admin / plataforma que o membro possui permissão no EMBLEMA CEO (soma ceo + cargo)
       const visibleCeoPlatform = allPlatformItems
         .filter((item) => {
           if (item.url.startsWith("/dev") || item.url.startsWith("/ceo")) return false;

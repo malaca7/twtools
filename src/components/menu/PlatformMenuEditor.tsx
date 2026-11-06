@@ -63,6 +63,9 @@ import {
   type CeoMenuItemConfig,
 } from "@/hooks/useCeoMenuConfig";
 import { AVAILABLE_MENU_ICONS, resolveMenuIcon } from "@/lib/menuIcons";
+import { CategoryIconPickerModal } from "@/components/dev/CategoryIconPickerModal";
+import { MenuItemIconPickerModal } from "@/components/dev/MenuItemIconPickerModal";
+import { resolveCategoryIcon, type PanelColor } from "@/lib/panelTheme";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
@@ -105,6 +108,17 @@ export function PlatformMenuEditor({
   const [categories, setCategories] = useState<string[]>(
     () => activeConfig.categories || defaultCats
   );
+  const [categoryIcons, setCategoryIcons] = useState<Record<string, string>>(() => {
+    return (activeConfig.categoryIcons as any) || {};
+  });
+  const [selectedNewCatIcon, setSelectedNewCatIcon] = useState<string>("FolderTree");
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [pickingForCat, setPickingForCat] = useState<string | null>(null);
+
+  // Item Icon Picker Modal State
+  const [itemIconPickerOpen, setItemIconPickerOpen] = useState(false);
+  const [pickingIconForContext, setPickingIconForContext] = useState<"new" | "edit" | string | null>(null);
+
   const [newCatName, setNewCatName] = useState("");
   const [editingCatIndex, setEditingCatIndex] = useState<number | null>(null);
   const [editingCatText, setEditingCatText] = useState("");
@@ -180,13 +194,15 @@ export function PlatformMenuEditor({
 
     setCategories(initialCats);
     setItems(initialItems);
+    setCategoryIcons((currentCfg.categoryIcons as any) || {});
     setDeletedItemIds(currentCfg.deletedItemIds || []);
   }, [scope, memberConfig, ceoConfig]);
 
   // Master persistent reordering function
   const reorderAndPersist = useCallback(
-    (newCats: string[], newItems: MenuItemConfig[], newDeletedIds?: string[]) => {
+    (newCats: string[], newItems: MenuItemConfig[], newIcons?: Record<string, string>, newDeletedIds?: string[]) => {
       const activeDeletedIds = newDeletedIds ?? deletedItemIds;
+      const currentIcons = newIcons ?? categoryIcons;
       const catSet = new Set(newCats);
       const fallbackCat = newCats[0] || (scope === "ceo" ? "CEO Tools" : "Gestão");
 
@@ -213,25 +229,55 @@ export function PlatformMenuEditor({
 
       setCategories(newCats);
       setItems(categorizedItems);
+      setCategoryIcons(currentIcons);
       setDeletedItemIds(activeDeletedIds);
 
       if (scope === "ceo") {
         saveCeo({
           categories: newCats,
           items: categorizedItems as any,
+          categoryIcons: currentIcons,
           deletedItemIds: activeDeletedIds,
         });
       } else {
         const synced = syncMenuConfig({
           categories: newCats,
+          categoryIcons: currentIcons,
           items: categorizedItems,
           deletedItemIds: activeDeletedIds,
         });
         saveMember(synced);
       }
     },
-    [deletedItemIds, scope, saveCeo, saveMember]
+    [deletedItemIds, categoryIcons, scope, saveCeo, saveMember]
   );
+
+  /* ─── Category Icon Picker Handler ─── */
+  const handleSelectCategoryIcon = (iconName: string) => {
+    if (pickingForCat === null) {
+      setSelectedNewCatIcon(iconName);
+    } else {
+      const nextIcons = { ...categoryIcons, [pickingForCat]: iconName };
+      reorderAndPersist(categories, items, nextIcons);
+      toast.success(`Ícone da categoria "${pickingForCat}" alterado! 🎨`);
+    }
+  };
+
+  /* ─── Item Icon Picker Handler ─── */
+  const handleSelectItemIcon = (iconName: string) => {
+    if (pickingIconForContext === "new") {
+      setNewMenuIconName(iconName);
+    } else if (pickingIconForContext === "edit") {
+      setEditItemIconName(iconName);
+    } else if (typeof pickingIconForContext === "string") {
+      const targetId = pickingIconForContext;
+      const nextItems = items.map((it) =>
+        it.id === targetId ? { ...it, iconName } : it
+      );
+      reorderAndPersist(categories, nextItems);
+      toast.success("Ícone do menu atualizado com sucesso! ✨");
+    }
+  };
 
   /* ─── Category Handlers ─── */
   const handleAddCategory = () => {
@@ -242,8 +288,9 @@ export function PlatformMenuEditor({
       return;
     }
     const nextCats = [...categories, cat];
+    const nextIcons = { ...categoryIcons, [cat]: selectedNewCatIcon };
     setNewCatName("");
-    reorderAndPersist(nextCats, items);
+    reorderAndPersist(nextCats, items, nextIcons);
     toast.success(`Categoria "${cat}" criada com sucesso!`);
   };
 
@@ -274,8 +321,14 @@ export function PlatformMenuEditor({
       i.category === oldName ? { ...i, category: newName } : i
     );
 
+    const nextIcons = { ...categoryIcons };
+    if (oldName && nextIcons[oldName]) {
+      nextIcons[newName] = nextIcons[oldName];
+      delete nextIcons[oldName];
+    }
+
     setEditingCatIndex(null);
-    reorderAndPersist(nextCats, nextItems);
+    reorderAndPersist(nextCats, nextItems, nextIcons);
     toast.success(`Categoria alterada para "${newName}"!`);
   };
 
@@ -296,7 +349,10 @@ export function PlatformMenuEditor({
       i.category === targetCat ? { ...i, category: fallbackCat } : i
     );
 
-    reorderAndPersist(nextCats, nextItems);
+    const nextIcons = { ...categoryIcons };
+    delete nextIcons[targetCat];
+
+    reorderAndPersist(nextCats, nextItems, nextIcons);
     setCatToDelete(null);
     toast.success(
       `Categoria "${targetCat}" excluída! Itens vinculados foram movidos para "${fallbackCat}".`
@@ -986,6 +1042,21 @@ export function PlatformMenuEditor({
                         <Badge variant="secondary" className="text-[9px] font-mono shrink-0">
                           #{idx + 1}
                         </Badge>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!userCanEdit) return;
+                            setPickingForCat(cat);
+                            setIconPickerOpen(true);
+                          }}
+                          className="h-8 w-8 rounded-lg border border-primary/30 bg-primary/10 text-primary flex items-center justify-center shrink-0 hover:scale-105 hover:bg-primary/20 transition-all cursor-pointer shadow-xs"
+                          title={`Alterar ícone da categoria "${cat}"`}
+                        >
+                          {(() => {
+                            const CatIconComp = resolveCategoryIcon(categoryIcons[cat], FolderTree);
+                            return <CatIconComp className="h-4 w-4" />;
+                          })()}
+                        </button>
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-bold text-foreground truncate">{cat}</p>
                           <p className="text-[0.65rem] text-muted-foreground">
@@ -1046,20 +1117,35 @@ export function PlatformMenuEditor({
           </div>
 
           {/* Add Category Form */}
-          <div className="flex items-center gap-2 pt-2 border-t border-border/40">
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/40">
+            <button
+              type="button"
+              onClick={() => {
+                setPickingForCat(null);
+                setIconPickerOpen(true);
+              }}
+              className="h-9 px-3 rounded-xl border border-primary/40 bg-primary/10 text-primary flex items-center gap-2 text-xs font-bold hover:bg-primary/20 transition-all cursor-pointer shrink-0 shadow-xs"
+              title="Escolher ícone para a nova categoria"
+            >
+              {(() => {
+                const NewCatIconComp = resolveCategoryIcon(selectedNewCatIcon, FolderTree);
+                return <NewCatIconComp className="h-4 w-4" />;
+              })()}
+              <span>Ícone: {selectedNewCatIcon}</span>
+            </button>
             <Input
               value={newCatName}
               onChange={(e) => setNewCatName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
               placeholder="Nome da nova categoria..."
               disabled={!userCanEdit}
-              className="h-9 text-xs bg-secondary/50 border-border/60 max-w-sm"
+              className="h-9 text-xs bg-secondary/50 border-border/60 max-w-sm flex-1 min-w-[200px]"
             />
             <Button
               size="sm"
               onClick={handleAddCategory}
               disabled={!userCanEdit || !newCatName.trim()}
-              className="h-9 text-xs gap-1.5 bg-primary text-primary-foreground font-bold"
+              className="h-9 text-xs gap-1.5 bg-primary text-primary-foreground font-bold shrink-0"
             >
               <Plus className="h-3.5 w-3.5" />
               Criar Categoria
@@ -1222,7 +1308,21 @@ export function PlatformMenuEditor({
                 <CardHeader className="pb-2 pt-3 px-4 border-b border-border/40 bg-secondary/20">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <FolderTree className="h-4 w-4 text-primary" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!userCanEdit) return;
+                          setPickingForCat(cat);
+                          setIconPickerOpen(true);
+                        }}
+                        className="h-7 w-7 rounded-lg border border-primary/30 bg-primary/10 text-primary flex items-center justify-center shrink-0 hover:scale-105 hover:bg-primary/20 transition-all cursor-pointer shadow-xs"
+                        title={`Alterar ícone da categoria "${cat}"`}
+                      >
+                        {(() => {
+                          const CatHeaderIcon = resolveCategoryIcon(categoryIcons[cat], FolderTree);
+                          return <CatHeaderIcon className="h-3.5 w-3.5" />;
+                        })()}
+                      </button>
                       <CardTitle className="text-xs font-bold text-foreground">
                         Categoria: <span className="text-primary font-extrabold">{cat}</span>
                       </CardTitle>
@@ -1323,17 +1423,24 @@ export function PlatformMenuEditor({
                                 </button>
                               </div>
 
-                              {/* Icon Badge */}
-                              <div
+                              {/* Icon Badge - Click to Change Icon */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!userCanEdit) return;
+                                  setPickingIconForContext(item.id);
+                                  setItemIconPickerOpen(true);
+                                }}
                                 className={cn(
-                                  "flex h-9 w-9 sm:h-8 sm:w-8 items-center justify-center rounded-lg border shrink-0 transition-colors shadow-xs",
+                                  "flex h-9 w-9 sm:h-8 sm:w-8 items-center justify-center rounded-lg border shrink-0 transition-colors shadow-xs cursor-pointer hover:scale-105 active:scale-95 group",
                                   item.visible
-                                    ? "bg-primary/10 border-primary/30 text-primary"
-                                    : "bg-secondary/50 border-border/40 text-muted-foreground"
+                                    ? "bg-primary/10 border-primary/30 text-primary hover:border-primary/60 hover:bg-primary/20"
+                                    : "bg-secondary/50 border-border/40 text-muted-foreground hover:border-border"
                                 )}
+                                title="Clique para alterar o ícone deste menu"
                               >
-                                <ItemIcon className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                              </div>
+                                <ItemIcon className="h-4 w-4 sm:h-3.5 sm:w-3.5 transition-transform group-hover:scale-110" />
+                              </button>
 
                               {/* Title & Route */}
                               <div className="min-w-0 flex-1">
@@ -1878,6 +1985,33 @@ export function PlatformMenuEditor({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ─── MODAL: SELETOR DE ÍCONE DE CATEGORIA ─── */}
+      <CategoryIconPickerModal
+        open={iconPickerOpen}
+        onOpenChange={setIconPickerOpen}
+        selectedIcon={pickingForCat ? (categoryIcons[pickingForCat] || "FolderTree") : selectedNewCatIcon}
+        onSelectIcon={handleSelectCategoryIcon}
+        panelColor={scope === "ceo" ? "amber" : "cyan"}
+        title={pickingForCat ? `Ícone da Categoria "${pickingForCat}"` : "Ícone da Nova Categoria"}
+      />
+
+      {/* ─── MODAL: SELETOR DE ÍCONE DE ITEM DO MENU ─── */}
+      <MenuItemIconPickerModal
+        open={itemIconPickerOpen}
+        onOpenChange={setItemIconPickerOpen}
+        selectedIcon={
+          pickingIconForContext === "new"
+            ? newMenuIconName
+            : pickingIconForContext === "edit"
+            ? editItemIconName
+            : items.find((i) => i.id === pickingIconForContext)?.iconName || "LayoutDashboard"
+        }
+        onSelectIcon={handleSelectItemIcon}
+        panelColor={scope === "ceo" ? "amber" : "cyan"}
+        title="Escolher Ícone do Menu"
+        description="Selecione um ícone oficial para identificar este item no menu lateral."
+      />
     </div>
   );
 }

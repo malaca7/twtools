@@ -383,13 +383,19 @@ export function CeoGerenciarTagsPage() {
   );
 
   const { data: rawTags = [], isLoading: loadingTags, refetch: refetchTags } = useMemberTags();
-  // Tag CEO é exclusiva do Painel Dev na página de permissões (/dev/permissoes).
-  // Não deve ser exibida nem gerenciada na página de Gerenciar Tags.
+  // Emblemas CEO e Dev não são tratados como tags na página de Gerenciar Tags.
   const tags = useMemo(() => {
     return rawTags.filter((t) => {
       const cleanId = (t.id || "").toLowerCase().trim();
       const cleanName = (t.name || "").toLowerCase().trim();
-      return cleanId !== "ceo" && cleanName !== "ceo";
+      return (
+        cleanId !== "ceo" &&
+        cleanName !== "ceo" &&
+        cleanId !== "dev" &&
+        cleanName !== "dev" &&
+        cleanId !== "desenvolvedor" &&
+        cleanName !== "desenvolvedor"
+      );
     });
   }, [rawTags]);
   const { data: assignments = [], isLoading: loadingAssignments, refetch: refetchAssignments } = useMemberTagAssignments();
