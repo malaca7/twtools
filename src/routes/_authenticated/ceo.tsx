@@ -52,12 +52,9 @@ export const Route = createFileRoute("/_authenticated/ceo")({
 
 function CeoPageWrapper() {
   const childMatches = useChildMatches();
-  if (childMatches.length > 0) {
-    return <Outlet />;
-  }
   return (
     <CeoGuard>
-      <CeoPageContent />
+      {childMatches.length > 0 ? <Outlet /> : <CeoPageContent />}
     </CeoGuard>
   );
 }

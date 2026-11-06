@@ -861,12 +861,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Se o usuário tem a tag 'ceo' atribuída ou está explicitamente com is_ceo no perfil
         let hasCeoActive = Boolean(
           myTagIds.has("ceo") ||
-          (profile?.is_ceo === true && (profile as any)?.is_ceo !== false) ||
-          profile?.custom_theme?.is_ceo === true
+          (profile?.is_ceo === true && (profile as any)?.is_ceo !== false)
         );
 
-        // Se explicitamente revogado, garante falso
-        if (profile && profile.is_ceo === false && !myTagIds.has("ceo")) {
+        // Se o perfil tem explicitamente is_ceo === false e não tem tag ativa ceo, garante falso
+        if (profile && (profile as any).is_ceo === false && !myTagIds.has("ceo")) {
           hasCeoActive = false;
         }
 
@@ -1357,42 +1356,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 1. Tags ativas atribuídas ao membro que concedem acesso CEO
     const hasActiveCeoTag = memberTags.some((t) => {
       if (t.is_active === false) return false;
-      if (isCeoTagItem(t)) return true;
-      const cleanId = t.id.toLowerCase().trim();
-      if (cleanId === "ceo") return true;
+      const cleanId = (t.id || "").toLowerCase().trim();
+      const cleanName = (t.name || "").toLowerCase().trim();
+      if (cleanId === "ceo" || cleanName === "ceo") return true;
       if (t.rules?.can_access_ceo === true || t.rules?.is_ceo === true) return true;
-      if (
-        Array.isArray(t.permissions) &&
-        (t.permissions.includes("view_ceo") ||
-          t.permissions.includes("view_ceo_dashboard") ||
-          t.permissions.includes("view_ceo_financials") ||
-          t.permissions.includes("view_ceo_stock_adjustments") ||
-          t.permissions.includes("view_ceo_notifications") ||
-          t.permissions.includes("manage_ceo_bot") ||
-          t.permissions.includes("manage_ceo_webhooks") ||
-          t.permissions.includes("view_ceo_tag_permissions") ||
-          t.permissions.includes("verification.manage") ||
-          t.permissions.includes("view_ceo_warnings"))
-      ) {
-        return true;
-      }
       return false;
     });
 
-    if (hasActiveCeoTag) return true;
-
     // Se o perfil tem explicitamente is_ceo === false e não tem tag ativa CEO, NUNCA é CEO
-    if (profile && profile.is_ceo === false && !memberTags.some((t) => t.is_active !== false && t.id === "ceo")) {
+    if (profile && (profile as any).is_ceo === false && !hasActiveCeoTag) {
       return false;
     }
 
-    // 2. Base (flag is_ceo no perfil ou checagem isUserCeo)
-    if (isUserCeo(profile, session?.user ? { id: session.user.id } : null)) return true;
-    if (profile?.is_ceo === true || profile?.custom_theme?.is_ceo === true) return true;
-    if (level === "ceo" || (profile as any)?.role === "ceo" || (profile as any)?.cargo === "ceo") return true;
+    if (hasActiveCeoTag) return true;
+
+    // 2. Base (flag is_ceo no perfil ou cargo 01/ceo)
+    if (profile?.is_ceo === true) return true;
+    if (level === "ceo" || level === "01" || (profile as any)?.role === "ceo" || (profile as any)?.cargo === "ceo" || (profile as any)?.nivel === "ceo" || (profile as any)?.nivel === "01") return true;
 
     return false;
-  }, [session?.user, profile, level, memberTags, isCeoTagItem]);
+  }, [session?.user, profile, level, memberTags]);
 
   // Permissões ativas agregadas
   const allTagPermissions = useMemo<Permission[]>(() => {

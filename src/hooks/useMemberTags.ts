@@ -106,19 +106,31 @@ export function useMemberTagsMap(options: { onlySystem?: boolean } = { onlySyste
     // Mapeia flags is_ceo e is_developer presentes nos membros
     members.forEach((m) => {
       const uIds = [m.id, m.user_id].filter(Boolean) as string[];
-      if (m.is_ceo || (m as any).custom_theme?.is_ceo) {
+      if (m.is_ceo === true) {
         uIds.forEach((uid) => {
           if (!memberTagsMap[uid]) memberTagsMap[uid] = [];
           if (!memberTagsMap[uid].some((t) => t.id === "ceo")) {
             memberTagsMap[uid].push(CEO_SYSTEM_TAG);
           }
         });
+      } else if (m.is_ceo === false) {
+        uIds.forEach((uid) => {
+          if (memberTagsMap[uid]) {
+            memberTagsMap[uid] = memberTagsMap[uid].filter((t) => t.id !== "ceo");
+          }
+        });
       }
-      if (m.is_developer || m.nivel === "desenvolvedor") {
+      if (m.is_developer === true || m.nivel === "desenvolvedor") {
         uIds.forEach((uid) => {
           if (!memberTagsMap[uid]) memberTagsMap[uid] = [];
           if (!memberTagsMap[uid].some((t) => t.id === "dev" || t.id === "desenvolvedor")) {
             memberTagsMap[uid].push(DEV_SYSTEM_TAG);
+          }
+        });
+      } else if (m.is_developer === false && m.nivel !== "desenvolvedor") {
+        uIds.forEach((uid) => {
+          if (memberTagsMap[uid]) {
+            memberTagsMap[uid] = memberTagsMap[uid].filter((t) => t.id !== "dev" && t.id !== "desenvolvedor");
           }
         });
       }

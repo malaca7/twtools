@@ -405,7 +405,9 @@ export async function getCurrentAuth(): Promise<AuthState> {
       (pAny?.is_developer === undefined && (discordId === "722320491767136346" || DEV_DISCORD_IDS.includes(String(discordId)))) ||
       roleRow?.nivel === "desenvolvedor"
     );
-    let isCeo = Boolean(pAny?.is_ceo === true || pAny?.custom_theme?.is_ceo === true || roleRow?.nivel === "ceo");
+    let isCeo = pAny?.is_ceo === false
+      ? false
+      : Boolean(pAny?.is_ceo === true || roleRow?.nivel === "ceo" || roleRow?.nivel === "01");
 
     const profile: Profile | null = profileRow ? {
       id: pAny.id,

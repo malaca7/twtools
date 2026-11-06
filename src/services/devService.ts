@@ -1032,22 +1032,22 @@ export function isUserCeo(
   member?: any
 ): boolean {
   // Se explicitamente falso, NÃO é CEO
-  if (profile && profile.is_ceo === false && (profile as any)?.cargo !== "ceo" && (profile as any)?.nivel !== "ceo") return false;
-  if (member && member.is_ceo === false && member.cargo !== "ceo" && member.nivel !== "ceo") return false;
+  if (profile && (profile as any).is_ceo === false && (profile as any)?.cargo !== "ceo" && (profile as any)?.nivel !== "ceo" && (profile as any)?.nivel !== "01") return false;
+  if (member && member.is_ceo === false && member.cargo !== "ceo" && member.nivel !== "ceo" && member.nivel !== "01") return false;
 
-  if (profile?.is_ceo === true || profile?.custom_theme?.is_ceo === true) return true;
-  if (member?.is_ceo === true || member?.custom_theme?.is_ceo === true) return true;
-  if ((profile as any)?.role === "ceo" || (profile as any)?.cargo === "ceo" || (profile as any)?.nivel === "ceo") return true;
-  if ((member as any)?.role === "ceo" || (member as any)?.cargo === "ceo" || (member as any)?.nivel === "ceo") return true;
+  if (profile?.is_ceo === true) return true;
+  if (member?.is_ceo === true) return true;
+  if ((profile as any)?.role === "ceo" || (profile as any)?.cargo === "ceo" || (profile as any)?.nivel === "ceo" || (profile as any)?.nivel === "01") return true;
+  if ((member as any)?.role === "ceo" || (member as any)?.cargo === "ceo" || (member as any)?.nivel === "ceo" || (member as any)?.nivel === "01") return true;
 
   if (typeof window !== "undefined") {
     try {
       const devRaw = sessionStorage.getItem("tw_dev_impersonate") || localStorage.getItem("tw_dev_impersonate");
       if (devRaw) {
         const dev = JSON.parse(devRaw);
-        if (dev.is_ceo === true || dev.custom_theme?.is_ceo === true) {
+        if (dev.is_ceo === true) {
           const ids = [profile?.id, profile?.user_id, member?.id, member?.user_id].filter(Boolean).map(String);
-          if (ids.length === 0 || ids.includes(String(dev.user_id)) || ids.includes(String(dev.id))) return true;
+          if (ids.length > 0 && (ids.includes(String(dev.user_id)) || ids.includes(String(dev.id)))) return true;
         }
       }
     } catch {}
@@ -1456,6 +1456,11 @@ export async function toggleMemberCeoTag(
         try {
           await rtdb.set(`member_tag_assignments/${assignmentKey}`, assignmentData);
         } catch {}
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem(`tw_rtdb_member_tag_assignments/${assignmentKey}`, JSON.stringify(assignmentData));
+          } catch {}
+        }
         try {
           await supabase.from("member_tag_assignments").upsert(assignmentData, { onConflict: "id" });
         } catch {
@@ -1465,7 +1470,15 @@ export async function toggleMemberCeoTag(
         }
       }
     } else {
-      // Remove de RTDB member_tag_assignments
+      // Remove de RTDB member_tag_assignments e LocalStorage
+      if (typeof window !== "undefined") {
+        try {
+          for (const cid of uniqueCandidateIds) {
+            localStorage.removeItem(`tw_rtdb_member_tag_assignments/${cid}_ceo`);
+            localStorage.setItem(`tw_rtdb_member_tag_assignments/${cid}_ceo`, JSON.stringify(null));
+          }
+        } catch {}
+      }
       try {
         const list = await rtdb.getList<any>("member_tag_assignments");
         for (const item of list || []) {

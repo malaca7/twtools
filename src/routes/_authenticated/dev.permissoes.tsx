@@ -1974,7 +1974,7 @@ function DevPermissoesContent() {
                           : Boolean(member.is_developer || member.nivel === "desenvolvedor" || (member.discord_id && (String(member.discord_id) === "722320491767136346" || DEV_DISCORD_IDS.includes(String(member.discord_id)))));
                         const isCeo = member.is_ceo === false
                           ? false
-                          : Boolean(member.is_ceo || member.custom_theme?.is_ceo || member.nivel === "ceo");
+                          : Boolean(member.is_ceo || member.nivel === "ceo" || member.nivel === "01");
                         const isToggling =
                           togglingMemberId === memberId ||
                           togglingMemberId === member.user_id ||
@@ -2564,7 +2564,7 @@ function DevPermissoesContent() {
                         const memberId = member.user_id || member.id;
                         const isCeo = member.is_ceo === false
                           ? false
-                          : Boolean(member.is_ceo || member.custom_theme?.is_ceo || member.nivel === "ceo");
+                          : Boolean(member.is_ceo || member.nivel === "ceo" || member.nivel === "01");
                         const isDev = member.is_developer === false
                           ? (member.nivel === "desenvolvedor")
                           : Boolean(member.is_developer || member.nivel === "desenvolvedor" || (member.discord_id && (String(member.discord_id) === "722320491767136346" || DEV_DISCORD_IDS.includes(String(member.discord_id)))));
