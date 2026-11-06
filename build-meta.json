@@ -1,5 +1,5 @@
 {
-  "deployed_at": "2026-11-06T04:31:34.211Z",
-  "timestamp": 1793939494212,
+  "deployed_at": "2026-11-06T06:27:30.153Z",
+  "timestamp": 1793946450154,
   "message": "fix(sync): sincronizar visualizacoes em tempo real no banco, corrigir esquema perfis e desduplicar badges"
 }
