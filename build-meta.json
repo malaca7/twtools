@@ -1,5 +1,5 @@
 {
-  "deployed_at": "2026-11-06T19:21:21.148Z",
-  "timestamp": 1793992881148,
-  "message": "fix(sync): sincronizacao em tempo real de menus e prevencao de fallback obsoleto para membros"
+  "deployed_at": "2026-11-06T20:43:48.662Z",
+  "timestamp": 1793997828663,
+  "message": "fix(sync,auth): sincronizar menu lateral, unificar visualizacao dev/ceo e garantir permissoes de emblemas para membro dev"
 }
