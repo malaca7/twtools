@@ -173,8 +173,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               discord_username: sim.discord_username || null,
               discord_avatar_url: sim.discord_avatar_url || sim.avatar_url || null,
               discord_email: sim.discord_email || null,
-              is_developer: Boolean(sim.is_developer === true),
-              is_ceo: Boolean(sim.is_ceo === true || sim.custom_theme?.is_ceo === true || isUserCeo(sim)),
+              is_developer: sim.is_developer === false ? false : Boolean(sim.is_developer === true || sim.nivel === "desenvolvedor"),
+              is_ceo: sim.is_ceo === false ? false : Boolean(sim.is_ceo === true || sim.nivel === "ceo" || sim.nivel === "01"),
               bio: sim.bio || sim.custom_theme?.bio || null,
               custom_status: sim.custom_status || sim.custom_theme?.custom_status || null,
               social_links: sim.social_links || sim.custom_theme?.social_links || null,
@@ -269,8 +269,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               discord_username: dev.discord_username || null,
               discord_avatar_url: dev.discord_avatar_url || dev.avatar_url || null,
               discord_email: dev.discord_email || null,
-              is_developer: Boolean(dev.is_developer === true),
-              is_ceo: Boolean(dev.is_ceo === true || dev.custom_theme?.is_ceo === true || isUserCeo(dev)),
+              is_developer: dev.is_developer === false ? false : Boolean(dev.is_developer === true || dev.nivel === "desenvolvedor"),
+              is_ceo: dev.is_ceo === false ? false : Boolean(dev.is_ceo === true || dev.nivel === "ceo" || dev.nivel === "01"),
               bio: dev.bio || dev.custom_theme?.bio || null,
               custom_status: dev.custom_status || dev.custom_theme?.custom_status || null,
               social_links: dev.social_links || dev.custom_theme?.social_links || null,
@@ -1370,9 +1370,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (hasActiveCeoTag) return true;
 
-    // 2. Base (flag is_ceo no perfil ou cargo 01/ceo)
+    // 2. Base (flag is_ceo no perfil ou cargo ceo)
     if (profile?.is_ceo === true) return true;
-    if (level === "ceo" || level === "01" || (profile as any)?.role === "ceo" || (profile as any)?.cargo === "ceo" || (profile as any)?.nivel === "ceo" || (profile as any)?.nivel === "01") return true;
+    if (level === "ceo" || (profile as any)?.role === "ceo" || (profile as any)?.cargo === "ceo" || (profile as any)?.nivel === "ceo") return true;
 
     return false;
   }, [session?.user, profile, level, memberTags]);
@@ -1961,7 +1961,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // NÃO ter permissões das tag dev no painel de ceo!
       // =========================================================================
       if (activePanel === "ceo") {
-        if (!isCeoUser && !isDevUser) return false;
+        if (!isCeoUser) return false;
 
         // Permissões exclusivas de desenvolvimento nunca entram no painel CEO
         if (

@@ -249,6 +249,8 @@ export function isUserDeveloper(
   if (level === "desenvolvedor") return true;
 
   // 3. Fundador permanente master (apenas se is_developer não estiver explicitamente como false)
+  if (profile && (profile as any).is_developer === false) return false;
+
   if (profile?.discord_id && DEV_DISCORD_IDS.includes(String(profile.discord_id))) return true;
   if ((user as any)?.discord_id && DEV_DISCORD_IDS.includes(String((user as any).discord_id))) return true;
   if (
@@ -259,7 +261,7 @@ export function isUserDeveloper(
     return true;
   }
 
-  // 4. Sessão local / simulação apenas se não for revogado
+  // 4. Sessão local / simulação apenas se não for revogado e houver correspondência exata de ID
   if (typeof window !== "undefined") {
     try {
       const devRaw = sessionStorage.getItem("tw_dev_impersonate") || localStorage.getItem("tw_dev_impersonate");
@@ -267,7 +269,7 @@ export function isUserDeveloper(
         const dev = JSON.parse(devRaw);
         if (dev.is_developer === true) {
           const ids = [profile?.id, profile?.user_id, user?.id].filter(Boolean).map(String);
-          if (ids.length === 0 || ids.includes(String(dev.user_id)) || ids.includes(String(dev.id))) {
+          if (ids.length > 0 && (ids.includes(String(dev.user_id)) || ids.includes(String(dev.id)))) {
             if (profile && (profile as any).is_developer === false) return false;
             return true;
           }
@@ -312,7 +314,7 @@ export function assertDeveloperOrCeoAccess(
   permission?: Permission
 ): void {
   if (isUserDeveloper(user, profile, level)) return;
-  if (isUserCeo(profile) || level === "ceo" || level === "01") {
+  if (isUserCeo(profile) || level === "ceo") {
     if (!permission) return;
     const ceoPerms = getCeoTagPermissionsSync();
     if (ceoPerms.includes(permission)) return;
@@ -1032,13 +1034,13 @@ export function isUserCeo(
   member?: any
 ): boolean {
   // Se explicitamente falso, NÃO é CEO
-  if (profile && (profile as any).is_ceo === false && (profile as any)?.cargo !== "ceo" && (profile as any)?.nivel !== "ceo" && (profile as any)?.nivel !== "01") return false;
-  if (member && member.is_ceo === false && member.cargo !== "ceo" && member.nivel !== "ceo" && member.nivel !== "01") return false;
+  if (profile && (profile as any).is_ceo === false && (profile as any)?.cargo !== "ceo" && (profile as any)?.nivel !== "ceo") return false;
+  if (member && member.is_ceo === false && member.cargo !== "ceo" && member.nivel !== "ceo") return false;
 
   if (profile?.is_ceo === true) return true;
   if (member?.is_ceo === true) return true;
-  if ((profile as any)?.role === "ceo" || (profile as any)?.cargo === "ceo" || (profile as any)?.nivel === "ceo" || (profile as any)?.nivel === "01") return true;
-  if ((member as any)?.role === "ceo" || (member as any)?.cargo === "ceo" || (member as any)?.nivel === "ceo" || (member as any)?.nivel === "01") return true;
+  if ((profile as any)?.role === "ceo" || (profile as any)?.cargo === "ceo" || (profile as any)?.nivel === "ceo") return true;
+  if ((member as any)?.role === "ceo" || (member as any)?.cargo === "ceo" || (member as any)?.nivel === "ceo") return true;
 
   if (typeof window !== "undefined") {
     try {

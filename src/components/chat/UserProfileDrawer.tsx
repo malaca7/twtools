@@ -69,7 +69,7 @@ export function UserProfileDrawer({
                 {LEVEL_LABEL[nivel] || nivel}
               </Badge>
               {member.is_developer && <DevBadge size="xs" />}
-              {Boolean(member.is_ceo || member.custom_theme?.is_ceo) && <CeoBadge size="xs" />}
+              {Boolean(member.is_ceo === true) && <CeoBadge size="xs" />}
             </div>
           </div>
 

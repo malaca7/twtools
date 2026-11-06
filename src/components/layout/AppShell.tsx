@@ -708,7 +708,7 @@ function DynamicSidebarNavigation() {
         }
         return item;
       });
-      const canSeeCeo = Boolean(isDevArea || canAccessCeo);
+      const canSeeCeo = Boolean(canAccessCeo);
 
       const targetRole: "dev" | "ceo" = isDevArea ? "dev" : "ceo";
 

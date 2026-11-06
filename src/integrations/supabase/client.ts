@@ -2039,7 +2039,7 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
                 localStorage.setItem(`tw_rtdb_${table}/${directKey}`, JSON.stringify({ ...prev, ...body }));
               } catch {}
             }
-            await fetch(`${FIREBASE_RTDB_URL}/${table}/${directKey}.json`, {
+            void fetch(`${FIREBASE_RTDB_URL}/${table}/${directKey}.json`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(body),
@@ -2051,7 +2051,7 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
               for (const [k, v] of Object.entries(allRes)) {
                 if (v && typeof v === 'object' && !(v as any)._schema_info) {
                   if (checkRecordMatches(v, k)) {
-                    await fetch(`${FIREBASE_RTDB_URL}/${table}/${k}.json`, {
+                    void fetch(`${FIREBASE_RTDB_URL}/${table}/${k}.json`, {
                       method: 'PATCH',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify(body),
@@ -2086,7 +2086,7 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
               localStorage.setItem(`tw_rtdb_${table}/${directKey}`, JSON.stringify(null));
             } catch {}
           }
-          await fetch(`${FIREBASE_RTDB_URL}/${table}/${directKey}.json`, { method: 'DELETE' }).catch(() => {});
+          void fetch(`${FIREBASE_RTDB_URL}/${table}/${directKey}.json`, { method: 'DELETE' }).catch(() => {});
         } else {
           const checkRecordMatches = (v: any, k: string) => {
             if (filters.length === 0 && orFilters.length === 0) {
@@ -2434,7 +2434,7 @@ export const supabase = createClient<any>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY
       if (urlStr.includes('supabase.co')) {
         try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 4000);
+          const timeoutId = setTimeout(() => controller.abort(), 2500);
           const reqInit = { ...init, signal: init?.signal || controller.signal };
           const res = await fetch(input, reqInit);
           clearTimeout(timeoutId);

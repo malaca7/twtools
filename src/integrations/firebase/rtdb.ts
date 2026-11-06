@@ -305,12 +305,20 @@ export async function checkRtdbReachable(): Promise<boolean> {
   if (isRtdbReachable !== null) return isRtdbReachable;
   if (rtdbCheckPromise) return rtdbCheckPromise;
 
-  rtdbCheckPromise = fetch(`${FIREBASE_RTDB_URL}/.json?shallow=true`, { method: 'GET' })
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const tId = controller ? setTimeout(() => controller.abort(), 600) : null;
+
+  rtdbCheckPromise = fetch(`${FIREBASE_RTDB_URL}/.json?shallow=true`, {
+    method: 'GET',
+    signal: controller?.signal,
+  })
     .then((r) => {
+      if (tId) clearTimeout(tId);
       isRtdbReachable = r.ok;
       return r.ok;
     })
     .catch(() => {
+      if (tId) clearTimeout(tId);
       isRtdbReachable = false;
       return false;
     });
@@ -323,9 +331,9 @@ export async function checkRtdbReachable(): Promise<boolean> {
  */
 export const rtdb = {
   /**
-   * Obtém os dados de um nó ou coleção com proteção contra travamento (timeout padrão de 2.5s)
+   * Obtém os dados de um nó ou coleção com proteção contra travamento (timeout padrão de 600ms)
    */
-  async get<T = any>(path: string, timeoutMs = 2500): Promise<T | null> {
+  async get<T = any>(path: string, timeoutMs = 600): Promise<T | null> {
     const reachable = await checkRtdbReachable();
     if (!reachable) {
       const fallback = getSeedFallback(path);
@@ -365,7 +373,7 @@ export const rtdb = {
   /**
    * Obtém uma coleção como lista (array de itens)
    */
-  async getList<T = any>(collectionName: string, timeoutMs = 2500): Promise<T[]> {
+  async getList<T = any>(collectionName: string, timeoutMs = 600): Promise<T[]> {
     const reachable = await checkRtdbReachable();
     if (!reachable) {
       return getSeedFallbackList(collectionName);
@@ -384,35 +392,29 @@ export const rtdb = {
   },
 
   /**
-   * Grava dados sobrescrevendo o nó indicado com proteção contra travamento
+   * Grava dados sobrescrevendo o nó indicado instantaneamente (0ms de latência percebida)
    */
-  async set<T = any>(path: string, data: T, timeoutMs = 2500): Promise<void> {
+  async set<T = any>(path: string, data: T): Promise<void> {
     const clean = path.replace(/^\/+|\/+$/g, '');
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem(`tw_rtdb_${clean}`, JSON.stringify(data));
       } catch {}
     }
-    try {
-      const nodeRef = ref(db, path);
-      let timer: any;
-      const timeoutPromise = new Promise<void>((resolve) => {
-        timer = setTimeout(() => resolve(), timeoutMs);
-      });
-      const setPromise = set(nodeRef, data).catch(() => {});
+    // Dispara atualização remota em background sem bloquear o ciclo de salvamento da UI
+    if (isRtdbReachable !== false) {
       try {
-        await Promise.race([setPromise, timeoutPromise]);
-      } finally {
-        clearTimeout(timer);
-      }
-    } catch {}
+        const nodeRef = ref(db, path);
+        void set(nodeRef, data).catch(() => {});
+      } catch {}
+    }
     this.triggerRealtimeNotification(path, 'UPDATE', data);
   },
 
   /**
-   * Atualiza campos específicos em um nó com proteção contra travamento
+   * Atualiza campos específicos em um nó instantaneamente (0ms de latência percebida)
    */
-  async update(path: string, data: Record<string, any>, timeoutMs = 2500): Promise<void> {
+  async update(path: string, data: Record<string, any>): Promise<void> {
     const clean = path.replace(/^\/+|\/+$/g, '');
     if (typeof window !== 'undefined') {
       try {
@@ -421,45 +423,33 @@ export const rtdb = {
         localStorage.setItem(`tw_rtdb_${clean}`, JSON.stringify(merged));
       } catch {}
     }
-    try {
-      const nodeRef = ref(db, path);
-      let timer: any;
-      const timeoutPromise = new Promise<void>((resolve) => {
-        timer = setTimeout(() => resolve(), timeoutMs);
-      });
-      const updatePromise = update(nodeRef, data).catch(() => {});
+    // Dispara atualização remota em background sem bloquear a UI
+    if (isRtdbReachable !== false) {
       try {
-        await Promise.race([updatePromise, timeoutPromise]);
-      } finally {
-        clearTimeout(timer);
-      }
-    } catch {}
+        const nodeRef = ref(db, path);
+        void update(nodeRef, data).catch(() => {});
+      } catch {}
+    }
     this.triggerRealtimeNotification(path, 'UPDATE', data);
   },
 
   /**
-   * Remove um nó com proteção contra travamento
+   * Remove um nó instantaneamente (0ms de latência percebida)
    */
-  async remove(path: string, timeoutMs = 2500): Promise<void> {
+  async remove(path: string): Promise<void> {
     const clean = path.replace(/^\/+|\/+$/g, '');
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem(`tw_rtdb_${clean}`, JSON.stringify(null));
       } catch {}
     }
-    try {
-      const nodeRef = ref(db, path);
-      let timer: any;
-      const timeoutPromise = new Promise<void>((resolve) => {
-        timer = setTimeout(() => resolve(), timeoutMs);
-      });
-      const removePromise = remove(nodeRef).catch(() => {});
+    // Dispara remoção remota em background sem bloquear a UI
+    if (isRtdbReachable !== false) {
       try {
-        await Promise.race([removePromise, timeoutPromise]);
-      } finally {
-        clearTimeout(timer);
-      }
-    } catch {}
+        const nodeRef = ref(db, path);
+        void remove(nodeRef).catch(() => {});
+      } catch {}
+    }
     this.triggerRealtimeNotification(path, 'DELETE', null);
   },
 

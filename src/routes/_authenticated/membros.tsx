@@ -603,13 +603,17 @@ export function MembrosPage() {
                   const currentNivel = m.nivel || "novato";
                   const avatarUrl = m.discord_avatar_url || m.avatar_url;
                   const initials = (m?.nickname || m?.nome || "MB").slice(0, 2).toUpperCase();
-                  const targetIsDev = Boolean(m.is_developer || m.nivel === "desenvolvedor");
-                  const targetIsCeo = Boolean(m.is_ceo || m.custom_theme?.is_ceo);
+                  const targetIsDev = m.is_developer === false
+                    ? (m.nivel === "desenvolvedor")
+                    : Boolean(m.is_developer === true || m.nivel === "desenvolvedor");
+                  const targetIsCeo = m.is_ceo === false
+                    ? (m.nivel === "ceo")
+                    : Boolean(m.is_ceo === true || m.nivel === "ceo");
                   const canChangeThisTargetRole = canChangeRoles && (!targetIsDev || isDev);
 
-                  // Tags ativas no sistema vinculadas a este membro
+                  // Tags ativas no sistema vinculadas a este membro (excluindo ceo e dev se não estiverem ativas)
                   const assignedTags = (memberTagsMap[m.user_id] || (m.id ? memberTagsMap[m.id] : []) || []).filter(
-                    (t) => t.is_active !== false
+                    (t) => t.is_active !== false && (t.id !== "ceo" || targetIsCeo) && (t.id !== "dev" && t.id !== "desenvolvedor" || targetIsDev)
                   );
 
                   // Tag no nível mais alto que o membro possui (e ativa no sistema)
@@ -878,13 +882,17 @@ export function MembrosPage() {
                       const currentNivel = m.nivel || "novato";
                       const avatarUrl = m.discord_avatar_url || m.avatar_url;
                       const initials = (m?.nickname || m?.nome || "MB").slice(0, 2).toUpperCase();
-                      const targetIsDev = Boolean(m.is_developer || m.nivel === "desenvolvedor");
-                      const targetIsCeo = Boolean(m.is_ceo || m.custom_theme?.is_ceo);
+                      const targetIsDev = m.is_developer === false
+                        ? (m.nivel === "desenvolvedor")
+                        : Boolean(m.is_developer === true || m.nivel === "desenvolvedor");
+                      const targetIsCeo = m.is_ceo === false
+                        ? (m.nivel === "ceo")
+                        : Boolean(m.is_ceo === true || m.nivel === "ceo");
                       const canChangeThisTargetRole = canChangeRoles && (!targetIsDev || isDev);
 
-                      // Tags ativas no sistema vinculadas a este membro
+                      // Tags ativas no sistema vinculadas a este membro (excluindo ceo e dev se não estiverem ativas)
                       const assignedTags = (memberTagsMap[m.user_id] || (m.id ? memberTagsMap[m.id] : []) || []).filter(
-                        (t) => t.is_active !== false
+                        (t) => t.is_active !== false && (t.id !== "ceo" || targetIsCeo) && (t.id !== "dev" && t.id !== "desenvolvedor" || targetIsDev)
                       );
 
                       const primaryTag = getPrimaryRelevantTag(assignedTags);

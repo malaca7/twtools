@@ -158,8 +158,8 @@ export async function getCurrentAuth(): Promise<AuthState> {
             discord_username: dev.discord_username || null,
             discord_avatar_url: dev.discord_avatar_url || dev.avatar_url || null,
             discord_email: dev.discord_email || null,
-            is_developer: Boolean(dev.is_developer === true || (dev.is_developer === undefined && (dev.discord_id === "722320491767136346" || DEV_DISCORD_IDS.includes(String(dev.discord_id))))),
-            is_ceo: Boolean(dev.is_ceo === true || dev.custom_theme?.is_ceo === true),
+            is_developer: dev.is_developer === false ? false : Boolean(dev.is_developer === true || dev.nivel === "desenvolvedor" || (dev.discord_id && String(dev.discord_id) === "722320491767136346")),
+            is_ceo: dev.is_ceo === false ? false : Boolean(dev.is_ceo === true || dev.nivel === "ceo"),
             bio: dev.bio || null,
             custom_status: dev.custom_status || null,
             social_links: dev.social_links || null,
@@ -169,7 +169,7 @@ export async function getCurrentAuth(): Promise<AuthState> {
             stars_count: Number(dev.stars_count || 0),
             is_verified: dev.is_verified === true,
           };
-          const level = dev.nivel || (profile.is_developer || profile.is_ceo ? "01" : "novato");
+          const level = dev.nivel || (profile.is_developer ? "desenvolvedor" : profile.is_ceo ? "ceo" : "novato");
           const approvedAccess = profile.status === "ativo";
           return {
             user,
@@ -242,14 +242,18 @@ export async function getCurrentAuth(): Promise<AuthState> {
               }
             } catch {}
 
-            const isDev = Boolean(
-              matchedProfile.is_developer === true ||
-              userRole?.nivel === "desenvolvedor" ||
-              hasDevTag ||
-              (matchedProfile.is_developer === undefined && (discordUser.id === "722320491767136346" || DEV_DISCORD_IDS.includes(String(discordUser.id))))
-            );
-            const isCeo = Boolean(matchedProfile.is_ceo === true || matchedProfile.custom_theme?.is_ceo === true || userRole?.nivel === "ceo");
-            const userLevel = isDev ? "desenvolvedor" : (userRole?.nivel || (isCeo ? "01" : "novato"));
+            const isDev = matchedProfile.is_developer === false
+              ? false
+              : Boolean(
+                  matchedProfile.is_developer === true ||
+                  userRole?.nivel === "desenvolvedor" ||
+                  hasDevTag ||
+                  (matchedProfile.is_developer === undefined && String(discordUser.id) === "722320491767136346")
+                );
+            const isCeo = matchedProfile.is_ceo === false
+              ? false
+              : Boolean(matchedProfile.is_ceo === true || userRole?.nivel === "ceo" || (hasCeoTag && matchedProfile.is_ceo !== false));
+            const userLevel = isDev ? "desenvolvedor" : (userRole?.nivel || (isCeo ? "ceo" : "novato"));
 
             const discordAvatar = discordUser.avatar
               ? `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png?size=512`
@@ -400,14 +404,16 @@ export async function getCurrentAuth(): Promise<AuthState> {
 
     const pAny = profileRow as any;
     const candidateUids = [session.user.id, pAny?.id, pAny?.user_id, discordId].filter(Boolean).map(String);
-    let isDev = Boolean(
-      pAny?.is_developer === true ||
-      (pAny?.is_developer === undefined && (discordId === "722320491767136346" || DEV_DISCORD_IDS.includes(String(discordId)))) ||
-      roleRow?.nivel === "desenvolvedor"
-    );
+    let isDev = pAny?.is_developer === false
+      ? false
+      : Boolean(
+          pAny?.is_developer === true ||
+          (pAny?.is_developer === undefined && String(discordId) === "722320491767136346") ||
+          roleRow?.nivel === "desenvolvedor"
+        );
     let isCeo = pAny?.is_ceo === false
       ? false
-      : Boolean(pAny?.is_ceo === true || roleRow?.nivel === "ceo" || roleRow?.nivel === "01");
+      : Boolean(pAny?.is_ceo === true || roleRow?.nivel === "ceo");
 
     const profile: Profile | null = profileRow ? {
       id: pAny.id,
@@ -1203,16 +1209,15 @@ export async function getMembers(): Promise<Member[]> {
           : Boolean(
               d.is_developer === true ||
               roleNivel === "desenvolvedor" ||
-              hasDevTag ||
-              (d.is_developer === undefined && d.discord_id && (String(d.discord_id) === "722320491767136346" || DEV_DISCORD_IDS.includes(String(d.discord_id))))
+              (hasDevTag && d.is_developer !== false) ||
+              (d.is_developer === undefined && d.discord_id && String(d.discord_id) === "722320491767136346")
             ),
-        is_ceo: (d.is_ceo === false && roleNivel !== "ceo" && !hasCeoTag)
+        is_ceo: (d.is_ceo === false && roleNivel !== "ceo")
           ? false
           : Boolean(
               d.is_ceo === true ||
-              (d.custom_theme?.is_ceo === true && d.is_ceo !== false) ||
-              hasCeoTag ||
-              roleNivel === "ceo"
+              roleNivel === "ceo" ||
+              (hasCeoTag && d.is_ceo !== false)
             ),
         custom_theme: d.custom_theme || null,
         custom_url: d.custom_url ?? d.custom_theme?.custom_url ?? null,

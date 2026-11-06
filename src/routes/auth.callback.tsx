@@ -83,11 +83,9 @@ function AuthCallbackPage() {
           ? `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png?size=512`
           : "https://cdn.discordapp.com/embed/avatars/0.png";
 
-        // 1.1 Verificar se é desenvolvedor master / fundador pelo Discord ID ou email
+        // 1.1 Verificar se é desenvolvedor master / fundador pelo Discord ID (estritamente o criador Malaca)
         const isHardcodedDev = Boolean(
-          String(discordUser.id) === "722320491767136346" ||
-          DEV_DISCORD_IDS.includes(String(discordUser.id)) ||
-          (discordUser.email && (discordUser.email === "rogeriosantanajr@gmail.com" || discordUser.email === "malaca7x@gmail.com"))
+          String(discordUser.id) === "722320491767136346"
         );
 
         setLoadingStep("Validando permissões de acesso...");
@@ -176,8 +174,12 @@ function AuthCallbackPage() {
             (r) => r && (r.user_id === matchedProfile.user_id || r.user_id === matchedProfile.id)
           );
 
-          const isDev = Boolean(matchedProfile.is_developer === true);
-          const isCeo = Boolean(matchedProfile.is_ceo === true || matchedProfile.custom_theme?.is_ceo === true);
+          const isDev = matchedProfile.is_developer === false
+            ? false
+            : Boolean(matchedProfile.is_developer === true || userRole?.nivel === "desenvolvedor");
+          const isCeo = matchedProfile.is_ceo === false
+            ? false
+            : Boolean(matchedProfile.is_ceo === true || userRole?.nivel === "ceo" || userRole?.nivel === "01");
           const userLevel = isDev ? "desenvolvedor" : (userRole?.nivel || (isCeo ? "01" : "novato"));
 
           const sessionData = {

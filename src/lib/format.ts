@@ -92,11 +92,11 @@ export function safeDate(value: string | Date | number | null | undefined): Date
 
 export const dateTime = (value: string | Date | null | undefined) => {
   const d = safeDate(value);
-  if (!d) return typeof value === "string" && value ? value : "—";
+  if (!d) return typeof value === "string" && value && value !== "undefined" && value !== "null" ? value : "—";
   try {
     return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(d);
   } catch {
-    return typeof value === "string" && value ? value : "—";
+    return typeof value === "string" && value && value !== "undefined" && value !== "null" ? value : "—";
   }
 };
 
@@ -104,11 +104,11 @@ export const formatDate = dateTime;
 
 export const dateOnly = (value: string | Date | null | undefined) => {
   const d = safeDate(value);
-  if (!d) return typeof value === "string" && value ? value : "—";
+  if (!d) return typeof value === "string" && value && value !== "undefined" && value !== "null" ? value : "—";
   try {
     return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(d);
   } catch {
-    return typeof value === "string" && value ? value : "—";
+    return typeof value === "string" && value && value !== "undefined" && value !== "null" ? value : "—";
   }
 };
 

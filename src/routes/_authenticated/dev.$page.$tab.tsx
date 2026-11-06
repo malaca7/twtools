@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PlatformPageDispatcher } from "@/components/routing/PlatformPageDispatcher";
+import { DeveloperGuard } from "@/dev/guards/DeveloperGuard";
 
 export const Route = createFileRoute("/_authenticated/dev/$page/$tab")({
   component: DevPageTabRoute,
@@ -7,5 +8,9 @@ export const Route = createFileRoute("/_authenticated/dev/$page/$tab")({
 
 function DevPageTabRoute() {
   const { page, tab } = Route.useParams();
-  return <PlatformPageDispatcher page={page} tab={tab} mode="dev" />;
+  return (
+    <DeveloperGuard>
+      <PlatformPageDispatcher page={page} tab={tab} mode="dev" />
+    </DeveloperGuard>
+  );
 }

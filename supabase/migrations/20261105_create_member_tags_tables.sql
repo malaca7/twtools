@@ -55,3 +55,4 @@ BEGIN
     CREATE POLICY allow_all_member_tag_assignments ON public.member_tag_assignments FOR ALL TO public USING (true) WITH CHECK (true);
   END IF;
 END $$;
+
