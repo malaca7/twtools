@@ -1,5 +1,5 @@
 {
-  "deployed_at": "2026-11-06T02:39:50.587Z",
-  "timestamp": 1793932790588,
-  "message": "fix(realtime): reativar websockets nativos supabase, sincronizar permissoes em tempo real e corrigir tag ceo"
+  "deployed_at": "2026-11-06T03:40:16.219Z",
+  "timestamp": 1793936416220,
+  "message": "fix(tickets): corrigir permissao view_all_tickets na fila geral e blindagem de tags CEO/Dev"
 }
