@@ -1,5 +1,5 @@
 {
-  "deployed_at": "2026-11-06T01:41:03.207Z",
-  "timestamp": 1793929263208,
-  "message": "^fix^(permissoes^):^ blindar^ acesso^ ao^ painel^ ceo^ e^ remover^ badges^ de^ ceo^ indevidas^"
+  "deployed_at": "2026-11-06T02:39:50.587Z",
+  "timestamp": 1793932790588,
+  "message": "fix(realtime): reativar websockets nativos supabase, sincronizar permissoes em tempo real e corrigir tag ceo"
 }
