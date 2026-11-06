@@ -17,6 +17,7 @@ const ROUTE_TITLE_MAP: Record<string, string> = {
   "/movimentacoes": "Movimentações de Baú",
   "/vendas": "Vendas & Caixa",
   "/tickets": "Tickets & Ouvidoria",
+  "/atendimento-tickets": "Atendimento Ticket",
   "/controledeestoque": "Controle de Estoque",
   "/estoque": "Controle de Estoque",
   "/gestao-estoque": "Gestão de Estoque",

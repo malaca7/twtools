@@ -157,7 +157,10 @@ export function AtendimentoTicketsContent() {
   const canManage = hasPermission("manage_tickets");
   const canClaim = hasPermission("claim_tickets") || hasPermission("claim_ticket" as Permission);
   const canCreate = hasPermission("create_ticket") || canManage;
-  const canViewAll = hasPermission("view_all_tickets") || canManage;
+  const canViewAll =
+    hasPermission("view_all_tickets") ||
+    hasPermission("can_view_all_tickets" as Permission) ||
+    canManage;
 
   const { data: tickets = [], isLoading, isFetching } = useTickets();
   const queryClient = useQueryClient();

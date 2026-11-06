@@ -1631,16 +1631,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const path = (window.location.pathname || "").toLowerCase();
         const hash = (window.location.hash || "").toLowerCase();
         if (path.startsWith("/dev") || hash.includes("/dev")) {
-          activePanel = "dev";
+          activePanel = isDevUser ? "dev" : "member";
         } else if (path.startsWith("/ceo") || hash.includes("/ceo")) {
+          activePanel = isCeoUser ? "ceo" : "member";
+        } else if (panelMode === "dev" && isDevUser) {
+          activePanel = "dev";
+        } else if (panelMode === "ceo" && isCeoUser) {
           activePanel = "ceo";
-        } else if (panelMode === "dev" || panelMode === "ceo") {
-          activePanel = panelMode;
         } else {
           activePanel = "member";
         }
       } else {
-        activePanel = panelMode ?? "member";
+        activePanel = (panelMode === "dev" && isDevUser) ? "dev" : (panelMode === "ceo" && isCeoUser) ? "ceo" : "member";
       }
 
       // =========================================================================
@@ -1974,7 +1976,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // NÃO ter permissões das tag dev no painel de ceo!
       // =========================================================================
       if (activePanel === "ceo") {
-        if (!isCeoUser) return false;
+        if (!isCeoUser) return checkCargoHasPermission(permission) || checkSystemTagHasPermission(permission);
 
         // Permissões exclusivas de desenvolvimento nunca entram no painel CEO
         if (
@@ -2012,7 +2014,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // O membro terá permissões do seu cargo + da sua tag do sistema (Gerenciar Tags) + da tag ceo (se ele possuir) + da tag dev (se ele possuir).
       // =========================================================================
       if (activePanel === "dev") {
-        if (!isDevUser) return false;
+        if (!isDevUser) return checkCargoHasPermission(permission) || checkSystemTagHasPermission(permission);
 
         const hasCargo = checkCargoHasPermission(permission);
         const hasSystemTag = checkSystemTagHasPermission(permission);

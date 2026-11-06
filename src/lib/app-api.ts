@@ -5092,7 +5092,7 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
           };
 
           const canManage = isSuper || checkSimPerm("manage_tickets");
-          const canViewAll = isSuper || canManage || checkSimPerm("view_all_tickets");
+          const canViewAll = isSuper || canManage || checkSimPerm("view_all_tickets") || checkSimPerm("can_view_all_tickets" as Permission);
           const canCreate = isSuper || canManage || checkSimPerm("create_ticket");
           const canReply = isSuper || checkSimPerm("reply_tickets") || checkSimPerm("reply_ticket" as Permission);
           const canClaim = isSuper || checkSimPerm("claim_tickets") || checkSimPerm("claim_ticket" as Permission);
@@ -5211,7 +5211,7 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
           };
 
           const canManage = isSuper || checkDevPerm("manage_tickets");
-          const canViewAll = isSuper || canManage || checkDevPerm("view_all_tickets");
+          const canViewAll = isSuper || canManage || checkDevPerm("view_all_tickets") || checkDevPerm("can_view_all_tickets" as Permission);
           const canCreate = isSuper || canManage || checkDevPerm("create_ticket");
           const canReply = isSuper || checkDevPerm("reply_tickets") || checkDevPerm("reply_ticket" as Permission);
           const canClaim = isSuper || checkDevPerm("claim_tickets") || checkDevPerm("claim_ticket" as Permission);
@@ -5440,7 +5440,7 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
       : userLevel;
     const hasRolePerm = can(effectiveRole, perm, customRoleMap);
     const regularTagPerms = tagPermsList.filter((p) => p !== "view_dev_hub" && p !== "view_dev" && p !== "view_ceo" && p !== "view_ceo_dashboard");
-    const hasSystemTagPerm = satisfiesPermission(regularTagPerms, perm) || hasTagPerm;
+    const hasSystemTagPerm = satisfiesPermission(regularTagPerms, perm);
 
     if (isDevPanel) {
       // Painel Dev: cargo + tags de sistema (Gerenciar Tags) + tag ceo (se ele possuir) + tag dev (se ele possuir)
@@ -5460,7 +5460,12 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
   };
 
   const canManage = isSuperUser || checkPerm("manage_tickets");
-  const canViewAll = isSuperUser || canManage || checkPerm("view_all_tickets") || hasTagWithViewAll;
+  const canViewAll =
+    isSuperUser ||
+    canManage ||
+    checkPerm("view_all_tickets") ||
+    checkPerm("can_view_all_tickets" as Permission) ||
+    hasTagWithViewAll;
   const canCreate = isSuperUser || canManage || checkPerm("create_ticket");
   const canReply =
     isSuperUser ||

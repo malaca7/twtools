@@ -603,12 +603,8 @@ export function MembrosPage() {
                   const currentNivel = m.nivel || "novato";
                   const avatarUrl = m.discord_avatar_url || m.avatar_url;
                   const initials = (m?.nickname || m?.nome || "MB").slice(0, 2).toUpperCase();
-                  const targetIsDev = m.is_developer === false
-                    ? (m.nivel === "desenvolvedor")
-                    : Boolean(m.is_developer === true || m.nivel === "desenvolvedor");
-                  const targetIsCeo = (m.is_ceo === false || (m as any)?.custom_theme?.is_ceo === false)
-                    ? (m.nivel === "ceo")
-                    : Boolean(m.is_ceo === true || m.nivel === "ceo");
+                  const targetIsDev = Boolean(m.is_developer === true || m.nivel === "desenvolvedor");
+                  const targetIsCeo = Boolean(m.is_ceo === true || m.nivel === "ceo");
                   const canChangeThisTargetRole = canChangeRoles && (!targetIsDev || isDev);
 
                   // Tags ativas no sistema vinculadas a este membro (excluindo ceo e dev se não estiverem ativas)
@@ -882,12 +878,8 @@ export function MembrosPage() {
                       const currentNivel = m.nivel || "novato";
                       const avatarUrl = m.discord_avatar_url || m.avatar_url;
                       const initials = (m?.nickname || m?.nome || "MB").slice(0, 2).toUpperCase();
-                      const targetIsDev = m.is_developer === false
-                        ? (m.nivel === "desenvolvedor")
-                        : Boolean(m.is_developer === true || m.nivel === "desenvolvedor");
-                      const targetIsCeo = (m.is_ceo === false || (m as any)?.custom_theme?.is_ceo === false)
-                        ? (m.nivel === "ceo")
-                        : Boolean(m.is_ceo === true || m.nivel === "ceo");
+                      const targetIsDev = Boolean(m.is_developer === true || m.nivel === "desenvolvedor");
+                      const targetIsCeo = Boolean(m.is_ceo === true || m.nivel === "ceo");
                       const canChangeThisTargetRole = canChangeRoles && (!targetIsDev || isDev);
 
                       // Tags ativas no sistema vinculadas a este membro (excluindo ceo e dev se não estiverem ativas)
