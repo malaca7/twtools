@@ -1,5 +1,5 @@
 {
-  "deployed_at": "2026-11-06T03:52:06.305Z",
-  "timestamp": 1793937126306,
-  "message": "fix(permissions): isolar estritamente permissoes por painel (membro=cargo+tags, ceo=cargo+tags+ceo, dev=cargo+tags+ceo+dev)"
+  "deployed_at": "2026-11-06T04:31:34.211Z",
+  "timestamp": 1793939494212,
+  "message": "fix(sync): sincronizar visualizacoes em tempo real no banco, corrigir esquema perfis e desduplicar badges"
 }
