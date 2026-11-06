@@ -606,7 +606,7 @@ export function MembrosPage() {
                   const targetIsDev = m.is_developer === false
                     ? (m.nivel === "desenvolvedor")
                     : Boolean(m.is_developer === true || m.nivel === "desenvolvedor");
-                  const targetIsCeo = m.is_ceo === false
+                  const targetIsCeo = (m.is_ceo === false || (m as any)?.custom_theme?.is_ceo === false)
                     ? (m.nivel === "ceo")
                     : Boolean(m.is_ceo === true || m.nivel === "ceo");
                   const canChangeThisTargetRole = canChangeRoles && (!targetIsDev || isDev);
@@ -885,7 +885,7 @@ export function MembrosPage() {
                       const targetIsDev = m.is_developer === false
                         ? (m.nivel === "desenvolvedor")
                         : Boolean(m.is_developer === true || m.nivel === "desenvolvedor");
-                      const targetIsCeo = m.is_ceo === false
+                      const targetIsCeo = (m.is_ceo === false || (m as any)?.custom_theme?.is_ceo === false)
                         ? (m.nivel === "ceo")
                         : Boolean(m.is_ceo === true || m.nivel === "ceo");
                       const canChangeThisTargetRole = canChangeRoles && (!targetIsDev || isDev);

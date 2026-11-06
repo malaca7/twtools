@@ -232,6 +232,7 @@ export async function getCurrentAuth(): Promise<AuthState> {
             }
 
             let hasDevTag = false;
+            let hasCeoTag = false;
             try {
               if (targetUid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(targetUid))) {
                 const { data: tagRows } = await supabase
@@ -239,6 +240,7 @@ export async function getCurrentAuth(): Promise<AuthState> {
                   .select("tag_id")
                   .eq("user_id", targetUid);
                 hasDevTag = (tagRows || []).some(t => t.tag_id === "dev" || t.tag_id === "desenvolvedor");
+                hasCeoTag = (tagRows || []).some(t => t.tag_id === "ceo");
               }
             } catch {}
 
@@ -1118,29 +1120,6 @@ export async function getMembers(): Promise<Member[]> {
     }
   }
 
-  const activeCeoSet = new Set<string>();
-  const ceoConfigList = Array.isArray(ceoConfig?.permissions?.activeCeoUserIds)
-    ? ceoConfig.permissions.activeCeoUserIds
-    : Array.isArray(ceoConfig?.activeCeoUserIds)
-    ? ceoConfig.activeCeoUserIds
-    : [];
-  for (const cid of ceoConfigList) {
-    if (cid) activeCeoSet.add(String(cid).trim());
-  }
-  if (typeof window !== "undefined") {
-    try {
-      const localCfg = localStorage.getItem("tw_ceo_config");
-      if (localCfg) {
-        const parsed = JSON.parse(localCfg);
-        if (Array.isArray(parsed?.activeCeoUserIds)) {
-          for (const cid of parsed.activeCeoUserIds) {
-            if (cid) activeCeoSet.add(String(cid).trim());
-          }
-        }
-      }
-    } catch {}
-  }
-
   const rolesMap = new Map<string, AppLevel>();
   roles.forEach((r: any) => {
     if (r.user_id && r.nivel) rolesMap.set(r.user_id, r.nivel as AppLevel);
@@ -1174,7 +1153,7 @@ export async function getMembers(): Promise<Member[]> {
       ].filter(Boolean).map(String);
 
       const hasDevTag = candidateIds.some((cid) => devTagUserIds.has(cid));
-      const hasCeoTag = candidateIds.some((cid) => ceoTagUserIds.has(cid) || activeCeoSet.has(cid));
+      const hasCeoTag = candidateIds.some((cid) => ceoTagUserIds.has(cid));
 
       return {
         id: d.id || d.user_id,

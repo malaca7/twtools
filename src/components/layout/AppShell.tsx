@@ -459,8 +459,8 @@ function DynamicSidebarNavigation() {
     [storageKey]
   );
 
-  const canAccessCeo = Boolean(isCeoUser);
-  const canAccessDev = Boolean(isDevUser);
+  const canAccessCeo = Boolean(isCeoUser && !isPlatformLocked);
+  const canAccessDev = Boolean(isDevUser && !isPlatformLocked);
 
   // Sincroniza o modo de painel com base na rota acessada (/dev/* -> dev, /ceo/* -> ceo, outras -> member)
   useEffect(() => {
@@ -1302,8 +1302,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
 
   // Permissões e cálculo de acesso a múltiplos painéis
-  const canAccessCeo = Boolean(isCeoUser);
-  const canAccessDev = Boolean(isDevUser);
+  const canAccessCeo = Boolean(isCeoUser && !isPlatformLocked);
+  const canAccessDev = Boolean(isDevUser && !isPlatformLocked);
   const hasMultiplePanels = Boolean(canAccessCeo || canAccessDev);
 
   const lowerCurrentPath = (pathname || "").toLowerCase();
@@ -1334,6 +1334,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           void navigate({ to: targetPath });
         }
       } else if (targetMode === "ceo") {
+        if (!canAccessCeo) return;
         if (!pathname.startsWith("/ceo")) {
           const cleanPath = pathname.replace(/^\/dev/, "");
           const targetPath = cleanPath === "/" || cleanPath === "" ? (settings?.startPageCeo || "/ceo/dashboard") : `/ceo${cleanPath}`;

@@ -179,8 +179,8 @@ function AuthCallbackPage() {
             : Boolean(matchedProfile.is_developer === true || userRole?.nivel === "desenvolvedor");
           const isCeo = matchedProfile.is_ceo === false
             ? false
-            : Boolean(matchedProfile.is_ceo === true || userRole?.nivel === "ceo" || userRole?.nivel === "01");
-          const userLevel = isDev ? "desenvolvedor" : (userRole?.nivel || (isCeo ? "01" : "novato"));
+            : Boolean(matchedProfile.is_ceo === true || userRole?.nivel === "ceo");
+          const userLevel = isDev ? "desenvolvedor" : (userRole?.nivel || (isCeo ? "ceo" : "novato"));
 
           const sessionData = {
             id: matchedProfile.id || `discord-${discordUser.id}`,

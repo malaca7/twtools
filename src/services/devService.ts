@@ -1034,26 +1034,14 @@ export function isUserCeo(
   member?: any
 ): boolean {
   // Se explicitamente falso, NÃO é CEO
-  if (profile && (profile as any).is_ceo === false && (profile as any)?.cargo !== "ceo" && (profile as any)?.nivel !== "ceo") return false;
-  if (member && member.is_ceo === false && member.cargo !== "ceo" && member.nivel !== "ceo") return false;
+  if (profile && ((profile as any).is_ceo === false || (profile as any)?.custom_theme?.is_ceo === false) && (profile as any)?.cargo !== "ceo" && (profile as any)?.nivel !== "ceo") return false;
+  if (member && (member.is_ceo === false || member?.custom_theme?.is_ceo === false) && member.cargo !== "ceo" && member.nivel !== "ceo") return false;
 
   if (profile?.is_ceo === true) return true;
   if (member?.is_ceo === true) return true;
   if ((profile as any)?.role === "ceo" || (profile as any)?.cargo === "ceo" || (profile as any)?.nivel === "ceo") return true;
   if ((member as any)?.role === "ceo" || (member as any)?.cargo === "ceo" || (member as any)?.nivel === "ceo") return true;
 
-  if (typeof window !== "undefined") {
-    try {
-      const devRaw = sessionStorage.getItem("tw_dev_impersonate") || localStorage.getItem("tw_dev_impersonate");
-      if (devRaw) {
-        const dev = JSON.parse(devRaw);
-        if (dev.is_ceo === true) {
-          const ids = [profile?.id, profile?.user_id, member?.id, member?.user_id].filter(Boolean).map(String);
-          if (ids.length > 0 && (ids.includes(String(dev.user_id)) || ids.includes(String(dev.id)))) return true;
-        }
-      }
-    } catch {}
-  }
   return false;
 }
 
@@ -1320,54 +1308,14 @@ export async function toggleMemberCeoTag(
   let targetName = typeof target === "object" ? (target.nickname || target.nome || primaryTargetId) : primaryTargetId;
   let existingTheme: any = (typeof target === "object" && target.custom_theme) ? target.custom_theme : {};
 
-  // 1. Atualiza no Firebase RTDB (profiles) estritamente pelas chaves únicas do usuário
-  const matchedKeys: string[] = [];
-  try {
-    const { rtdb } = await import("@/integrations/firebase/rtdb");
-    const fbProfiles = await rtdb.get<Record<string, any>>("profiles");
-    if (fbProfiles && typeof fbProfiles === "object") {
-      for (const [k, v] of Object.entries(fbProfiles)) {
-        if (!v) continue;
-        const vIds = [v.user_id, v.id, k].filter(Boolean).map(String);
-        const matches = vIds.some((id) => candidateIds.includes(id));
-        if (matches) {
-          matchedKeys.push(k);
-          if (v.user_id) candidateIds.push(String(v.user_id));
-          if (v.id) candidateIds.push(String(v.id));
-          candidateIds.push(k);
-          targetName = v.nickname || v.nome || targetName;
-          existingTheme = v.custom_theme || existingTheme;
-
-          const updatedTheme = { ...existingTheme, is_ceo: enable };
-          try {
-            await rtdb.update(`profiles/${k}`, {
-              is_ceo: enable,
-              custom_theme: updatedTheme,
-              updated_at: now,
-            });
-          } catch {}
-        }
-      }
-    }
-
-    if (matchedKeys.length === 0 && fbProfiles && fbProfiles[primaryTargetId]) {
-      try {
-        await rtdb.update(`profiles/${primaryTargetId}`, {
-          is_ceo: enable,
-          custom_theme: { ...existingTheme, is_ceo: enable },
-          updated_at: now,
-        });
-      } catch {}
-    }
-  } catch (err) {
-    console.warn("Aviso ao atualizar profiles no RTDB:", err);
-  }
-
   // Deduplica candidateIds (apenas UUIDs e chaves reais)
   const uniqueCandidateIds = Array.from(new Set(candidateIds.filter(Boolean).map(String)));
 
-  // 2. Atualiza no Supabase (profiles e user_roles)
+  // 1. ATUALIZAÇÃO DIRETA E PARALELA NO SUPABASE (BANCO OFICIAL - ALTA VELOCIDADE)
   try {
+    const supabaseTasks: Promise<any>[] = [];
+
+    // 1.1 Atualiza profiles no Supabase
     const orConditions: string[] = [];
     for (const cid of uniqueCandidateIds) {
       if (isValidUuid(cid)) {
@@ -1377,72 +1325,65 @@ export async function toggleMemberCeoTag(
     }
 
     if (orConditions.length > 0) {
-      const { data: targetProfiles } = await supabase
-        .from("profiles")
-        .select("id, user_id, game_id, discord_id, nome, nickname, custom_theme")
-        .or(orConditions.join(","));
-
-      if (targetProfiles && targetProfiles.length > 0) {
-        for (const tp of targetProfiles) {
-          targetName = tp.nickname || tp.nome || targetName;
-          const updatedTheme = { ...(tp.custom_theme || existingTheme || {}), is_ceo: enable };
-          const colToMatch = isValidUuid(tp.id) ? "id" : "user_id";
-          const valToMatch = tp[colToMatch];
-
-          try {
-            await supabase
-              .from("profiles")
-              .update({
-                is_ceo: enable,
-                custom_theme: updatedTheme,
-                updated_at: now,
-              })
-              .eq(colToMatch, valToMatch);
-          } catch (pErr) {
-            console.warn("Erro ao atualizar profile no Supabase:", pErr);
-          }
-        }
-      }
+      supabaseTasks.push(
+        supabase
+          .from("profiles")
+          .select("id, user_id, game_id, discord_id, nome, nickname, custom_theme")
+          .or(orConditions.join(","))
+          .then(async ({ data: targetProfiles }) => {
+            if (targetProfiles && targetProfiles.length > 0) {
+              const updates = targetProfiles.map((tp) => {
+                targetName = tp.nickname || tp.nome || targetName;
+                const updatedTheme = { ...(tp.custom_theme || existingTheme || {}), is_ceo: enable };
+                const colToMatch = isValidUuid(tp.id) ? "id" : "user_id";
+                const valToMatch = tp[colToMatch];
+                return supabase
+                  .from("profiles")
+                  .update({
+                    is_ceo: enable,
+                    custom_theme: updatedTheme,
+                    updated_at: now,
+                  })
+                  .eq(colToMatch, valToMatch);
+              });
+              await Promise.all(updates);
+            }
+          })
+      );
     }
 
-    // Sincroniza user_roles no Supabase
+    // 1.2 Atualiza user_roles no Supabase se aplicável
     for (const cid of uniqueCandidateIds) {
       if (!isValidUuid(cid)) continue;
-      try {
-        const { data: existingRole } = await supabase
+      supabaseTasks.push(
+        supabase
           .from("user_roles")
           .select("id, nivel")
           .eq("user_id", cid)
-          .maybeSingle();
-
-        if (existingRole) {
-          if (enable && existingRole.nivel !== "desenvolvedor") {
-            await supabase
-              .from("user_roles")
-              .update({ nivel: "ceo", updated_at: now })
-              .eq("user_id", cid);
-          } else if (!enable && existingRole.nivel === "ceo") {
-            await supabase
-              .from("user_roles")
-              .update({ nivel: "membro", updated_at: now })
-              .eq("user_id", cid);
-          }
-        } else if (enable) {
-          await supabase
-            .from("user_roles")
-            .insert({ user_id: cid, nivel: "ceo", created_at: now, updated_at: now });
-        }
-      } catch (rErr) {
-        console.warn("Aviso ao atualizar user_roles no Supabase:", rErr);
-      }
+          .maybeSingle()
+          .then(async ({ data: existingRole }) => {
+            if (existingRole) {
+              if (enable && existingRole.nivel !== "desenvolvedor") {
+                await supabase
+                  .from("user_roles")
+                  .update({ nivel: "ceo", updated_at: now })
+                  .eq("user_id", cid);
+              } else if (!enable && existingRole.nivel === "ceo") {
+                await supabase
+                  .from("user_roles")
+                  .update({ nivel: "membro", updated_at: now })
+                  .eq("user_id", cid);
+              }
+            } else if (enable) {
+              await supabase
+                .from("user_roles")
+                .insert({ user_id: cid, nivel: "ceo", created_at: now, updated_at: now });
+            }
+          })
+      );
     }
-  } catch (err) {
-    console.warn("Aviso ao atualizar profiles no Supabase:", err);
-  }
 
-  // 3. Sincroniza em member_tag_assignments (tag_id: 'ceo')
-  try {
-    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    // 1.3 Sincroniza em member_tag_assignments (tag_id: 'ceo')
     if (enable) {
       for (const cid of uniqueCandidateIds) {
         if (!isValidUuid(cid)) continue;
@@ -1455,110 +1396,108 @@ export async function toggleMemberCeoTag(
           assigned_by: isValidUuid(user?.id) ? user?.id : null,
           created_at: now,
         };
-        try {
-          await rtdb.set(`member_tag_assignments/${assignmentKey}`, assignmentData);
-        } catch {}
-        if (typeof window !== "undefined") {
-          try {
-            localStorage.setItem(`tw_rtdb_member_tag_assignments/${assignmentKey}`, JSON.stringify(assignmentData));
-          } catch {}
-        }
-        try {
-          await supabase.from("member_tag_assignments").upsert(assignmentData, { onConflict: "id" });
-        } catch {
-          try {
-            await supabase.from("member_tag_assignments").insert(assignmentData);
-          } catch {}
-        }
-      }
-    } else {
-      // Remove de RTDB member_tag_assignments e LocalStorage
-      if (typeof window !== "undefined") {
-        try {
-          for (const cid of uniqueCandidateIds) {
-            localStorage.removeItem(`tw_rtdb_member_tag_assignments/${cid}_ceo`);
-            localStorage.setItem(`tw_rtdb_member_tag_assignments/${cid}_ceo`, JSON.stringify(null));
-          }
-        } catch {}
-      }
-      try {
-        const list = await rtdb.getList<any>("member_tag_assignments");
-        for (const item of list || []) {
-          if (
-            item &&
-            item.tag_id === "ceo" &&
-            (uniqueCandidateIds.includes(String(item.member_id)) ||
-              uniqueCandidateIds.includes(String(item.user_id)) ||
-              uniqueCandidateIds.includes(String(item.id)))
-          ) {
-            const key = item._key || item.id || `${item.member_id || item.user_id}_${item.tag_id}`;
-            try {
-              await rtdb.remove(`member_tag_assignments/${key}`);
-            } catch {}
-          }
-        }
-      } catch {}
-
-      for (const cid of uniqueCandidateIds) {
-        try {
-          await rtdb.remove(`member_tag_assignments/${cid}_ceo`);
-        } catch {}
-        if (isValidUuid(cid)) {
-          try {
-            await supabase
-              .from("member_tag_assignments")
-              .delete()
-              .eq("tag_id", "ceo")
-              .eq("member_id", cid);
-          } catch {}
-          try {
-            await supabase
-              .from("member_tag_assignments")
-              .delete()
-              .eq("tag_id", "ceo")
-              .eq("user_id", cid);
-          } catch {}
-        }
-      }
-    }
-
-    // Sincroniza cargo no Discord se bot configurado
-    const { triggerAutoDiscordTagSync } = await import("@/services/memberTagsService");
-    for (const cid of uniqueCandidateIds) {
-      if (isValidUuid(cid)) {
-        void triggerAutoDiscordTagSync(cid, "ceo", enable ? "add" : "remove");
-      }
-    }
-  } catch (err) {
-    console.warn("Aviso ao sincronizar member_tag_assignments (ceo):", err);
-  }
-
-  // 4. Atualiza a lista de IDs de CEO na configuração central (system_ceo_config)
-  try {
-    const currentConfig = await getCeoConfiguration(user, profile, level);
-    const activeSet = new Set(currentConfig.activeCeoUserIds || []);
-    if (enable) {
-      for (const cid of uniqueCandidateIds) {
-        if (isValidUuid(cid)) activeSet.add(cid);
+        supabaseTasks.push(
+          supabase.from("member_tag_assignments").upsert(assignmentData, { onConflict: "id" })
+        );
       }
     } else {
       for (const cid of uniqueCandidateIds) {
-        activeSet.delete(cid);
+        if (!isValidUuid(cid)) continue;
+        supabaseTasks.push(
+          supabase
+            .from("member_tag_assignments")
+            .delete()
+            .eq("tag_id", "ceo")
+            .or(`member_id.eq.${cid},user_id.eq.${cid}`)
+        );
       }
     }
-    await saveCeoConfiguration(
-      {
-        ...currentConfig,
-        activeCeoUserIds: Array.from(activeSet),
-        updatedAt: now,
-      },
-      user,
-      profile,
-      level
+
+    // 1.4 Atualiza system_ceo_config em role_permissions no Supabase
+    supabaseTasks.push(
+      (async () => {
+        try {
+          const { data: ceoCfgRow } = await supabase
+            .from("role_permissions")
+            .select("permissions")
+            .eq("level", "system_ceo_config")
+            .maybeSingle();
+          const cfgPerms = (ceoCfgRow?.permissions as any) || DEFAULT_CEO_CONFIG;
+          const activeSet = new Set<string>(cfgPerms.activeCeoUserIds || []);
+          if (enable) {
+            for (const cid of uniqueCandidateIds) if (isValidUuid(cid)) activeSet.add(cid);
+          } else {
+            for (const cid of uniqueCandidateIds) activeSet.delete(cid);
+          }
+          const updatedCfg = {
+            ...cfgPerms,
+            activeCeoUserIds: Array.from(activeSet),
+            updatedAt: now,
+          };
+          await supabase.from("role_permissions").upsert({
+            level: "system_ceo_config",
+            nivel: "system_ceo_config",
+            permissions: updatedCfg,
+            updated_at: now,
+          }, { onConflict: "level" });
+        } catch {}
+      })()
     );
+
+    await Promise.all(supabaseTasks);
   } catch (err) {
-    console.warn("Falha ao sincronizar activeCeoUserIds:", err);
+    console.warn("Aviso ao atualizar CEO no Supabase:", err);
   }
+
+  // 2. BACKUP ASSÍNCRONO NO FIREBASE RTDB E BOT DISCORD (EM SEGUNDO PLANO SEM TRAVAR A UI)
+  void (async () => {
+    try {
+      const { rtdb } = await import("@/integrations/firebase/rtdb");
+      const fbProfiles = await rtdb.get<Record<string, any>>("profiles", 800).catch(() => null);
+      if (fbProfiles && typeof fbProfiles === "object") {
+        for (const [k, v] of Object.entries(fbProfiles)) {
+          if (!v) continue;
+          const vIds = [v.user_id, v.id, k].filter(Boolean).map(String);
+          if (vIds.some((id) => uniqueCandidateIds.includes(id))) {
+            const updatedTheme = { ...(v.custom_theme || existingTheme || {}), is_ceo: enable };
+            await rtdb.update(`profiles/${k}`, {
+              is_ceo: enable,
+              custom_theme: updatedTheme,
+              updated_at: now,
+            }).catch(() => {});
+          }
+        }
+      }
+
+      if (enable) {
+        for (const cid of uniqueCandidateIds) {
+          if (!isValidUuid(cid)) continue;
+          const assignmentKey = `${cid}_ceo`;
+          await rtdb.set(`member_tag_assignments/${assignmentKey}`, {
+            id: assignmentKey,
+            member_id: cid,
+            user_id: cid,
+            tag_id: "ceo",
+            assigned_by: isValidUuid(user?.id) ? user?.id : null,
+            created_at: now,
+          }).catch(() => {});
+        }
+      } else {
+        for (const cid of uniqueCandidateIds) {
+          await rtdb.remove(`member_tag_assignments/${cid}_ceo`).catch(() => {});
+        }
+      }
+
+      const { triggerAutoDiscordTagSync } = await import("@/services/memberTagsService");
+      for (const cid of uniqueCandidateIds) {
+        if (isValidUuid(cid)) {
+          void triggerAutoDiscordTagSync(cid, "ceo", enable ? "add" : "remove");
+        }
+      }
+    } catch {}
+  })();
+
+  // 3. ATUALIZAÇÃO IMEDIATA DO CACHE LOCAL E DISPATCH DE EVENTOS EM TEMPO REAL
 
   // 5. Se o alvo for o usuário logado atualmente ou se corresponder ao impersonate, atualiza cache de sessão local
   if (typeof window !== "undefined") {
@@ -1672,66 +1611,14 @@ export async function toggleMemberDevTag(
   const now = new Date().toISOString();
   let targetName = typeof target === "object" ? (target.nickname || target.nome || primaryTargetId) : primaryTargetId;
 
-  // 1. Atualiza no Firebase RTDB (profiles) estritamente pelas chaves únicas do usuário
-  const matchedKeys: string[] = [];
-  try {
-    const { rtdb } = await import("@/integrations/firebase/rtdb");
-    const fbProfiles = await rtdb.get<Record<string, any>>("profiles");
-    if (fbProfiles && typeof fbProfiles === "object") {
-      for (const [k, v] of Object.entries(fbProfiles)) {
-        if (!v) continue;
-        const vIds = [v.user_id, v.id, k].filter(Boolean).map(String);
-        const matches = vIds.some((id) => candidateIds.includes(id));
-        if (matches) {
-          matchedKeys.push(k);
-          if (v.user_id) candidateIds.push(String(v.user_id));
-          if (v.id) candidateIds.push(String(v.id));
-          candidateIds.push(k);
-          targetName = v.nickname || v.nome || targetName;
-
-          try {
-            await rtdb.update(`profiles/${k}`, {
-              is_developer: enable,
-              updated_at: now,
-            });
-          } catch {}
-        }
-      }
-    }
-
-    if (matchedKeys.length === 0 && fbProfiles && fbProfiles[primaryTargetId]) {
-      try {
-        await rtdb.update(`profiles/${primaryTargetId}`, {
-          is_developer: enable,
-          updated_at: now,
-        });
-      } catch {}
-    }
-
-    if (!enable) {
-      for (const cid of candidateIds) {
-        if (isValidUuid(cid)) {
-          try {
-            const existingRole = await rtdb.get<any>(`user_roles/${cid}`);
-            if (existingRole && (existingRole.nivel === "desenvolvedor" || existingRole.nivel === "dev")) {
-              await rtdb.update(`user_roles/${cid}`, {
-                nivel: "membro",
-                updated_at: now,
-              });
-            }
-          } catch {}
-        }
-      }
-    }
-  } catch (err) {
-    console.warn("Aviso ao atualizar profiles no RTDB:", err);
-  }
-
   // Deduplica candidateIds (apenas UUIDs e chaves reais)
   const uniqueCandidateIds = Array.from(new Set(candidateIds.filter(Boolean).map(String)));
 
-  // 2. Atualiza no Supabase (profiles e user_roles)
+  // 1. ATUALIZAÇÃO DIRETA E PARALELA NO SUPABASE (BANCO OFICIAL - ALTA VELOCIDADE)
   try {
+    const supabaseTasks: Promise<any>[] = [];
+
+    // 1.1 Atualiza profiles no Supabase
     const orConditions: string[] = [];
     for (const cid of uniqueCandidateIds) {
       if (isValidUuid(cid)) {
@@ -1741,72 +1628,66 @@ export async function toggleMemberDevTag(
     }
 
     if (orConditions.length > 0) {
-      const { data: targetProfiles } = await supabase
-        .from("profiles")
-        .select("id, user_id, game_id, discord_id, nome, nickname, is_developer")
-        .or(orConditions.join(","));
-
-      if (targetProfiles && targetProfiles.length > 0) {
-        for (const tp of targetProfiles) {
-          targetName = tp.nickname || tp.nome || targetName;
-          const colToMatch = isValidUuid(tp.id) ? "id" : "user_id";
-          const valToMatch = tp[colToMatch];
-
-          try {
-            await supabase
-              .from("profiles")
-              .update({
-                is_developer: enable,
-                updated_at: now,
-              })
-              .eq(colToMatch, valToMatch);
-          } catch (pErr) {
-            console.warn("Erro ao atualizar profile no Supabase:", pErr);
-          }
-        }
-      }
+      supabaseTasks.push(
+        supabase
+          .from("profiles")
+          .select("id, user_id, game_id, discord_id, nome, nickname, is_developer, custom_theme")
+          .or(orConditions.join(","))
+          .then(async ({ data: targetProfiles }) => {
+            if (targetProfiles && targetProfiles.length > 0) {
+              const updates = targetProfiles.map((tp) => {
+                targetName = tp.nickname || tp.nome || targetName;
+                const colToMatch = isValidUuid(tp.id) ? "id" : "user_id";
+                const valToMatch = tp[colToMatch];
+                const updatedTheme = { ...(tp.custom_theme || {}), is_developer: enable };
+                return supabase
+                  .from("profiles")
+                  .update({
+                    is_developer: enable,
+                    custom_theme: updatedTheme,
+                    updated_at: now,
+                  })
+                  .eq(colToMatch, valToMatch);
+              });
+              await Promise.all(updates);
+            }
+          })
+      );
     }
 
-    // Sincroniza user_roles no Supabase
+    // 1.2 Atualiza user_roles no Supabase se aplicável
     for (const cid of uniqueCandidateIds) {
       if (!isValidUuid(cid)) continue;
-      try {
-        const { data: existingRole } = await supabase
+      supabaseTasks.push(
+        supabase
           .from("user_roles")
           .select("id, nivel")
           .eq("user_id", cid)
-          .maybeSingle();
-
-        if (existingRole) {
-          if (enable) {
-            await supabase
-              .from("user_roles")
-              .update({ nivel: "desenvolvedor", updated_at: now })
-              .eq("user_id", cid);
-          } else if (existingRole.nivel === "desenvolvedor") {
-            await supabase
-              .from("user_roles")
-              .update({ nivel: "membro", updated_at: now })
-              .eq("user_id", cid);
-          }
-        } else if (enable) {
-          await supabase
-            .from("user_roles")
-            .insert({ user_id: cid, nivel: "desenvolvedor", created_at: now, updated_at: now });
-        }
-      } catch (rErr) {
-        console.warn("Aviso ao atualizar user_roles no Supabase:", rErr);
-      }
+          .maybeSingle()
+          .then(async ({ data: existingRole }) => {
+            if (existingRole) {
+              if (enable) {
+                await supabase
+                  .from("user_roles")
+                  .update({ nivel: "desenvolvedor", updated_at: now })
+                  .eq("user_id", cid);
+              } else if (existingRole.nivel === "desenvolvedor") {
+                await supabase
+                  .from("user_roles")
+                  .update({ nivel: "membro", updated_at: now })
+                  .eq("user_id", cid);
+              }
+            } else if (enable) {
+              await supabase
+                .from("user_roles")
+                .insert({ user_id: cid, nivel: "desenvolvedor", created_at: now, updated_at: now });
+            }
+          })
+      );
     }
-  } catch (err) {
-    console.warn("Aviso ao atualizar profiles no Supabase:", err);
-  }
 
-  // 3. Sincroniza em member_tag_assignments (tags 'dev' e 'desenvolvedor')
-  try {
-    const { rtdb } = await import("@/integrations/firebase/rtdb");
+    // 1.3 Sincroniza em member_tag_assignments (tags 'dev' e 'desenvolvedor')
     const devTagVariants = ["dev", "desenvolvedor"];
-
     if (enable) {
       for (const cid of uniqueCandidateIds) {
         if (!isValidUuid(cid)) continue;
@@ -1819,74 +1700,80 @@ export async function toggleMemberDevTag(
           assigned_by: isValidUuid(user?.id) ? user?.id : null,
           created_at: now,
         };
-        try {
-          await rtdb.set(`member_tag_assignments/${assignmentKey}`, assignmentData);
-        } catch {}
-        try {
-          await supabase.from("member_tag_assignments").upsert(assignmentData, { onConflict: "id" });
-        } catch {
-          try {
-            await supabase.from("member_tag_assignments").insert(assignmentData);
-          } catch {}
-        }
+        supabaseTasks.push(
+          supabase.from("member_tag_assignments").upsert(assignmentData, { onConflict: "id" })
+        );
       }
     } else {
-      // Remove de RTDB member_tag_assignments todas as variantes
-      try {
-        const list = await rtdb.getList<any>("member_tag_assignments");
-        for (const item of list || []) {
-          if (
-            item &&
-            devTagVariants.includes(item.tag_id) &&
-            (uniqueCandidateIds.includes(String(item.member_id)) ||
-              uniqueCandidateIds.includes(String(item.user_id)) ||
-              uniqueCandidateIds.includes(String(item.id)))
-          ) {
-            const key = item._key || item.id || `${item.member_id || item.user_id}_${item.tag_id}`;
-            try {
-              await rtdb.remove(`member_tag_assignments/${key}`);
-            } catch {}
-          }
-        }
-      } catch {}
-
       for (const cid of uniqueCandidateIds) {
+        if (!isValidUuid(cid)) continue;
         for (const variant of devTagVariants) {
-          try {
-            await rtdb.remove(`member_tag_assignments/${cid}_${variant}`);
-          } catch {}
-        }
-        if (isValidUuid(cid)) {
-          for (const variant of devTagVariants) {
-            try {
-              await supabase
-                .from("member_tag_assignments")
-                .delete()
-                .eq("tag_id", variant)
-                .eq("member_id", cid);
-            } catch {}
-            try {
-              await supabase
-                .from("member_tag_assignments")
-                .delete()
-                .eq("tag_id", variant)
-                .eq("user_id", cid);
-            } catch {}
-          }
+          supabaseTasks.push(
+            supabase
+              .from("member_tag_assignments")
+              .delete()
+              .eq("tag_id", variant)
+              .or(`member_id.eq.${cid},user_id.eq.${cid}`)
+          );
         }
       }
     }
 
-    // Sincroniza cargo no Discord se bot configurado
-    const { triggerAutoDiscordTagSync } = await import("@/services/memberTagsService");
-    for (const cid of uniqueCandidateIds) {
-      if (isValidUuid(cid)) {
-        void triggerAutoDiscordTagSync(cid, "dev", enable ? "add" : "remove");
-      }
-    }
+    await Promise.all(supabaseTasks);
   } catch (err) {
-    console.warn("Aviso ao sincronizar member_tag_assignments (dev):", err);
+    console.warn("Aviso ao atualizar Dev no Supabase:", err);
   }
+
+  // 2. BACKUP ASSÍNCRONO NO FIREBASE RTDB E BOT DISCORD (EM SEGUNDO PLANO SEM TRAVAR A UI)
+  void (async () => {
+    try {
+      const { rtdb } = await import("@/integrations/firebase/rtdb");
+      const devTagVariants = ["dev", "desenvolvedor"];
+      const fbProfiles = await rtdb.get<Record<string, any>>("profiles", 800).catch(() => null);
+      if (fbProfiles && typeof fbProfiles === "object") {
+        for (const [k, v] of Object.entries(fbProfiles)) {
+          if (!v) continue;
+          const vIds = [v.user_id, v.id, k].filter(Boolean).map(String);
+          if (vIds.some((id) => uniqueCandidateIds.includes(id))) {
+            const updatedTheme = { ...(v.custom_theme || {}), is_developer: enable };
+            await rtdb.update(`profiles/${k}`, {
+              is_developer: enable,
+              custom_theme: updatedTheme,
+              updated_at: now,
+            }).catch(() => {});
+          }
+        }
+      }
+
+      if (enable) {
+        for (const cid of uniqueCandidateIds) {
+          if (!isValidUuid(cid)) continue;
+          const assignmentKey = `${cid}_dev`;
+          await rtdb.set(`member_tag_assignments/${assignmentKey}`, {
+            id: assignmentKey,
+            member_id: cid,
+            user_id: cid,
+            tag_id: "dev",
+            assigned_by: isValidUuid(user?.id) ? user?.id : null,
+            created_at: now,
+          }).catch(() => {});
+        }
+      } else {
+        for (const cid of uniqueCandidateIds) {
+          for (const variant of devTagVariants) {
+            await rtdb.remove(`member_tag_assignments/${cid}_${variant}`).catch(() => {});
+          }
+        }
+      }
+
+      const { triggerAutoDiscordTagSync } = await import("@/services/memberTagsService");
+      for (const cid of uniqueCandidateIds) {
+        if (isValidUuid(cid)) {
+          void triggerAutoDiscordTagSync(cid, "dev", enable ? "add" : "remove");
+        }
+      }
+    } catch {}
+  })();
 
   // 4. Se o alvo for o usuário logado atualmente ou impersonate, atualiza cache de sessão local
   if (typeof window !== "undefined") {

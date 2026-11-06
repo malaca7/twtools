@@ -136,17 +136,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
               if (supaProf) {
                 if (supaProf.is_developer !== undefined && supaProf.is_developer !== null) {
-                  sim.is_developer = Boolean(supaProf.is_developer);
+                  sim.is_developer = Boolean(supaProf.is_developer === true);
                 }
                 if (supaProf.is_ceo !== undefined && supaProf.is_ceo !== null) {
-                  sim.is_ceo = Boolean(supaProf.is_ceo);
+                  sim.is_ceo = Boolean(supaProf.is_ceo === true);
                 }
                 if (supaProf.status) sim.status = supaProf.status;
                 if (supaProf.nickname) sim.nickname = supaProf.nickname;
                 if (supaProf.nome) sim.nome = supaProf.nome;
                 if (supaProf.avatar_url) sim.avatar_url = supaProf.avatar_url;
                 if (supaProf.is_verified !== undefined) sim.is_verified = Boolean(supaProf.is_verified);
-                if (supaProf.custom_theme) sim.custom_theme = supaProf.custom_theme;
+                if (supaProf.custom_theme) {
+                  sim.custom_theme = {
+                    ...(typeof supaProf.custom_theme === "object" ? supaProf.custom_theme : {}),
+                    is_ceo: Boolean(supaProf.is_ceo === true),
+                    is_developer: Boolean(supaProf.is_developer === true),
+                  };
+                }
 
                 sessionStorage.setItem("tw_dev_impersonate", JSON.stringify(sim));
                 localStorage.setItem("tw_dev_impersonate", JSON.stringify(sim));
@@ -174,7 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               discord_avatar_url: sim.discord_avatar_url || sim.avatar_url || null,
               discord_email: sim.discord_email || null,
               is_developer: sim.is_developer === false ? false : Boolean(sim.is_developer === true || sim.nivel === "desenvolvedor"),
-              is_ceo: sim.is_ceo === false ? false : Boolean(sim.is_ceo === true || sim.nivel === "ceo" || sim.nivel === "01"),
+              is_ceo: sim.is_ceo === false ? false : Boolean(sim.is_ceo === true || sim.nivel === "ceo"),
               bio: sim.bio || sim.custom_theme?.bio || null,
               custom_status: sim.custom_status || sim.custom_theme?.custom_status || null,
               social_links: sim.social_links || sim.custom_theme?.social_links || null,
@@ -232,17 +238,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
               if (supaProf) {
                 if (supaProf.is_developer !== undefined && supaProf.is_developer !== null) {
-                  dev.is_developer = Boolean(supaProf.is_developer);
+                  dev.is_developer = Boolean(supaProf.is_developer === true);
                 }
                 if (supaProf.is_ceo !== undefined && supaProf.is_ceo !== null) {
-                  dev.is_ceo = Boolean(supaProf.is_ceo);
+                  dev.is_ceo = Boolean(supaProf.is_ceo === true);
                 }
                 if (supaProf.status) dev.status = supaProf.status;
                 if (supaProf.nickname) dev.nickname = supaProf.nickname;
                 if (supaProf.nome) dev.nome = supaProf.nome;
                 if (supaProf.avatar_url) dev.avatar_url = supaProf.avatar_url;
                 if (supaProf.is_verified !== undefined) dev.is_verified = Boolean(supaProf.is_verified);
-                if (supaProf.custom_theme) dev.custom_theme = supaProf.custom_theme;
+                if (supaProf.custom_theme) {
+                  dev.custom_theme = {
+                    ...(typeof supaProf.custom_theme === "object" ? supaProf.custom_theme : {}),
+                    is_ceo: Boolean(supaProf.is_ceo === true),
+                    is_developer: Boolean(supaProf.is_developer === true),
+                  };
+                }
 
                 localStorage.setItem("tw_dev_impersonate", JSON.stringify(dev));
                 sessionStorage.setItem("tw_dev_impersonate", JSON.stringify(dev));
@@ -270,7 +282,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               discord_avatar_url: dev.discord_avatar_url || dev.avatar_url || null,
               discord_email: dev.discord_email || null,
               is_developer: dev.is_developer === false ? false : Boolean(dev.is_developer === true || dev.nivel === "desenvolvedor"),
-              is_ceo: dev.is_ceo === false ? false : Boolean(dev.is_ceo === true || dev.nivel === "ceo" || dev.nivel === "01"),
+              is_ceo: dev.is_ceo === false ? false : Boolean(dev.is_ceo === true || dev.nivel === "ceo"),
               bio: dev.bio || dev.custom_theme?.bio || null,
               custom_status: dev.custom_status || dev.custom_theme?.custom_status || null,
               social_links: dev.social_links || dev.custom_theme?.social_links || null,
@@ -861,11 +873,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Se o usuário tem a tag 'ceo' atribuída ou está explicitamente com is_ceo no perfil
         let hasCeoActive = Boolean(
           myTagIds.has("ceo") ||
-          (profile?.is_ceo === true && (profile as any)?.is_ceo !== false)
+          (profile?.is_ceo === true && (profile as any)?.is_ceo !== false) ||
+          level === "ceo"
         );
 
-        // Se o perfil tem explicitamente is_ceo === false e não tem tag ativa ceo, garante falso
-        if (profile && (profile as any).is_ceo === false && !myTagIds.has("ceo")) {
+        // Se o perfil tem explicitamente is_ceo === false ou custom_theme.is_ceo === false e não tem tag ativa ceo no banco e não tem cargo ceo, garante falso
+        if ((!profile || (profile as any).is_ceo === false || (profile as any)?.custom_theme?.is_ceo === false) && !myTagIds.has("ceo") && level !== "ceo") {
           hasCeoActive = false;
         }
 
@@ -1363,8 +1376,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return false;
     });
 
-    // Se o perfil tem explicitamente is_ceo === false e não tem tag ativa CEO, NUNCA é CEO
-    if (profile && (profile as any).is_ceo === false && !hasActiveCeoTag) {
+    // Se o perfil tem explicitamente is_ceo === false ou custom_theme.is_ceo === false e não tem tag ativa CEO e não tem cargo ceo, NUNCA é CEO
+    if (profile && ((profile as any).is_ceo === false || (profile as any)?.custom_theme?.is_ceo === false) && !hasActiveCeoTag && level !== "ceo") {
       return false;
     }
 
