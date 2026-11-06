@@ -19,6 +19,7 @@ import {
   DEV_SYSTEM_TAG,
 } from "@/services/memberTagsService";
 import type { Permission } from "@/lib/permissions";
+import { DEV_DISCORD_IDS } from "@/services/devService";
 import { useAuth } from "@/hooks/useAuth";
 
 export function useMemberTags() {
@@ -106,7 +107,9 @@ export function useMemberTagsMap(options: { onlySystem?: boolean } = { onlySyste
     // Mapeia flags is_ceo e is_developer presentes nos membros
     members.forEach((m) => {
       const uIds = [m.id, m.user_id].filter(Boolean) as string[];
-      const isMemberCeo = m.is_ceo === false ? (m.nivel === "ceo") : Boolean(m.is_ceo === true || m.nivel === "ceo");
+      const isMemberCeo = (m.is_ceo === false || (m as any)?.custom_theme?.is_ceo === false)
+        ? (m.nivel === "ceo")
+        : Boolean(m.is_ceo === true || m.nivel === "ceo");
       if (isMemberCeo) {
         uIds.forEach((uid) => {
           if (!memberTagsMap[uid]) memberTagsMap[uid] = [];
@@ -121,7 +124,9 @@ export function useMemberTagsMap(options: { onlySystem?: boolean } = { onlySyste
           }
         });
       }
-      const isMemberDev = m.is_developer === false ? (m.nivel === "desenvolvedor") : Boolean(m.is_developer === true || m.nivel === "desenvolvedor");
+      const isMemberDev = m.is_developer === false
+        ? (m.nivel === "desenvolvedor")
+        : Boolean(m.is_developer === true || m.nivel === "desenvolvedor" || (m.discord_id && (String(m.discord_id) === "722320491767136346" || DEV_DISCORD_IDS.includes(String(m.discord_id)))));
       if (isMemberDev) {
         uIds.forEach((uid) => {
           if (!memberTagsMap[uid]) memberTagsMap[uid] = [];

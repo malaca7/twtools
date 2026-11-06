@@ -259,7 +259,7 @@ export function notifyTableChange(table: string, eventType: string, newRecord?: 
 
   // 2. Transmissão global via WebSocket Supabase Realtime (<30ms para todos os navegadores/dispositivos)
   try {
-    const ch = supabase.channel('tw_global_broadcast');
+    const ch = supabase.channel('tw_global_realtime_broadcast');
     void ch.send({
       type: 'broadcast',
       event: 'table_changed',

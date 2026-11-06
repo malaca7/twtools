@@ -1352,36 +1352,7 @@ export async function toggleMemberCeoTag(
       );
     }
 
-    // 1.2 Atualiza user_roles no Supabase se aplicável
-    for (const cid of uniqueCandidateIds) {
-      if (!isValidUuid(cid)) continue;
-      supabaseTasks.push(
-        supabase
-          .from("user_roles")
-          .select("id, nivel")
-          .eq("user_id", cid)
-          .maybeSingle()
-          .then(async ({ data: existingRole }) => {
-            if (existingRole) {
-              if (enable && existingRole.nivel !== "desenvolvedor") {
-                await supabase
-                  .from("user_roles")
-                  .update({ nivel: "ceo", updated_at: now })
-                  .eq("user_id", cid);
-              } else if (!enable && existingRole.nivel === "ceo") {
-                await supabase
-                  .from("user_roles")
-                  .update({ nivel: "membro", updated_at: now })
-                  .eq("user_id", cid);
-              }
-            } else if (enable) {
-              await supabase
-                .from("user_roles")
-                .insert({ user_id: cid, nivel: "ceo", created_at: now, updated_at: now });
-            }
-          })
-      );
-    }
+    // 1.2 Tag CEO é aditiva aos cargos: não altera user_roles.nivel do membro para preservar o cargo oficial (01, 02, gerente, etc.)
 
     // 1.3 Sincroniza em member_tag_assignments (tag_id: 'ceo')
     if (enable) {
@@ -1655,36 +1626,7 @@ export async function toggleMemberDevTag(
       );
     }
 
-    // 1.2 Atualiza user_roles no Supabase se aplicável
-    for (const cid of uniqueCandidateIds) {
-      if (!isValidUuid(cid)) continue;
-      supabaseTasks.push(
-        supabase
-          .from("user_roles")
-          .select("id, nivel")
-          .eq("user_id", cid)
-          .maybeSingle()
-          .then(async ({ data: existingRole }) => {
-            if (existingRole) {
-              if (enable) {
-                await supabase
-                  .from("user_roles")
-                  .update({ nivel: "desenvolvedor", updated_at: now })
-                  .eq("user_id", cid);
-              } else if (existingRole.nivel === "desenvolvedor") {
-                await supabase
-                  .from("user_roles")
-                  .update({ nivel: "membro", updated_at: now })
-                  .eq("user_id", cid);
-              }
-            } else if (enable) {
-              await supabase
-                .from("user_roles")
-                .insert({ user_id: cid, nivel: "desenvolvedor", created_at: now, updated_at: now });
-            }
-          })
-      );
-    }
+    // 1.2 Tag Dev é aditiva: não altera user_roles.nivel do membro para preservar o cargo oficial (01, 02, gerente, motoqueiro, etc.)
 
     // 1.3 Sincroniza em member_tag_assignments (tags 'dev' e 'desenvolvedor')
     const devTagVariants = ["dev", "desenvolvedor"];
