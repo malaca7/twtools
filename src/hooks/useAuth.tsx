@@ -1608,19 +1608,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const bypassActive = isDevBypassActive();
       const isDevBypass = Boolean(isDevUser && bypassActive);
 
-      // =========================================================================
-      // REGRA MESTRA: BYPASS DE AUTORIZAÇÃO DEV (ACESSO IRRESTRITO SUPREMO)
-      // Se a opção "Bypass de Autorização Dev" estiver ativada em dev tools,
-      // o membro terá Acesso Irrestrito Supremo com acesso completo a todas as
-      // páginas e ações sem bloqueio de patente!
-      // =========================================================================
-      if (isDevBypass) {
-        if (profile?.is_verified === true && (permission === "verification.view_page" || permission === "verification.request")) {
-          return false;
-        }
-        return true;
-      }
-
       // Determinação estrita do painel ativo:
       // Se panelOverride for informado (ex: do Dispatcher ou de menu), usa-o diretamente com prioridade máxima.
       // Caso contrário, respeita a rota atual da janela (/dev/* -> dev, /ceo/* -> ceo, outras -> member).
@@ -1922,49 +1909,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           permission === "view_ceo_dashboard" ||
           permission === "view_dev_hub" ||
           permission === "view_dev" ||
-          permission.startsWith("manage_dev_")
+          permission.startsWith("manage_dev_") ||
+          permission.startsWith("dev_") ||
+          permission.startsWith("bot_") ||
+          permission === "manage_ceo_bot" ||
+          permission === "manage_ceo_webhooks"
         ) {
           return false;
         }
 
         // Restrições específicas de regras operacionais das tags de sistema
-        if (!isDevBypass) {
-          if (systemTagRules.can_sell === false && (permission === "create_sale" || permission === "sales.create")) {
-            return false;
-          }
-          if (systemTagRules.can_reverse_sales === false && (permission === "reverse_sale" || permission === "sales.cancel")) {
-            return false;
-          }
-          if (systemTagRules.can_view_all_sales === false && permission === "view_all_sales") {
-            return false;
-          }
-          if (systemTagRules.can_view_all_tickets === false && (permission === "view_all_tickets" || (permission as string) === "can_view_all_tickets")) {
-            return false;
-          }
-          if (systemTagRules.can_view_sensitive_data === false && permission === "view_sensitive_data") {
-            return false;
-          }
-          if (systemTagRules.can_create_announcements === false && (permission === "manage_announcements" || (permission as string) === "create_announcements")) {
-            return false;
-          }
-          if (systemTagRules.can_manage_productions === false && (permission === "create_production" || permission === "productions.create" || permission === "productions.edit")) {
-            return false;
-          }
-          if (systemTagRules.can_transfer_warehouse === false && (permission === "warehouse.transfer" || permission === "warehouse.transfer_storage" || permission === "warehouse.transfer_sale")) {
-            return false;
-          }
-          if (systemTagRules.can_adjust_warehouse_stock === false && permission === "warehouse.adjust") {
-            return false;
-          }
-          if (systemTagRules.can_manage_production_recipes === false && (permission.startsWith("production_management.") || permission === "production_management.view")) {
-            return false;
-          }
-          if (systemTagRules.can_manage_escalas === false && (permission === "escalas.create" || permission === "escalas.edit" || permission === "escalas.delete" || permission === "escalas.publish" || permission === "escalas.cancel")) {
-            return false;
-          }
-          if (systemTagRules.can_manage_members === false && (permission === "view_members" || permission === "approve_requests" || permission === "promote_members" || permission === "edit_members")) {
-            return false;
-          }
+        if (systemTagRules.can_sell === false && (permission === "create_sale" || permission === "sales.create")) {
+          return false;
+        }
+        if (systemTagRules.can_reverse_sales === false && (permission === "reverse_sale" || permission === "sales.cancel")) {
+          return false;
+        }
+        if (systemTagRules.can_view_all_sales === false && permission === "view_all_sales") {
+          return false;
+        }
+        if (systemTagRules.can_view_all_tickets === false && (permission === "view_all_tickets" || (permission as string) === "can_view_all_tickets")) {
+          return false;
+        }
+        if (systemTagRules.can_view_sensitive_data === false && permission === "view_sensitive_data") {
+          return false;
+        }
+        if (systemTagRules.can_create_announcements === false && (permission === "manage_announcements" || (permission as string) === "create_announcements")) {
+          return false;
+        }
+        if (systemTagRules.can_manage_productions === false && (permission === "create_production" || permission === "productions.create" || permission === "productions.edit")) {
+          return false;
+        }
+        if (systemTagRules.can_transfer_warehouse === false && (permission === "warehouse.transfer" || permission === "warehouse.transfer_storage" || permission === "warehouse.transfer_sale")) {
+          return false;
+        }
+        if (systemTagRules.can_adjust_warehouse_stock === false && permission === "warehouse.adjust") {
+          return false;
+        }
+        if (systemTagRules.can_manage_production_recipes === false && (permission.startsWith("production_management.") || permission === "production_management.view")) {
+          return false;
+        }
+        if (systemTagRules.can_manage_escalas === false && (permission === "escalas.create" || permission === "escalas.edit" || permission === "escalas.delete" || permission === "escalas.publish" || permission === "escalas.cancel")) {
+          return false;
+        }
+        if (systemTagRules.can_manage_members === false && (permission === "view_members" || permission === "approve_requests" || permission === "promote_members" || permission === "edit_members")) {
+          return false;
         }
 
         return checkCargoHasPermission(permission) || checkSystemTagHasPermission(permission);
@@ -1982,30 +1971,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (
           permission === "view_dev_hub" ||
           permission === "view_dev" ||
-          permission.startsWith("manage_dev_")
+          permission.startsWith("manage_dev_") ||
+          permission.startsWith("dev_")
         ) {
           return false;
         }
 
-        const isMemberManagementAction =
-          permission === "promote_members" ||
-          permission === "change_roles" ||
-          permission === "edit_members" ||
-          permission === "delete_members" ||
-          permission === "approve_requests" ||
-          permission === "view_sensitive_data";
-
+        const hasCargo = checkCargoHasPermission(permission);
         const hasSystemTag = checkSystemTagHasPermission(permission);
         const hasCeoTag = isCeoUser ? checkCeoTagHasPermission(permission) : false;
 
-        // No painel CEO, as ações de gestão de membros configuradas na matriz executiva
-        // da Tag CEO são estritamente governadas pela Tag CEO (e tags do sistema).
-        // O cargo operacional comum (ex: 01, 02) não sobrepõe uma permissão desativada na Tag CEO.
-        if (isMemberManagementAction) {
-          return hasCeoTag || hasSystemTag;
-        }
-
-        const hasCargo = checkCargoHasPermission(permission);
         return hasCargo || hasSystemTag || hasCeoTag;
       }
 
@@ -2015,6 +1990,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // =========================================================================
       if (activePanel === "dev") {
         if (!isDevUser) return checkCargoHasPermission(permission) || checkSystemTagHasPermission(permission);
+
+        // Bypass dev de autorização (ativo exclusivamente no Painel Dev)
+        if (isDevBypass) {
+          if (profile?.is_verified === true && (permission === "verification.view_page" || permission === "verification.request")) {
+            return false;
+          }
+          return true;
+        }
 
         const hasCargo = checkCargoHasPermission(permission);
         const hasSystemTag = checkSystemTagHasPermission(permission);

@@ -5083,12 +5083,29 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
             });
           } catch {}
 
+          const simPathname = typeof window !== "undefined" ? window.location.pathname.toLowerCase() : "";
+          const simPanelMode = typeof window !== "undefined" ? (localStorage.getItem("tw_panel_mode") as "member" | "dev" | "ceo") || "member" : "member";
+          const isSimDevPanel = isDev && (simPathname.startsWith("/dev") || simPathname.includes("/dev/") || simPanelMode === "dev");
+          const isSimCeoPanel = !isSimDevPanel && isCeo && (simPathname.startsWith("/ceo") || simPathname.includes("/ceo/") || simPanelMode === "ceo");
+
           const checkSimPerm = (perm: Permission) => {
-            if (isSuper) return true;
-            if (can(simLevel, perm, customMap)) return true;
-            if (satisfiesPermission(simTagPerms, perm)) return true;
-            if (isCeo && satisfiesPermission(ceoPerms, perm)) return true;
-            return false;
+            const hasRolePerm = can(simLevel, perm, customMap);
+            const regularTagPerms = simTagPerms.filter((p) => p !== "view_dev_hub" && p !== "view_dev" && p !== "view_ceo" && p !== "view_ceo_dashboard");
+            const hasSystemTagPerm = satisfiesPermission(regularTagPerms, perm);
+
+            if (isSimDevPanel) {
+              if (isSuper) return true;
+              const hasCeoTag = isCeo && satisfiesPermission(ceoPerms, perm);
+              const hasDevTag = isDev;
+              return hasRolePerm || hasSystemTagPerm || hasCeoTag || hasDevTag;
+            }
+
+            if (isSimCeoPanel) {
+              const hasCeoTag = isCeo && satisfiesPermission(ceoPerms, perm);
+              return hasRolePerm || hasSystemTagPerm || hasCeoTag;
+            }
+
+            return hasRolePerm || hasSystemTagPerm;
           };
 
           const canManage = isSuper || checkSimPerm("manage_tickets");
@@ -5202,12 +5219,29 @@ async function getEffectiveTicketAuth(): Promise<EffectiveTicketAuth | null> {
             });
           } catch {}
 
+          const devPathname = typeof window !== "undefined" ? window.location.pathname.toLowerCase() : "";
+          const devPanelMode = typeof window !== "undefined" ? (localStorage.getItem("tw_panel_mode") as "member" | "dev" | "ceo") || "member" : "member";
+          const isDevAreaPanel = isDev && (devPathname.startsWith("/dev") || devPathname.includes("/dev/") || devPanelMode === "dev");
+          const isCeoAreaPanel = !isDevAreaPanel && isCeo && (devPathname.startsWith("/ceo") || devPathname.includes("/ceo/") || devPanelMode === "ceo");
+
           const checkDevPerm = (perm: Permission) => {
-            if (isSuper) return true;
-            if (can(devLevel, perm, customMap)) return true;
-            if (satisfiesPermission(devTagPerms, perm)) return true;
-            if (isCeo && satisfiesPermission(ceoPerms, perm)) return true;
-            return false;
+            const hasRolePerm = can(devLevel, perm, customMap);
+            const regularTagPerms = devTagPerms.filter((p) => p !== "view_dev_hub" && p !== "view_dev" && p !== "view_ceo" && p !== "view_ceo_dashboard");
+            const hasSystemTagPerm = satisfiesPermission(regularTagPerms, perm);
+
+            if (isDevAreaPanel) {
+              if (isSuper) return true;
+              const hasCeoTag = isCeo && satisfiesPermission(ceoPerms, perm);
+              const hasDevTag = isDev;
+              return hasRolePerm || hasSystemTagPerm || hasCeoTag || hasDevTag;
+            }
+
+            if (isCeoAreaPanel) {
+              const hasCeoTag = isCeo && satisfiesPermission(ceoPerms, perm);
+              return hasRolePerm || hasSystemTagPerm || hasCeoTag;
+            }
+
+            return hasRolePerm || hasSystemTagPerm;
           };
 
           const canManage = isSuper || checkDevPerm("manage_tickets");
