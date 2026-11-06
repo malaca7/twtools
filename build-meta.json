@@ -1,5 +1,5 @@
 {
-  "deployed_at": "2026-11-06T00:51:38.945Z",
-  "timestamp": 1793926298946,
-  "message": "^fix^(permissoes,ui^):^ remover^ tag^ ceo^ visual^ de^ 01^ LC,^ blindar^ permissoes^ dev^ e^ ceo^ e^ acelerar^ persistencia^ no^ banco^"
+  "deployed_at": "2026-11-06T01:41:03.207Z",
+  "timestamp": 1793929263208,
+  "message": "^fix^(permissoes^):^ blindar^ acesso^ ao^ painel^ ceo^ e^ remover^ badges^ de^ ceo^ indevidas^"
 }
