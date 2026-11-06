@@ -169,10 +169,14 @@ export function useRealtimeSync() {
 
         case "profiles":
         case "user_roles":
-        case "custom_roles": {
+        case "custom_roles":
+        case "member_tags":
+        case "member_tag_assignments": {
           if (typeof window !== "undefined") {
             window.dispatchEvent(new CustomEvent("tw_auth_reload", { detail: payload }));
             window.dispatchEvent(new CustomEvent("tw_permissions_synced", { detail: payload }));
+            window.dispatchEvent(new CustomEvent("tw_member_tags_updated", { detail: payload }));
+            window.dispatchEvent(new CustomEvent("tw_tags_updated", { detail: payload }));
           }
           break;
         }

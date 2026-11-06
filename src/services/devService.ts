@@ -1408,7 +1408,7 @@ export async function toggleMemberCeoTag(
             .from("member_tag_assignments")
             .delete()
             .eq("tag_id", "ceo")
-            .or(`member_id.eq.${cid},user_id.eq.${cid}`)
+            .or(`id.eq.${cid}_ceo,member_id.eq.${cid},user_id.eq.${cid}`)
         );
       }
     }
@@ -1713,7 +1713,7 @@ export async function toggleMemberDevTag(
               .from("member_tag_assignments")
               .delete()
               .eq("tag_id", variant)
-              .or(`member_id.eq.${cid},user_id.eq.${cid}`)
+              .or(`id.eq.${cid}_${variant},member_id.eq.${cid},user_id.eq.${cid}`)
           );
         }
       }

@@ -257,7 +257,17 @@ export function notifyTableChange(table: string, eventType: string, newRecord?: 
     } catch {}
   }
 
-  // 2. Propagação global instantânea via Firebase Realtime Database
+  // 2. Transmissão global via WebSocket Supabase Realtime (<30ms para todos os navegadores/dispositivos)
+  try {
+    const ch = supabase.channel('tw_global_broadcast');
+    void ch.send({
+      type: 'broadcast',
+      event: 'table_changed',
+      payload: { ...eventPayload, keys: [table] },
+    });
+  } catch {}
+
+  // 3. Propagação global instantânea via Firebase Realtime Database
   try {
     fetch(`${FIREBASE_RTDB_URL}/system_realtime_events/latest.json`, {
       method: 'PUT',
@@ -2434,7 +2444,7 @@ export const supabase = createClient<any>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY
       if (urlStr.includes('supabase.co')) {
         try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 2500);
+          const timeoutId = setTimeout(() => controller.abort(), 12000);
           const reqInit = { ...init, signal: init?.signal || controller.signal };
           const res = await fetch(input, reqInit);
           clearTimeout(timeoutId);
@@ -2448,11 +2458,6 @@ export const supabase = createClient<any>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY
     },
   },
 });
-
-// Sobrescrever supabase.channel com o Realtime Channel Bridge
-(supabase as any).channel = (topic: string) => {
-  return new FirebaseRealtimeChannel(topic);
-};
 
 // Polifill universal de segurança para .catch em builders Postgrest
 try {
