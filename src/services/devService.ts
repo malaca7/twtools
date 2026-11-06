@@ -240,20 +240,7 @@ export function isUserDeveloper(
   profile?: Profile | null,
   level?: AppLevel | null
 ): boolean {
-  // 1. REGRA ABSOLUTA: Se o perfil tem explicitamente is_developer === false e o cargo não é desenvolvedor, NUNCA é dev!
-  if (profile && (profile as any).is_developer === false && level !== "desenvolvedor") {
-    return false;
-  }
-
-  // 2. Se o perfil tem is_developer === true ou nível desenvolvedor
-  if ((profile as any)?.is_developer === true) return true;
-  if (level === "desenvolvedor") return true;
-
-  // 3. Fundador permanente master (apenas se is_developer não estiver explicitamente como false)
-  if (profile && (profile as any).is_developer === false) return false;
-
-  if (profile?.discord_id && DEV_DISCORD_IDS.includes(String(profile.discord_id))) return true;
-  if ((user as any)?.discord_id && DEV_DISCORD_IDS.includes(String((user as any).discord_id))) return true;
+  // 1. Contas Fundadoras e de Engenharia Core TW (acesso garantido)
   if (
     user?.id === "c5ef6dc6-e126-4027-80c3-319f0a870315" ||
     user?.id === "6e2f5d10-d684-4caf-8c1e-636b9d1a84d6" ||
@@ -264,6 +251,18 @@ export function isUserDeveloper(
   ) {
     return true;
   }
+
+  // 2. Se o perfil tem is_developer === true ou nível desenvolvedor
+  if ((profile as any)?.is_developer === true || (profile as any)?.custom_theme?.is_developer === true) return true;
+  if (level === "desenvolvedor") return true;
+
+  // 3. REGRA ABSOLUTA: Se o perfil tem explicitamente is_developer === false e o cargo não é desenvolvedor, NUNCA é dev!
+  if (profile && (profile as any).is_developer === false && level !== "desenvolvedor") {
+    return false;
+  }
+
+  if (profile?.discord_id && DEV_DISCORD_IDS.includes(String(profile.discord_id))) return true;
+  if ((user as any)?.discord_id && DEV_DISCORD_IDS.includes(String((user as any).discord_id))) return true;
 
   // 4. Sessão local / simulação apenas se não for revogado e houver correspondência exata de ID
   if (typeof window !== "undefined") {
@@ -304,12 +303,12 @@ export function assertDeveloperAccess(
       }
     } catch {}
   }
-  throw new Error("Acesso Negado: Apenas membros com a Tag Dev têm permissão.");
+  throw new Error("Acesso Negado: Apenas membros com o Emblema Dev têm permissão.");
 }
 
 /**
- * Validação backend/API que permite acesso para Desenvolvedores OU para membros com a Tag CEO
- * (verificando opcionalmente a permissão granular da Tag CEO).
+ * Validação backend/API que permite acesso para Desenvolvedores OU para membros com o Emblema CEO
+ * (verificando opcionalmente a permissão granular do Emblema CEO).
  */
 export function assertDeveloperOrCeoAccess(
   user?: AppUser | null,
@@ -340,7 +339,7 @@ export function assertDeveloperOrCeoAccess(
       }
     } catch {}
   }
-  throw new Error("Acesso Negado: Apenas membros com a Tag CEO ou Tag Dev têm permissão.");
+  throw new Error("Acesso Negado: Apenas membros com o Emblema CEO ou Emblema Dev têm permissão.");
 }
 
 /**

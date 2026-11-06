@@ -105,8 +105,8 @@ export type MemberTagAssignment = {
 
 export const CEO_SYSTEM_TAG: MemberTag = {
   id: "ceo",
-  name: "CEO",
-  description: "Tag Executiva de Diretoria da Twin Wheels. Acesso ao Painel Executivo CEO, métricas e governança.",
+  name: "Emblema CEO",
+  description: "Emblema Executivo de Diretoria da Twin Wheels. Acesso ao Painel Executivo CEO, métricas e governança.",
   color: "#f59e0b",
   icon: "Crown",
   is_system: true,
@@ -125,8 +125,8 @@ export const CEO_SYSTEM_TAG: MemberTag = {
 
 export const DEV_SYSTEM_TAG: MemberTag = {
   id: "dev",
-  name: "Desenvolvedor",
-  description: "Tag de Engenharia e Acesso Total ao Sistema Twin Wheels. Acesso ao painel Dev Tools e privilégios de desenvolvimento.",
+  name: "Emblema Dev",
+  description: "Emblema de Engenharia e Acesso Total ao Sistema Twin Wheels. Acesso ao painel Dev Tools e privilégios de desenvolvimento.",
   color: "#f43f5e",
   icon: "Code2",
   is_system: true,

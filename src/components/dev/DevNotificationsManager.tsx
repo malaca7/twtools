@@ -133,8 +133,8 @@ const ROLES_LIST: { id: string; label: string }[] = [
 ];
 
 const TAGS_LIST: { id: string; label: string; color: string }[] = [
-  { id: "tag_dev", label: "Tag Desenvolvedor", color: "text-rose-400 border-rose-500/30 bg-rose-500/10" },
-  { id: "tag_ceo", label: "Tag CEO", color: "text-amber-400 border-amber-500/30 bg-amber-500/10" },
+  { id: "tag_dev", label: "Emblema Dev", color: "text-rose-400 border-rose-500/30 bg-rose-500/10" },
+  { id: "tag_ceo", label: "Emblema CEO", color: "text-amber-400 border-amber-500/30 bg-amber-500/10" },
 ];
 
 function renderTypeIconHelper(type: NotificationType | string, className = "h-4 w-4") {

@@ -151,37 +151,37 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     const sub = effectiveTab || "dashboard";
     if (sub === "dashboard" || sub === "executivo") {
       if (!hasPermission("view_ceo", mode) && !hasPermission("view_ceo_dashboard", mode)) {
-        return <NoAccess message="Você não possui permissão para acessar o Dashboard Executivo da Tag CEO." />;
+        return <NoAccess message="Você não possui permissão para acessar o Dashboard Executivo do Emblema CEO." />;
       }
       return <CeoPageContent initialTab="dashboard" />;
     }
     if (sub === "bot") {
       if (!hasPermission("manage_ceo_bot", mode)) {
-        return <NoAccess message="Você não possui permissão para acessar o Gerenciador de Bot da Tag CEO." />;
+        return <NoAccess message="Você não possui permissão para acessar o Gerenciador de Bot do Emblema CEO." />;
       }
       return <CeoPageContent initialTab="bot" />;
     }
     if (sub === "webhooks") {
       if (!hasPermission("manage_ceo_webhooks", mode)) {
-        return <NoAccess message="Você não possui permissão para acessar os Webhooks da Tag CEO." />;
+        return <NoAccess message="Você não possui permissão para acessar os Webhooks do Emblema CEO." />;
       }
       return <CeoPageContent initialTab="webhooks" />;
     }
     if (sub === "financas") {
       if (!hasPermission("view_ceo_financials", mode)) {
-        return <NoAccess message="Você não possui permissão para acessar as Finanças da Tag CEO." />;
+        return <NoAccess message="Você não possui permissão para acessar as Finanças do Emblema CEO." />;
       }
       return <CeoPageContent initialTab="financas" />;
     }
     if (sub === "ajustes-estoque" || sub === "ceo-ajustes-estoque" || sub === "estoque-ajustes") {
       if (!hasPermission("view_ceo_stock_adjustments", mode)) {
-        return <NoAccess message="Você não possui permissão para acessar os Ajustes de Estoque da Tag CEO." />;
+        return <NoAccess message="Você não possui permissão para acessar os Ajustes de Estoque do Emblema CEO." />;
       }
       return <CeoAjustesEstoqueContent />;
     }
     if (sub === "notificacoes" || sub === "ceo-notificacoes") {
       if (!hasPermission("view_ceo_notifications", mode)) {
-        return <NoAccess message="Você não possui permissão para acessar as Notificações da Tag CEO." />;
+        return <NoAccess message="Você não possui permissão para acessar as Notificações do Emblema CEO." />;
       }
       return <CeoNotificationsPage />;
     }
@@ -193,24 +193,24 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       sub === "ceo-permissoes-tags"
     ) {
       if (!hasPermission("view_ceo_tag_permissions", mode)) {
-        return <NoAccess message="Você não possui permissão para gerenciar Tags Executivas da Tag CEO." />;
+        return <NoAccess message="Você não possui permissão para gerenciar Tags Executivas do Emblema CEO." />;
       }
       return <CeoGerenciarTagsPage />;
     }
     if (sub === "selos" || sub === "ceo-selos" || sub === "gerenciar-selos") {
       if (!hasPermission("verification.manage", mode)) {
-        return <NoAccess message="Você não possui permissão para gerenciar Selos de Verificação da Tag CEO." />;
+        return <NoAccess message="Você não possui permissão para gerenciar Selos de Verificação do Emblema CEO." />;
       }
       return <CeoSelosPage />;
     }
     if (sub === "advertencias" || sub === "ceo-advertencias" || sub === "suspensoes") {
       if (!hasPermission("view_warnings", mode)) {
-        return <NoAccess message="Você não possui permissão para acessar as Advertências da Tag CEO." />;
+        return <NoAccess message="Você não possui permissão para acessar as Advertências do Emblema CEO." />;
       }
       return <AdvertenciasPage />;
     }
     if (!hasPermission("view_ceo", mode) && !hasPermission("view_ceo_dashboard", mode)) {
-      return <NoAccess message="Você não possui permissão para acessar este módulo da Tag CEO." />;
+      return <NoAccess message="Você não possui permissão para acessar este módulo do Emblema CEO." />;
     }
     return <CeoPageContent initialTab={sub} />;
   }

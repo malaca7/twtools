@@ -628,7 +628,7 @@ export function GlobalMaintenanceOverlay() {
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-extrabold text-amber-300 flex items-center gap-1.5 uppercase tracking-wider">
                   <Sparkles className="w-4 h-4 text-amber-400" />
-                  Acesso de Desenvolvedor Detectado (Tag Dev)
+                  Acesso de Desenvolvedor Detectado (Emblema Dev)
                 </span>
                 <Badge
                   variant="outline"

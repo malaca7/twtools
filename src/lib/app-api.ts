@@ -1680,14 +1680,14 @@ export async function updateMemberDetails(payload: {
       .maybeSingle();
 
     if (!actorProfile || !actorProfile.is_developer) {
-      throw new Error("403 Forbidden — Apenas quem possui a Tag Dev pode ativar ou desativar a Tag Desenvolvedor.");
+      throw new Error("403 Forbidden — Apenas quem possui o Emblema Dev pode ativar ou desativar o Emblema Dev.");
     }
 
     updateFields.is_developer = Boolean(payload.is_developer);
   }
 
   if (payload.is_ceo !== undefined) {
-    // Validação estrita: apenas quem tem Tag Dev pode alterar a Tag CEO
+    // Validação estrita: apenas quem tem Emblema Dev pode alterar o Emblema CEO
     const { data: { session } } = await supabase.auth.getSession();
     const actorId = session?.user?.id;
     if (!actorId) {
@@ -1699,7 +1699,7 @@ export async function updateMemberDetails(payload: {
       .maybeSingle();
 
     if (!actorProfile || !actorProfile.is_developer) {
-      throw new Error("403 Forbidden — Apenas quem possui a Tag Dev pode ativar ou desativar a Tag CEO.");
+      throw new Error("403 Forbidden — Apenas quem possui o Emblema Dev pode ativar ou desativar o Emblema CEO.");
     }
 
     const currentTheme = (oldProfile as any)?.custom_theme || {};

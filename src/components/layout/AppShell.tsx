@@ -119,11 +119,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getProxiedImageUrl } from "@/services/postimagesService";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlatformSettings } from "@/hooks/usePlatformSettings";
-import { useMenuConfig } from "@/hooks/useMenuConfig";
+import { useMenuConfig, DEFAULT_MENU_CATEGORY_ICONS } from "@/hooks/useMenuConfig";
 import { useDevMenuConfig } from "@/hooks/useDevMenuConfig";
 import {
   useCeoMenuConfig,
   DEFAULT_CEO_MENU_ITEMS,
+  DEFAULT_CEO_DELETED_ITEM_IDS,
 } from "@/hooks/useCeoMenuConfig";
 import { LEVEL_LABEL, levelBadgeClass, type Permission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
@@ -641,43 +642,60 @@ function DynamicSidebarNavigation() {
 
     // Função auxiliar para construir os grupos e menus do painel CEO
     const buildCeoGroups = () => {
-      const ceoValidItems = ceoMenuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
-      const ceoConfigMap = new Map(ceoValidItems.map((c) => [c.id || c.url, c]));
-      const rawCeoCats = ceoMenuConfig?.categories?.length
-        ? (ceoMenuConfig.categories.length === 1 && ceoMenuConfig.categories[0] === "CEO"
-            ? ["CEO Tools", "CEO Access"]
-            : ceoMenuConfig.categories)
-        : ["CEO Tools", "CEO Access"];
-      const ceoCategoryOrder = rawCeoCats;
+      const ceoDeletedIds = new Set<string>([
+        ...(Array.isArray(ceoMenuConfig?.deletedItemIds) ? ceoMenuConfig.deletedItemIds : []),
+        ...DEFAULT_CEO_DELETED_ITEM_IDS,
+      ]);
 
+      const ceoValidItems = ceoMenuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url) && !ceoDeletedIds.has(c.id))) || [];
+      const ceoConfigMap = new Map(ceoValidItems.map((c) => [c.id || c.url, c]));
+
+      let rawCeoCats: string[] = [];
+      if (Array.isArray(ceoMenuConfig?.categories) && ceoMenuConfig.categories.length > 0) {
+        rawCeoCats = ceoMenuConfig.categories
+          .map((c) => String(c).trim())
+          .filter((c) => c && c !== "CEO");
+      }
+      if (rawCeoCats.length === 0) {
+        rawCeoCats = ["CEO Tools", "CEO Access"];
+      }
+
+      const ceoCategoryOrder = Array.from(new Set(rawCeoCats));
       const defaultCeoIds = new Set(DEFAULT_CEO_MENU_ITEMS.map((d) => d.id));
       const primaryCeoCat = ceoCategoryOrder[0] || "CEO Tools";
 
-      const ceoDeletedIds = new Set(ceoMenuConfig?.deletedItemIds || []);
+      const resolveCeoItemCat = (itemDefCat?: string, savedCat?: string): string => {
+        const candidate = (savedCat || itemDefCat || "").trim();
+        if (candidate && candidate !== "CEO" && ceoCategoryOrder.includes(candidate)) {
+          return candidate;
+        }
+        if (itemDefCat && itemDefCat !== "CEO" && ceoCategoryOrder.includes(itemDefCat)) {
+          return itemDefCat;
+        }
+        return primaryCeoCat;
+      };
+
       const customizedCeo: MasterNavItem[] = DEFAULT_CEO_MENU_ITEMS
         .filter((item) => !ceoDeletedIds.has(item.id))
         .map((item, defaultIdx) => {
-        const cfg = ceoConfigMap.get(item.id) || ceoConfigMap.get(item.url);
-        let resolvedCat = cfg?.category || item.category || primaryCeoCat;
-        if (!ceoCategoryOrder.includes(resolvedCat)) {
-          resolvedCat = primaryCeoCat;
-        }
-        return {
-          id: item.id,
-          title: cfg?.title || item.title,
-          url: cfg?.url || item.url,
-          icon: (cfg?.iconName ? resolveMenuIcon(cfg.iconName, item.url) : resolveMenuIcon(item.iconName, item.url)) as typeof LayoutDashboard,
-          visible: cfg ? cfg.visible !== false : item.visible !== false,
-          defaultCat: primaryCeoCat,
-          category: resolvedCat,
-          defaultOrder: item.order ?? defaultIdx,
-          order: typeof cfg?.order === "number" ? cfg.order : item.order ?? defaultIdx,
-        };
-      });
+          const cfg = ceoConfigMap.get(item.id) || ceoConfigMap.get(item.url);
+          const resolvedCat = resolveCeoItemCat(item.category, cfg?.category);
+          return {
+            id: item.id,
+            title: cfg?.title || item.title,
+            url: cfg?.url || item.url,
+            icon: (cfg?.iconName ? resolveMenuIcon(cfg.iconName, item.url) : resolveMenuIcon(item.iconName, item.url)) as typeof LayoutDashboard,
+            visible: cfg ? cfg.visible !== false : item.visible !== false,
+            defaultCat: primaryCeoCat,
+            category: resolvedCat,
+            defaultOrder: item.order ?? defaultIdx,
+            order: typeof cfg?.order === "number" ? cfg.order : item.order ?? defaultIdx,
+          };
+        });
 
       const customCeoItems: MasterNavItem[] = ceoValidItems
         .filter((c) => {
-          if (!c || defaultCeoIds.has(c.id)) return false;
+          if (!c || defaultCeoIds.has(c.id) || ceoDeletedIds.has(c.id)) return false;
           // Ignora item customizado duplicado de Gerenciar Selos
           if (c.url === "/ceo/selos" || (c.title && c.title.toLowerCase().trim() === "gerenciar selos")) {
             return false;
@@ -685,10 +703,7 @@ function DynamicSidebarNavigation() {
           return true;
         })
         .map((c, idx) => {
-          let resolvedCat = c.category || primaryCeoCat;
-          if (!ceoCategoryOrder.includes(resolvedCat)) {
-            resolvedCat = primaryCeoCat;
-          }
+          const resolvedCat = resolveCeoItemCat(undefined, c.category);
           return {
             id: c.id,
             title: c.title,
@@ -752,7 +767,7 @@ function DynamicSidebarNavigation() {
       const ceoGroups: { category: string; items: typeof visibleCeo }[] = [];
       ceoCategoryOrder.forEach((cat) => {
         const catItems = visibleCeo
-          .filter((i) => (i.category || primaryCeoCat) === cat)
+          .filter((i) => i.category === cat)
           .sort((a, b) => a.order - b.order);
         if (catItems.length > 0) {
           ceoGroups.push({ category: cat, items: catItems });
@@ -762,10 +777,10 @@ function DynamicSidebarNavigation() {
       const knownCeoCats = new Set(ceoCategoryOrder);
       visibleCeo.forEach((item) => {
         const cat = item.category || primaryCeoCat;
-        if (!knownCeoCats.has(cat)) {
+        if (!knownCeoCats.has(cat) && cat !== "CEO") {
           knownCeoCats.add(cat);
           const catItems = visibleCeo
-            .filter((i) => (i.category || primaryCeoCat) === cat)
+            .filter((i) => i.category === cat)
             .sort((a, b) => a.order - b.order);
           if (catItems.length > 0) {
             ceoGroups.push({ category: cat, items: catItems });
@@ -1114,14 +1129,26 @@ function DynamicSidebarNavigation() {
           defaultFallbackIcon = CeoIcon;
           savedIconName = ceoMenuConfig?.categoryIcons?.[category];
         } else {
-          // Categorias padrão da plataforma (Operação, Gestão, Administração, etc.)
-          savedIconName = menuConfig?.categoryIcons?.[category];
-          if (category === "Operação") {
+          // Categorias padrão da plataforma (Twin Wheels, Eu, Logística, Moderação, etc.)
+          savedIconName = menuConfig?.categoryIcons?.[category] || DEFAULT_MENU_CATEGORY_ICONS[category];
+          if (category === "Twin Wheels") {
+            defaultFallbackIcon = Crown;
+          } else if (category === "Eu") {
+            defaultFallbackIcon = User;
+          } else if (category === "Logística") {
+            defaultFallbackIcon = Boxes;
+          } else if (category === "Moderação") {
+            defaultFallbackIcon = ShieldAlert;
+          } else if (category === "Financeiro") {
+            defaultFallbackIcon = Landmark;
+          } else if (category === "Administração") {
+            defaultFallbackIcon = ShieldCheck;
+          } else if (category === "Operação") {
             defaultFallbackIcon = Activity;
           } else if (category === "Gestão") {
             defaultFallbackIcon = Shield;
-          } else if (category === "Administração") {
-            defaultFallbackIcon = Sliders;
+          } else if (category === "Produção" || category === "Produções") {
+            defaultFallbackIcon = Factory;
           } else {
             defaultFallbackIcon = MemberIcon;
           }

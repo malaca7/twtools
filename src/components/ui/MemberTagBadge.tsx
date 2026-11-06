@@ -219,13 +219,16 @@ export function MemberTagBadge({
 
   let activePanelStyle = null;
   let Icon: LucideIcon = resolveTagIcon(tag.icon);
+  let displayName = tag.name;
 
   if (isDevTag) {
     activePanelStyle = devStyle;
     Icon = DevIcon;
+    displayName = "Emblema Dev";
   } else if (isCeoTag) {
     activePanelStyle = ceoStyle;
     Icon = CeoIcon;
+    displayName = "Emblema CEO";
   } else if (isMemberTag) {
     activePanelStyle = memberStyle;
     Icon = MemberIcon;
@@ -267,10 +270,10 @@ export function MemberTagBadge({
           textShadow: "0 1px 2px rgba(0, 0, 0, 0.6)",
           ...style,
         }}
-        title={tag.description || tag.name}
+        title={isDevTag ? "Emblema Dev — Engenharia e Acesso Total" : isCeoTag ? "Emblema CEO — Diretoria Executiva" : tag.description || displayName}
       >
         {showIcon && <Icon className={cn(iconSizes, "shrink-0 drop-shadow-sm")} />}
-        <span className="truncate max-w-[140px] drop-shadow-sm">{tag.name}</span>
+        <span className="truncate max-w-[140px] drop-shadow-sm">{displayName}</span>
 
         {onRemove && (
           <button
@@ -280,7 +283,7 @@ export function MemberTagBadge({
               onRemove();
             }}
             className="ml-0.5 hover:opacity-80 focus:outline-none cursor-pointer rounded-full p-0.5 hover:bg-black/20 text-white"
-            title={`Remover tag ${tag.name}`}
+            title={`Remover ${displayName}`}
           >
             <X className="h-2.5 w-2.5 drop-shadow-sm" />
           </button>
@@ -311,10 +314,10 @@ export function MemberTagBadge({
         boxShadow: `0 0 10px -2px ${primaryColor}25`,
         ...style,
       }}
-      title={tag.description || tag.name}
+      title={isDevTag ? "Emblema Dev — Engenharia e Acesso Total" : isCeoTag ? "Emblema CEO — Diretoria Executiva" : tag.description || displayName}
     >
       {showIcon && <Icon className={cn(iconSizes, "shrink-0")} />}
-      <span className="truncate max-w-[140px]">{tag.name}</span>
+      <span className="truncate max-w-[140px]">{displayName}</span>
 
       {onRemove && (
         <button
@@ -324,7 +327,7 @@ export function MemberTagBadge({
             onRemove();
           }}
           className="ml-0.5 hover:opacity-75 focus:outline-none cursor-pointer rounded-full p-0.5"
-          title={`Remover tag ${tag.name}`}
+          title={`Remover ${displayName}`}
         >
           <X className="h-2.5 w-2.5" />
         </button>

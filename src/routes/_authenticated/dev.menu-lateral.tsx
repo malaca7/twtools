@@ -3014,7 +3014,7 @@ function DevMenuLateralContent() {
         </TabsList>
 
         <TabsContent value="plataforma" className="space-y-6">
-          <PlatformMenuEditor canEdit={true} showDevNavigationLinks={false} />
+          <PlatformMenuEditor canEdit={true} showDevNavigationLinks={false} initialScope="member" hideScopeSelector={true} />
         </TabsContent>
 
         <TabsContent value="dev" className="space-y-6">

@@ -50,6 +50,7 @@ import {
   useMenuConfig,
   DEFAULT_MENU_CATEGORIES,
   DEFAULT_MENU_ITEMS,
+  DEFAULT_MENU_CATEGORY_ICONS,
   PLATFORM_SYSTEM_MODULES,
   syncMenuConfig,
   type MenuItemConfig,
@@ -59,6 +60,7 @@ import {
   useCeoMenuConfig,
   DEFAULT_CEO_CATEGORIES,
   DEFAULT_CEO_MENU_ITEMS,
+  DEFAULT_CEO_CATEGORY_ICONS,
   CEO_SYSTEM_MODULES,
   type CeoMenuItemConfig,
 } from "@/hooks/useCeoMenuConfig";
@@ -72,18 +74,22 @@ import { cn } from "@/lib/utils";
 interface PlatformMenuEditorProps {
   canEdit?: boolean;
   showDevNavigationLinks?: boolean;
+  initialScope?: "member" | "ceo";
+  hideScopeSelector?: boolean;
 }
 
 export function PlatformMenuEditor({
   canEdit: canEditProp,
   showDevNavigationLinks = true,
+  initialScope = "member",
+  hideScopeSelector = false,
 }: PlatformMenuEditorProps) {
   const { config: memberConfig, save: saveMember, reset: resetMember } = useMenuConfig();
   const { config: ceoConfig, save: saveCeo, reset: resetCeo } = useCeoMenuConfig();
   const { hasPermission, isDevUser, isCeoUser, level } = useAuth();
 
   // Scope State: "member" | "ceo"
-  const [scope, setScope] = useState<"member" | "ceo">("member");
+  const [scope, setScope] = useState<"member" | "ceo">(() => initialScope || "member");
 
   // Permission calculation: fallback to canEditProp or auth checks
   const isLeaderOrAdmin =
@@ -194,7 +200,8 @@ export function PlatformMenuEditor({
 
     setCategories(initialCats);
     setItems(initialItems);
-    setCategoryIcons((currentCfg.categoryIcons as any) || {});
+    const defaultCategoryIcons = scope === "ceo" ? DEFAULT_CEO_CATEGORY_ICONS : DEFAULT_MENU_CATEGORY_ICONS;
+    setCategoryIcons({ ...defaultCategoryIcons, ...((currentCfg.categoryIcons as any) || {}) });
     setDeletedItemIds(currentCfg.deletedItemIds || []);
   }, [scope, memberConfig, ceoConfig]);
 
@@ -259,8 +266,10 @@ export function PlatformMenuEditor({
     } else {
       const nextIcons = { ...categoryIcons, [pickingForCat]: iconName };
       reorderAndPersist(categories, items, nextIcons);
-      toast.success(`Ícone da categoria "${pickingForCat}" alterado! 🎨`);
+      toast.success(`Ícone da categoria "${pickingForCat}" alterado para "${iconName}"! 🎨`);
     }
+    setIconPickerOpen(false);
+    setPickingForCat(null);
   };
 
   /* ─── Item Icon Picker Handler ─── */
@@ -275,8 +284,10 @@ export function PlatformMenuEditor({
         it.id === targetId ? { ...it, iconName } : it
       );
       reorderAndPersist(categories, nextItems);
-      toast.success("Ícone do menu atualizado com sucesso! ✨");
+      toast.success(`Ícone do menu atualizado para "${iconName}" com sucesso! ✨`);
     }
+    setItemIconPickerOpen(false);
+    setPickingIconForContext(null);
   };
 
   /* ─── Category Handlers ─── */
@@ -823,57 +834,59 @@ export function PlatformMenuEditor({
   return (
     <div className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
       {/* SELETOR DE ESCOPO: PLATAFORMA (MEMBROS) vs EXECUTIVO (CEO) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-2 rounded-2xl bg-secondary/30 border border-border/70 backdrop-blur-md">
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-background/80 border border-border/60 shadow-xs">
-          <button
-            type="button"
-            onClick={() => setScope("member")}
-            className={cn(
-              "px-3.5 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer",
-              scope === "member"
-                ? "bg-gradient-brand text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-            )}
-          >
-            <Layers className="h-3.5 w-3.5" />
-            <span>Menu Plataforma (Membros)</span>
-            <Badge className={cn("text-[9px] py-0 px-1 font-mono ml-1", scope === "member" ? "bg-white/20 text-white" : "bg-secondary text-foreground")}>
-              {memberConfig.items?.length || DEFAULT_MENU_ITEMS.length}
-            </Badge>
-          </button>
+      {!hideScopeSelector && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-2 rounded-2xl bg-secondary/30 border border-border/70 backdrop-blur-md">
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-background/80 border border-border/60 shadow-xs">
+            <button
+              type="button"
+              onClick={() => setScope("member")}
+              className={cn(
+                "px-3.5 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer",
+                scope === "member"
+                  ? "bg-gradient-brand text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+              )}
+            >
+              <Layers className="h-3.5 w-3.5" />
+              <span>Menu Plataforma (Membros)</span>
+              <Badge className={cn("text-[9px] py-0 px-1 font-mono ml-1", scope === "member" ? "bg-white/20 text-white" : "bg-secondary text-foreground")}>
+                {memberConfig.items?.length || DEFAULT_MENU_ITEMS.length}
+              </Badge>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setScope("ceo")}
-            className={cn(
-              "px-3.5 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer",
-              scope === "ceo"
-                ? "bg-amber-500 text-black shadow-sm font-black"
-                : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-            )}
-          >
-            <Crown className="h-3.5 w-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
-            <span>Menu Executivo (Painel CEO)</span>
-            <Badge className={cn("text-[9px] py-0 px-1 font-mono ml-1", scope === "ceo" ? "bg-black/20 text-black" : "bg-amber-500/10 text-amber-300 border-amber-500/30")}>
-              {ceoConfig.items?.length || DEFAULT_CEO_MENU_ITEMS.length}
-            </Badge>
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => setScope("ceo")}
+              className={cn(
+                "px-3.5 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer",
+                scope === "ceo"
+                  ? "bg-amber-500 text-black shadow-sm font-black"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+              )}
+            >
+              <Crown className="h-3.5 w-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
+              <span>Menu Executivo (Painel CEO)</span>
+              <Badge className={cn("text-[9px] py-0 px-1 font-mono ml-1", scope === "ceo" ? "bg-black/20 text-black" : "bg-amber-500/10 text-amber-300 border-amber-500/30")}>
+                {ceoConfig.items?.length || DEFAULT_CEO_MENU_ITEMS.length}
+              </Badge>
+            </button>
+          </div>
 
-        <div className="flex items-center gap-2">
-          <Badge
-            variant="outline"
-            className={cn(
-              "text-[10px] font-mono font-bold py-1 px-2.5",
-              scope === "ceo"
-                ? "border-amber-500/40 text-amber-400 bg-amber-500/10"
-                : "border-primary/40 text-primary bg-primary/10"
-            )}
-          >
-            {scope === "ceo" ? "👑 Editando Menu CEO" : "👥 Editando Menu Membros"}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge
+              variant="outline"
+              className={cn(
+                "text-[10px] font-mono font-bold py-1 px-2.5",
+                scope === "ceo"
+                  ? "border-amber-500/40 text-amber-400 bg-amber-500/10"
+                  : "border-primary/40 text-primary bg-primary/10"
+              )}
+            >
+              {scope === "ceo" ? "👑 Editando Menu CEO" : "👥 Editando Menu Membros"}
+            </Badge>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Top Banner / Navigation switch */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-card border border-border/60 shadow-sm">

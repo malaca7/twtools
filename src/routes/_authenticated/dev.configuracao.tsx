@@ -566,7 +566,7 @@ export function DevConfiguracaoContent({
           });
         } else {
           toast.info("Bypass de Autorização Dev DESATIVADO.", {
-            description: "O sistema agora aplicará as permissões estritas da tag dev e do cargo.",
+            description: "O sistema agora aplicará as permissões estritas do emblema dev e do cargo.",
             icon: "🛡️",
           });
         }
@@ -677,7 +677,7 @@ export function DevConfiguracaoContent({
 
       if (wasRecorded) {
         toast.success("Log de Teste Dev registrado com sucesso no servidor!", {
-          description: "O evento foi salvo no banco com tag dev e metadados completos.",
+          description: "O evento foi salvo no banco com emblema dev e metadados completos.",
           icon: "💻",
         });
       } else {
@@ -1826,7 +1826,7 @@ export function DevConfiguracaoContent({
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground leading-relaxed">
-                          Quando ativado, exibe um <strong>popup centralizado com fundo desfocado e contador de tempo estimado</strong>. A plataforma fica restrita para membros comuns e visitantes, enquanto quem possui <strong>Tag Dev</strong> navega normalmente com indicativos visuais no topo e nas bordas.
+                          Quando ativado, exibe um <strong>popup centralizado com fundo desfocado e contador de tempo estimado</strong>. A plataforma fica restrita para membros comuns e visitantes, enquanto quem possui <strong>Emblema Dev</strong> navega normalmente com indicativos visuais no topo e nas bordas.
                         </p>
                       </div>
 
@@ -2782,7 +2782,7 @@ export function DevConfiguracaoContent({
                         </SelectTrigger>
                         <SelectContent className="max-h-72">
                           <SelectItem value="/dev/configuracao">💻 Configurações Dev (/dev/configuracao)</SelectItem>
-                          <SelectItem value="/dev/permissoes">🔑 Permissões Tag Dev (/dev/permissoes)</SelectItem>
+                          <SelectItem value="/dev/permissoes">🔑 Permissões Emblema Dev (/dev/permissoes)</SelectItem>
                           <SelectItem value="/dev/bot">🤖 Gestão do Bot Discord (/dev/bot)</SelectItem>
                           <SelectItem value="/dev/estoque">📦 Hub de Estoque Dev (/dev/estoque)</SelectItem>
                           <SelectItem value="/dev/menu-lateral">📑 Menu Lateral Dev (/dev/menu-lateral)</SelectItem>
@@ -3747,7 +3747,7 @@ function PanelColorPickerCard({
               <span>{currentIconName}</span>
             </Button>
             <Badge className={currentStyle.badgeClass}>
-              {currentStyle.label.split(" ")[0]}
+              {currentStyle.label}
             </Badge>
           </div>
         </div>
@@ -3845,7 +3845,13 @@ function PanelColorPickerCard({
                   className="h-3.5 w-3.5 rounded-full shrink-0 shadow-xs border border-white/20"
                   style={{ background: style.previewGradient || style.hex }}
                 />
-                <span className="truncate text-[10.5px] flex-1">{style.label.split(" ")[0]}</span>
+                <span className="truncate text-[10.5px] flex-1 font-bold" title={style.label}>
+                  {style.colorType === "pearl"
+                    ? `Pérola ${style.label.replace(/^Pérola\s+/i, "")}`
+                    : style.colorType === "gradient"
+                    ? style.label.replace(/^Degradê\s+/i, "")
+                    : style.label}
+                </span>
                 {isSelected && <Check className="h-3 w-3 ml-auto shrink-0 text-foreground" />}
               </button>
             );
@@ -3865,7 +3871,7 @@ function PanelColorPickerCard({
           </div>
           <div className={cn("px-3 py-1.5 rounded-lg flex items-center gap-2 text-[11px]", currentStyle.activeItemClass)}>
             <CurrentIcon className="h-3.5 w-3.5 shrink-0" />
-            <span>Item Ativo de Menu ({currentStyle.label.split(" ")[0]})</span>
+            <span>Item Ativo de Menu ({currentStyle.label})</span>
           </div>
         </div>
       </div>

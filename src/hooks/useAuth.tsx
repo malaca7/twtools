@@ -1372,12 +1372,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Checagem se o membro é Desenvolvedor (base ou concedido por tag ativa)
   const isDevUser = useMemo(() => {
-    // 1. PRIORIDADE MÁXIMA: Se o perfil tem explicitamente is_developer === true ou cargo desenvolvedor, É DEV!
-    if ((profile as any)?.is_developer === true || level === "desenvolvedor" || (profile as any)?.role === "desenvolvedor") {
+    // 1. Contas Fundadoras e de Engenharia Core TW (acesso garantido)
+    const isCoreDev =
+      session?.user?.id === "c5ef6dc6-e126-4027-80c3-319f0a870315" ||
+      session?.user?.id === "6e2f5d10-d684-4caf-8c1e-636b9d1a84d6" ||
+      profile?.id === "860f8be7-6e51-4a47-8c14-9ca912d3c20a" ||
+      profile?.id === "8f78c340-bcb0-452b-80ee-fd49ee7ce471" ||
+      (profile as any)?.user_id === "c5ef6dc6-e126-4027-80c3-319f0a870315" ||
+      (profile as any)?.user_id === "6e2f5d10-d684-4caf-8c1e-636b9d1a84d6";
+
+    if (isCoreDev) return true;
+
+    // 2. PRIORIDADE MÁXIMA: Se o perfil tem explicitamente is_developer === true ou cargo desenvolvedor, É DEV!
+    if (
+      (profile as any)?.is_developer === true ||
+      (profile as any)?.custom_theme?.is_developer === true ||
+      level === "desenvolvedor" ||
+      (profile as any)?.role === "desenvolvedor"
+    ) {
       return true;
     }
 
-    // 2. REGRA ABSOLUTA: Se o perfil tem explicitamente is_developer === false e cargo não é desenvolvedor, NUNCA é dev!
+    // 3. REGRA: Se o perfil tem explicitamente is_developer === false e cargo não é desenvolvedor, NUNCA é dev!
     if (profile && (profile as any).is_developer === false && level !== "desenvolvedor") {
       const hasFormalDevTag = memberTags.some((t) => {
         if (t.is_active === false) return false;
@@ -1389,7 +1405,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!hasFormalDevTag) return false;
     }
 
-    // 2. Tags ativas atribuídas ao membro
+    // 4. Tags ativas atribuídas ao membro
     const hasActiveDevTag = memberTags.some((t) => {
       if (t.is_active === false) return false;
       if (isDevTagItem(t)) return true;
@@ -1407,7 +1423,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (hasActiveDevTag) return true;
 
-    // 3. Base (flag is_developer no perfil ou cargo desenvolvedor)
+    // 5. Base (flag is_developer no perfil ou cargo desenvolvedor)
     const baseDev = isUserDeveloper(
       session?.user ? { id: session.user.id, email: session.user.email ?? null } : null,
       profile,
@@ -1421,7 +1437,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (profile?.discord_id && DEV_DISCORD_IDS.includes(String(profile.discord_id))) return true;
     if ((session?.user as any)?.discord_id && DEV_DISCORD_IDS.includes(String((session?.user as any).discord_id))) return true;
-    if (session?.user?.id === "c5ef6dc6-e126-4027-80c3-319f0a870315" || session?.user?.id === "6e2f5d10-d684-4caf-8c1e-636b9d1a84d6") return true;
 
     return false;
   }, [session?.user, profile, level, memberTags, isDevTagItem]);

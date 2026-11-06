@@ -391,10 +391,12 @@ export function CeoGerenciarTagsPage() {
       return (
         cleanId !== "ceo" &&
         cleanName !== "ceo" &&
+        !cleanName.includes("emblema ceo") &&
         cleanId !== "dev" &&
         cleanName !== "dev" &&
         cleanId !== "desenvolvedor" &&
-        cleanName !== "desenvolvedor"
+        cleanName !== "desenvolvedor" &&
+        !cleanName.includes("emblema dev")
       );
     });
   }, [rawTags]);
@@ -1186,8 +1188,18 @@ export function CeoGerenciarTagsPage() {
       return;
     }
 
-    if (cleanId === "ceo" || formName.trim().toLowerCase() === "ceo") {
-      toast.error("A tag CEO não pode ser criada ou modificada por esta página.");
+    const formCleanName = formName.trim().toLowerCase();
+    if (
+      cleanId === "ceo" ||
+      formCleanName === "ceo" ||
+      formCleanName.includes("emblema ceo") ||
+      cleanId === "dev" ||
+      cleanId === "desenvolvedor" ||
+      formCleanName === "dev" ||
+      formCleanName === "desenvolvedor" ||
+      formCleanName.includes("emblema dev")
+    ) {
+      toast.error("Os Emblemas Dev e Emblemas CEO são gerenciados exclusivamente pelo Painel Dev em Permissões.");
       return;
     }
 
@@ -1481,8 +1493,17 @@ export function CeoGerenciarTagsPage() {
     }
     const cleanId = (tag.id || "").toLowerCase().trim();
     const cleanName = (tag.name || "").toLowerCase().trim();
-    if (cleanId === "ceo" || cleanName === "ceo") {
-      toast.error("Não é permitido atribuir a tag CEO por esta página.");
+    if (
+      cleanId === "ceo" ||
+      cleanName === "ceo" ||
+      cleanName.includes("emblema ceo") ||
+      cleanId === "dev" ||
+      cleanId === "desenvolvedor" ||
+      cleanName === "dev" ||
+      cleanName === "desenvolvedor" ||
+      cleanName.includes("emblema dev")
+    ) {
+      toast.error("Não é permitido atribuir o Emblema CEO ou o Emblema Dev por esta página. Acesse Permissões no Painel Dev.");
       return;
     }
     setTagForMembers(tag);
@@ -1564,8 +1585,17 @@ export function CeoGerenciarTagsPage() {
     if (!tagForMembers) return;
     const cleanTagId = (tagForMembers.id || "").toLowerCase().trim();
     const cleanTagName = (tagForMembers.name || "").toLowerCase().trim();
-    if (cleanTagId === "ceo" || cleanTagName === "ceo") {
-      toast.error("Não é permitido atribuir a tag CEO por esta página.");
+    if (
+      cleanTagId === "ceo" ||
+      cleanTagName === "ceo" ||
+      cleanTagName.includes("emblema ceo") ||
+      cleanTagId === "dev" ||
+      cleanTagId === "desenvolvedor" ||
+      cleanTagName === "dev" ||
+      cleanTagName === "desenvolvedor" ||
+      cleanTagName.includes("emblema dev")
+    ) {
+      toast.error("Não é permitido atribuir o Emblema CEO ou o Emblema Dev por esta página.");
       return;
     }
     if (!canAssignTag) {
@@ -1636,8 +1666,17 @@ export function CeoGerenciarTagsPage() {
     if (!tagForMembers) return;
     const cleanTagId = (tagForMembers.id || "").toLowerCase().trim();
     const cleanTagName = (tagForMembers.name || "").toLowerCase().trim();
-    if (cleanTagId === "ceo" || cleanTagName === "ceo") {
-      toast.error("Não é permitido atribuir a tag CEO por esta página.");
+    if (
+      cleanTagId === "ceo" ||
+      cleanTagName === "ceo" ||
+      cleanTagName.includes("emblema ceo") ||
+      cleanTagId === "dev" ||
+      cleanTagId === "desenvolvedor" ||
+      cleanTagName === "dev" ||
+      cleanTagName === "desenvolvedor" ||
+      cleanTagName.includes("emblema dev")
+    ) {
+      toast.error("Não é permitido atribuir o Emblema CEO ou o Emblema Dev por esta página.");
       return;
     }
     if (!canAssignTag) {
@@ -1678,8 +1717,17 @@ export function CeoGerenciarTagsPage() {
     if (!tagForMembers) return;
     const cleanTagId = (tagForMembers.id || "").toLowerCase().trim();
     const cleanTagName = (tagForMembers.name || "").toLowerCase().trim();
-    if (cleanTagId === "ceo" || cleanTagName === "ceo") {
-      toast.error("Não é permitido atribuir a tag CEO por esta página.");
+    if (
+      cleanTagId === "ceo" ||
+      cleanTagName === "ceo" ||
+      cleanTagName.includes("emblema ceo") ||
+      cleanTagId === "dev" ||
+      cleanTagId === "desenvolvedor" ||
+      cleanTagName === "dev" ||
+      cleanTagName === "desenvolvedor" ||
+      cleanTagName.includes("emblema dev")
+    ) {
+      toast.error("Não é permitido atribuir o Emblema CEO ou o Emblema Dev por esta página.");
       return;
     }
     if (!canAssignTag) {

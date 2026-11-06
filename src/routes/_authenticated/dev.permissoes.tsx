@@ -767,7 +767,7 @@ function DevPermissoesContent() {
   // Atribuição de Emblema Dev com verificação e feedback
   const handleToggleDevTag = async (targetMember: any, currentStatus: boolean, memberNameFallback?: string) => {
     if (!isDevUser) {
-      toast.error("Acesso Negado: Apenas membros com a Emblema Dev podem alterar a Emblema Dev.");
+      toast.error("Acesso Negado: Apenas membros com o Emblema Dev podem alterar o Emblema Dev.");
       return;
     }
 
@@ -823,8 +823,8 @@ function DevPermissoesContent() {
 
       toast.success(
         nextStatus
-          ? `Emblema Dev concedida com sucesso para ${memberName}! 💻`
-          : `Emblema Dev revogada de ${memberName}.`,
+          ? `Emblema Dev concedido com sucesso para ${memberName}! 💻`
+          : `Emblema Dev revogado de ${memberName}.`,
         { icon: nextStatus ? "💻" : "🛡️" }
       );
     } catch (err: any) {
@@ -851,7 +851,7 @@ function DevPermissoesContent() {
   // Atribuição de Emblema CEO com verificação e feedback
   const handleToggleCeoTag = async (targetMember: any, currentStatus: boolean, memberNameFallback?: string) => {
     if (!isDevUser) {
-      toast.error("Acesso Negado: Apenas membros com a Emblema Dev podem alterar a Emblema CEO.");
+      toast.error("Acesso Negado: Apenas membros com o Emblema Dev podem alterar o Emblema CEO.");
       return;
     }
 
@@ -910,8 +910,8 @@ function DevPermissoesContent() {
 
       toast.success(
         nextStatus
-          ? `Emblema CEO concedida com sucesso para ${memberName}! 👑`
-          : `Emblema CEO revogada de ${memberName}.`,
+          ? `Emblema CEO concedido com sucesso para ${memberName}! 👑`
+          : `Emblema CEO revogado de ${memberName}.`,
         { icon: nextStatus ? "👑" : "🛡️" }
       );
     } catch (err: any) {
@@ -1138,7 +1138,7 @@ function DevPermissoesContent() {
             }
           >
             <DevIcon className="h-4 w-4" style={{ color: activeTab === "dev" ? devStyle.primaryHex : undefined }} />
-            Emblema Desenvolvedor
+            Emblema Dev
             <Badge
               variant="outline"
               className="text-[9px] font-mono py-0 px-1.5 ml-1 font-bold"
@@ -2349,8 +2349,8 @@ function DevPermissoesContent() {
                       <CeoBadge size="xs" />
                     </CardTitle>
                     <CardDescription className="text-xs mt-1">
-                      A Emblema CEO concede distinção executiva com emblema oficial em perfis, chat e lista de membros.
-                      Toda a matriz de permissões abaixo se soma ao cargo do membro, e <strong>apenas Desenvolvedores com a Emblema Dev têm o poder de atribuir ou revogar a Emblema CEO</strong>.
+                      O Emblema CEO concede distinção executiva com emblema oficial em perfis, chat e lista de membros.
+                      Toda a matriz de permissões abaixo se soma ao cargo do membro, e <strong>apenas Desenvolvedores com o Emblema Dev têm o poder de atribuir ou revogar o Emblema CEO</strong>.
                     </CardDescription>
                   </div>
                 </div>

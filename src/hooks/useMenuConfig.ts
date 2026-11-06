@@ -65,6 +65,19 @@ export const DEFAULT_MENU_CATEGORIES = [
   "Administração",
 ];
 
+export const DEFAULT_MENU_CATEGORY_ICONS: Record<string, string> = {
+  "Twin Wheels": "Crown",
+  "Eu": "User",
+  "Logística": "Boxes",
+  "Moderação": "ShieldAlert",
+  "Financeiro": "Landmark",
+  "Administração": "ShieldCheck",
+  "Gestão": "Shield",
+  "Produção": "Factory",
+  "Produções": "Factory",
+  "Operação": "Activity",
+};
+
 export const DEFAULT_MENU_DELETED_ITEM_IDS = [
   "estoque",
   "ceo-selos",
@@ -304,10 +317,10 @@ export function syncMenuConfig(raw: Partial<MenuConfig> | null | undefined): Men
 
   const finalCategories = categories.length > 0 ? categories : [...DEFAULT_MENU_CATEGORIES];
 
-  const categoryIcons: Record<string, string> =
-    raw?.categoryIcons && typeof raw.categoryIcons === "object"
-      ? { ...raw.categoryIcons }
-      : {};
+  const categoryIcons: Record<string, string> = {
+    ...DEFAULT_MENU_CATEGORY_ICONS,
+    ...(raw?.categoryIcons && typeof raw.categoryIcons === "object" ? raw.categoryIcons : {}),
+  };
 
   return {
     categories: finalCategories,

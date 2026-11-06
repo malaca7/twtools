@@ -181,7 +181,7 @@ export function CeoPageContent({ initialTab }: { initialTab?: string } = {}) {
     <div className="mx-auto max-w-7xl space-y-6 pb-14 animate-in fade-in-50 duration-300">
       {/* HEADER EXECUTIVO CEO */}
       <PageHeader
-        title="Painel Executivo — Tag CEO"
+        title="Painel Executivo — Emblema CEO"
         description="Centro de comando da diretoria da Twin Wheels. Gerenciamento do bot, webhooks do Discord, fundo de caixa e operações estratégicas."
         actions={
           <div className="flex items-center gap-2">
