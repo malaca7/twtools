@@ -35,8 +35,7 @@ export const DEFAULT_DEV_MENU_ITEMS: DevMenuItemConfig[] = [
   { id: "dev-permissoes", title: "Permissões (Paineis)", url: "/dev/permissoes", iconName: "KeyRound", visible: true, category: "Dev Tools", order: 4 },
   { id: "dev-coins", title: "Gestão de TW Coins", url: "/dev/coins", iconName: "Coins", visible: true, category: "Dev Gestão", order: 5 },
   { id: "dev-loja", title: "Gestão da Loja", url: "/dev/gestaoloja", iconName: "ShoppingBag", visible: true, category: "Dev Gestão", order: 6 },
-  { id: "dev-notificacoes", title: "Central de Notificações", url: "/dev/notificacoes", iconName: "BellRing", visible: true, category: "Dev Gestão", order: 7 },
-  { id: "dev-advertencias", title: "Advertências & Suspensões", url: "/dev/advertencias", iconName: "ShieldAlert", visible: true, category: "Dev Gestão", order: 8 },
+  { id: "dev-advertencias", title: "Advertências & Suspensões", url: "/dev/advertencias", iconName: "ShieldAlert", visible: true, category: "Dev Gestão", order: 7 },
   { id: "dev-loja-oficial", title: "Loja", url: "/dev/loja", iconName: "Store", visible: false, category: "Dev Gestão", order: 9 },
   { id: "dev-menu-lateral", title: "Menu Lateral (Paineis)", url: "/dev/menu-lateral", iconName: "Sliders", visible: true, category: "Dev Tools", order: 10 },
   { id: "dev-patch-notes", title: "Patch Notes", url: "/dev/patch-notes", iconName: "Sparkles", visible: false, category: "Dev Tools", order: 11 },
@@ -97,7 +96,13 @@ export function normalizeDevMenuConfig(cfg: DevMenuConfig): DevMenuConfig {
 
   const defaultIds = new Set(DEFAULT_DEV_MENU_ITEMS.map((d) => d.id));
   const rawItems = (Array.isArray(cfg.items) ? cfg.items : []).filter(
-    (i: any) => i && i.id !== "dev-hub" && i.url !== "/dev"
+    (i: any) =>
+      i &&
+      i.id !== "dev-hub" &&
+      i.url !== "/dev" &&
+      i.id !== "dev-notificacoes" &&
+      i.url !== "/dev/notificacoes" &&
+      !i.url?.includes("/notificacoes")
   );
   const savedMap = new Map<string, DevMenuItemConfig>();
   rawItems.forEach((i: any) => {
@@ -144,7 +149,16 @@ export function normalizeDevMenuConfig(cfg: DevMenuConfig): DevMenuConfig {
 
   // Preserva itens customizados adicionados pelo usuário
   const customItems: DevMenuItemConfig[] = rawItems
-    .filter((i: any) => i && typeof i === "object" && i.id && !defaultIds.has(i.id))
+    .filter(
+      (i: any) =>
+        i &&
+        typeof i === "object" &&
+        i.id &&
+        !defaultIds.has(i.id) &&
+        i.id !== "dev-notificacoes" &&
+        i.url !== "/dev/notificacoes" &&
+        !i.url?.includes("/notificacoes")
+    )
     .map((i: any, idx: number) => {
       let itemCat =
         i.category && typeof i.category === "string" && i.category.trim().length > 0

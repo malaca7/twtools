@@ -196,7 +196,7 @@ function SolicitarSeloPageWrapper() {
 function SolicitarSeloContent() {
   const { user, profile, level, hasPermission } = useAuth();
   const { data: config, isLoading: loadingConfig } = useVerificationConfig();
-  const { data: myRequest, isLoading: loadingMyReq } = useMyVerificationRequest();
+  const { data: myRequest, isLoading: loadingMyReq } = useMyVerificationRequest(user?.id);
   const { submitRequestMutation, cancelRequestMutation } = useVerificationMutations();
 
   const badgeColor = config?.badge_color || "#38bdf8";
@@ -273,6 +273,7 @@ function SolicitarSeloContent() {
 
     try {
       await submitRequestMutation.mutateAsync({
+        userId: user?.id,
         reason: reason.trim(),
         document_url: documentUrl.trim() || null,
         extra_data: {

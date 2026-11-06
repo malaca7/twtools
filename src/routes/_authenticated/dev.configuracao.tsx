@@ -2676,7 +2676,6 @@ export function DevConfiguracaoContent({
                             "/ceo/ajustes-estoque",
                             "/ceo/bot",
                             "/ceo/webhooks",
-                            "/ceo/notificacoes",
                             "/dashboard",
                           ].includes(platformForm.startPageCeo || "/ceo/dashboard")
                             ? platformForm.startPageCeo || "/ceo/dashboard"
@@ -2699,7 +2698,6 @@ export function DevConfiguracaoContent({
                           <SelectItem value="/ceo/ajustes-estoque">⚖️ Ajustes de Estoque (/ceo/ajustes-estoque)</SelectItem>
                           <SelectItem value="/ceo/bot">🤖 Gerenciar Bot Discord (/ceo/bot)</SelectItem>
                           <SelectItem value="/ceo/webhooks">🔗 WebHooks Discord (/ceo/webhooks)</SelectItem>
-                          <SelectItem value="/ceo/notificacoes">🔔 Central de Notificações CEO (/ceo/notificacoes)</SelectItem>
                           <SelectItem value="/dashboard">📊 Dashboard Geral (/dashboard)</SelectItem>
                           <SelectItem value="custom">✏️ Outra rota personalizada...</SelectItem>
                         </SelectContent>
@@ -2764,7 +2762,6 @@ export function DevConfiguracaoContent({
                             "/dev/menu-lateral",
                             "/dev/patch-notes",
                             "/dev/desempenho",
-                            "/dev/notificacoes",
                             "/dev",
                           ].includes(platformForm.startPageDev || "/dev/configuracao")
                             ? platformForm.startPageDev || "/dev/configuracao"
@@ -2788,7 +2785,6 @@ export function DevConfiguracaoContent({
                           <SelectItem value="/dev/menu-lateral">📑 Menu Lateral Dev (/dev/menu-lateral)</SelectItem>
                           <SelectItem value="/dev/patch-notes">✨ Patch Notes & Releases (/dev/patch-notes)</SelectItem>
                           <SelectItem value="/dev/desempenho">📈 Gestão de Desempenho (/dev/desempenho)</SelectItem>
-                          <SelectItem value="/dev/notificacoes">🔔 Central de Notificações Dev (/dev/notificacoes)</SelectItem>
                           <SelectItem value="/dev">⚡ Hub Desenvolvedor (/dev)</SelectItem>
                           <SelectItem value="custom">✏️ Outra rota personalizada...</SelectItem>
                         </SelectContent>

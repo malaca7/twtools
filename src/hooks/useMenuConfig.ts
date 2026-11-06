@@ -97,8 +97,7 @@ export const DEFAULT_MENU_DELETED_ITEM_IDS = [
 
 export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
   { id: "perfil", title: "Meu Perfil", url: "/perfil", visible: true, category: "Eu", order: 0, iconName: "User" },
-  { id: "notificacoes", title: "Notificações", url: "/notificacoes", visible: true, category: "Eu", order: 1, iconName: "Bell" },
-  { id: "desempenho", title: "Meu Desempenho", url: "/desempenho", visible: true, category: "Eu", order: 2, iconName: "User" },
+  { id: "desempenho", title: "Meu Desempenho", url: "/desempenho", visible: true, category: "Eu", order: 1, iconName: "User" },
   { id: "solicitar-selo", title: "Solicitar Verificação", url: "/solicitar-selo", visible: true, category: "Eu", order: 3, iconName: "BadgeCheck" },
   { id: "ceo-selos", title: "Gerenciar Selos", url: "/ceo/selos", visible: true, category: "Eu", order: 4, iconName: "BadgeCheck" },
   { id: "loja", title: "Loja Twin Wheels", url: "/loja", visible: false, category: "Eu", order: 5, iconName: "ShoppingBag" },
@@ -227,6 +226,9 @@ export function syncMenuConfig(raw: Partial<MenuConfig> | null | undefined): Men
     savedItems.forEach((saved) => {
       if (!saved || !saved.id || processedIds.has(saved.id) || deletedSet.has(saved.id)) return;
       if (
+        saved.id === "notificacoes" ||
+        saved.url === "/notificacoes" ||
+        saved.url?.includes("/notificacoes") ||
         saved.id === "chat" ||
         saved.id === "logs" ||
         saved.id === "life" ||

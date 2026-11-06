@@ -134,7 +134,6 @@ import { SuspensionAlertBanner } from "@/components/warnings/SuspensionAlertBann
 import { PlatformLockedScreen } from "@/components/warnings/PlatformLockedScreen";
 import { DevToolsMenu } from "@/components/dev/DevToolsMenu";
 import { DevMaintenanceTopBanner } from "@/components/maintenance/DevMaintenanceTopBanner";
-import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { useMyMemberTags } from "@/hooks/useMemberTags";
 import { MemberTagBadge } from "@/components/ui/MemberTagBadge";
 import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
@@ -227,7 +226,6 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/perfil/advertencias": "view_profile",
   "/perfil/disciplinar": "view_profile",
   "/configuracoes": "manage_platform_settings",
-  "/dev/notificacoes": "view_dev_notifications",
   "/dev/gestao-estoque": "view_stock_management",
   "/dev/producoes/produzir": "productions.view",
   "/dev/producoes/materias-primas": "raw_materials.view",
@@ -242,7 +240,6 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/ceo/webhooks": "manage_ceo_webhooks",
   "/ceo/financas": "view_ceo_financials",
   "/ceo/financeiro": "view_ceo_financials",
-  "/ceo/notificacoes": "view_ceo_notifications",
   "/ceo/ajustes-estoque": "view_ceo_stock_adjustments",
   "/ceo/membros": "view_members",
   "/ceo/cargos": "manage_roles",
@@ -267,7 +264,6 @@ const URL_TO_PERMISSION_MAP: Record<string, Permission> = {
   "/dev/ceo/webhooks": "manage_ceo_webhooks",
   "/dev/ceo/financas": "view_ceo_financials",
   "/dev/ceo/ajustes-estoque": "view_ceo_stock_adjustments",
-  "/dev/ceo/notificacoes": "view_ceo_notifications",
   "/dev/ceo/tags": "view_ceo_tag_permissions",
   "/dev/ceo/selos": "verification.manage",
   "/dev/ceo/advertencias": "view_ceo_warnings",
@@ -296,7 +292,6 @@ const DEV_MODULE_NAV_ITEMS: BaseNavItem[] = [
   { id: "dev-permissoes", title: "Permissões (Paineis)", url: "/dev/permissoes", icon: KeyRound, defaultCat: "Dev Tools", defaultOrder: 4 },
   { id: "dev-coins", title: "Gestão de TW Coins", url: "/dev/coins", icon: Coins, defaultCat: "Dev Gestão", defaultOrder: 5 },
   { id: "dev-loja", title: "Gestão da Loja", url: "/dev/gestaoloja", icon: ShoppingBag, defaultCat: "Dev Gestão", defaultOrder: 6 },
-  { id: "dev-notificacoes", title: "Central de Notificações", url: "/dev/notificacoes", icon: BellRing, defaultCat: "Dev Gestão", defaultOrder: 7 },
   { id: "dev-advertencias", title: "Advertências & Suspensões", url: "/dev/advertencias", icon: ShieldAlert, defaultCat: "Dev Gestão", defaultOrder: 8 },
   { id: "dev-menu-lateral", title: "Menu Lateral (Paineis)", url: "/dev/menu-lateral", icon: Sliders, defaultCat: "Dev Tools", defaultOrder: 10 },
   { id: "dev-patch-notes", title: "Patch Notes & Releases", url: "/dev/patch-notes", icon: Sparkles, defaultCat: "Dev Tools", defaultOrder: 11 },
@@ -309,7 +304,6 @@ const CEO_MODULE_NAV_ITEMS: BaseNavItem[] = [
   { id: "ceo-webhooks", title: "WebHook Discord", url: "/ceo/webhooks", icon: Webhook, defaultCat: "CEO", defaultOrder: 2 },
   { id: "ceo-financas", title: "Fundo de Caixa & Finanças", url: "/ceo/financas", icon: Landmark, defaultCat: "CEO", defaultOrder: 3 },
   { id: "ceo-ajustes-estoque", title: "Ajustes de Estoque", url: "/ceo/ajustes-estoque", icon: Sliders, defaultCat: "CEO", defaultOrder: 4 },
-  { id: "ceo-notificacoes", title: "Central de Notificações", url: "/ceo/notificacoes", icon: BellRing, defaultCat: "CEO", defaultOrder: 5 },
   { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", icon: Tags, defaultCat: "CEO", defaultOrder: 6 },
   { id: "ceo-selos", title: "Gerenciar Selos", url: "/ceo/selos", icon: BadgeCheck, defaultCat: "CEO", defaultOrder: 7 },
   { id: "ceo-advertencias", title: "Advertências & Suspensões", url: "/ceo/advertencias", icon: ShieldAlert, defaultCat: "CEO", defaultOrder: 8 },
@@ -750,7 +744,7 @@ function DynamicSidebarNavigation() {
             if (item.id === "ceo-webhooks" && (!hasPermission("manage_ceo_webhooks", targetRole) || ceoConfig.allowWebhooks === false)) return false;
             if (item.id === "ceo-financas" && (!hasPermission("view_ceo_financials", targetRole) || ceoConfig.allowFinancials === false)) return false;
             if (item.id === "ceo-ajustes-estoque" && !hasPermission("view_ceo_stock_adjustments", targetRole)) return false;
-            if (item.id === "ceo-notificacoes" && !hasPermission("view_ceo_notifications", targetRole)) return false;
+            if (item.id === "ceo-notificacoes" || item.id === "notificacoes" || item.url?.includes("/notificacoes")) return false;
             if (item.id === "ceo-tags" && !hasPermission("view_ceo_tag_permissions", targetRole)) return false;
             if (item.id === "ceo-selos" || item.url === "/ceo/selos" || item.url === "/dev/ceo/selos") {
               if (!hasPermission("verification.manage", targetRole)) {
@@ -852,6 +846,7 @@ function DynamicSidebarNavigation() {
       const allDevItems = [...customizedDev, ...customDevItems];
       const visibleDev = allDevItems.filter((item) => {
         if (!item.visible) return false;
+        if (item.id === "dev-notificacoes" || item.id === "notificacoes" || item.url?.includes("/notificacoes")) return false;
         // No painel DEV, todos os menus e módulos nativos do painel dev (rotas /dev/*) aparecem para o usuário dev
         if (item.url.startsWith("/dev")) return true;
         const reqPerm = item.perm || resolveRequiredPermission(item.id, item.url);
@@ -898,6 +893,7 @@ function DynamicSidebarNavigation() {
       const visibleDevPlatform = allPlatformItems
         .filter((item) => {
           if (item.url.startsWith("/dev") || item.url.startsWith("/ceo")) return false;
+          if (item.id === "notificacoes" || item.id === "dev-notificacoes" || item.id === "ceo-notificacoes" || item.url?.includes("/notificacoes")) return false;
           if (!item.visible) return false;
           if (item.id === "solicitar-selo" || item.url === "/solicitar-selo") {
             if (profile?.is_verified) return false;
@@ -958,6 +954,7 @@ function DynamicSidebarNavigation() {
       const visibleCeoPlatform = allPlatformItems
         .filter((item) => {
           if (item.url.startsWith("/dev") || item.url.startsWith("/ceo")) return false;
+          if (item.id === "notificacoes" || item.id === "dev-notificacoes" || item.id === "ceo-notificacoes" || item.url?.includes("/notificacoes")) return false;
           if (!item.visible) return false;
           if (item.id === "solicitar-selo" || item.url === "/solicitar-selo") {
             if (profile?.is_verified) return false;
@@ -1014,6 +1011,7 @@ function DynamicSidebarNavigation() {
     const visibleMember = allPlatformItems.filter((item) => {
       // 1. Nunca exibir links de dev ou de ceo no painel plataforma
       if (item.url.startsWith("/dev") || item.url.startsWith("/ceo")) return false;
+      if (item.id === "notificacoes" || item.id === "dev-notificacoes" || item.id === "ceo-notificacoes" || item.url?.includes("/notificacoes")) return false;
       // 2. Se foi desmarcado/ocultado na configuração do menu
       if (!item.visible) return false;
       // 3. Verifica estritamente a permissão exigida pelo item do menu no cargo do membro
@@ -1552,9 +1550,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 
               {/* DEV TOOLS (VISÍVEL APENAS PARA DEVS) */}
               <DevToolsMenu />
-
-              {/* CENTRAL DE NOTIFICAÇÕES EM TEMPO REAL */}
-              <NotificationCenter />
 
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>

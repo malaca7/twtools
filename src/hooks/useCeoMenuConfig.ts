@@ -51,7 +51,6 @@ export const CEO_SYSTEM_MODULES = [
   { id: "ceo-ajustes-estoque", title: "Ajustes de Estoque", url: "/ceo/ajustes-estoque", defaultCat: "CEO", iconName: "Sliders", description: "Ajustes administrativos manuais de quantidades em baús" },
   { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", defaultCat: "CEO", iconName: "Tags", description: "Criação, cores, ícones e vinculação de tags da facção" },
   { id: "ceo-selos", title: "Gerenciar Selos", url: "/ceo/selos", defaultCat: "CEO", iconName: "BadgeCheck", description: "Painel de gestão, análise de pedidos e aprovação de Selos de Verificação" },
-  { id: "ceo-notificacoes", title: "Central de Notificações", url: "/ceo/notificacoes", defaultCat: "CEO", iconName: "BellRing", description: "Disparo e broadcast de notificações e avisos em massa" },
   { id: "ceo-advertencias", title: "Advertências & Suspensões", url: "/ceo/advertencias", defaultCat: "CEO", iconName: "ShieldAlert", description: "Auditoria e gestão de punições, advertências e suspensões" },
 ];
 
@@ -108,6 +107,7 @@ export function sanitizeCeoConfig(parsed: any): CeoMenuConfig {
   const deletedIds = new Set<string>([
     ...(Array.isArray(parsed?.deletedItemIds) ? parsed.deletedItemIds : []),
     ...DEFAULT_CEO_DELETED_ITEM_IDS,
+    "ceo-notificacoes",
   ]);
 
   const defaultIds = new Set(DEFAULT_CEO_MENU_ITEMS.map((d) => d.id));
@@ -117,6 +117,7 @@ export function sanitizeCeoConfig(parsed: any): CeoMenuConfig {
   const savedMap = new Map<string, CeoMenuItemConfig>();
   rawItems.forEach((i: any) => {
     if (i && typeof i === "object" && i.id) {
+      if (i.id === "ceo-notificacoes" || i.url === "/ceo/notificacoes" || i.url?.includes("/notificacoes")) return;
       savedMap.set(i.id, i);
     }
   });
@@ -156,6 +157,9 @@ export function sanitizeCeoConfig(parsed: any): CeoMenuConfig {
   const customItems: CeoMenuItemConfig[] = rawItems
     .filter((i: any) => {
       if (!i || typeof i !== "object" || !i.id || defaultIds.has(i.id) || deletedIds.has(i.id)) {
+        return false;
+      }
+      if (i.id === "ceo-notificacoes" || i.url === "/ceo/notificacoes" || i.url?.includes("/notificacoes")) {
         return false;
       }
       // Se for um item customizado duplicado de Gerenciar Selos, descarta em favor do módulo do sistema

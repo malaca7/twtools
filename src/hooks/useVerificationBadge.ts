@@ -121,7 +121,7 @@ export function useVerificationRequests(statusFilter?: string) {
 /**
  * Hook para obter a solicitação ativa do membro logado
  */
-export function useMyVerificationRequest() {
+export function useMyVerificationRequest(targetUserId?: string) {
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -135,8 +135,8 @@ export function useMyVerificationRequest() {
   }, [queryClient]);
 
   return useQuery<VerificationRequest | null>({
-    queryKey: VERIFICATION_KEYS.myRequest,
-    queryFn: fetchMyVerificationRequest,
+    queryKey: [...VERIFICATION_KEYS.myRequest, targetUserId || "me"],
+    queryFn: () => fetchMyVerificationRequest(targetUserId),
     staleTime: 1000 * 30,
   });
 }
@@ -222,7 +222,7 @@ export function useVerificationMutations() {
   });
 
   const submitRequestMutation = useMutation({
-    mutationFn: (params: { reason: string; document_url?: string | null; extra_data?: Record<string, any> }) =>
+    mutationFn: (params: { userId?: string; reason: string; document_url?: string | null; extra_data?: Record<string, any> }) =>
       submitVerificationRequest(params),
     onSuccess: () => {
       toast.success("Solicitação enviada com sucesso! Aguarde a análise da liderança.", {

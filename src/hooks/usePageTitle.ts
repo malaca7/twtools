@@ -54,7 +54,6 @@ const ROUTE_TITLE_MAP: Record<string, string> = {
   "/ceo/webhooks": "CEO · Webhooks Discord",
   "/ceo/financas": "CEO · Finanças & Cofre",
   "/ceo/ajustes-estoque": "CEO · Ajustes de Estoque",
-  "/ceo/notificacoes": "CEO · Central de Notificações",
 
   // Painel Dev
   "/dev": "Dev · Dashboard Técnico",
@@ -67,7 +66,6 @@ const ROUTE_TITLE_MAP: Record<string, string> = {
   "/dev/permissoes": "Dev · Permissões (Painéis)",
   "/dev/configuracao": "Dev · Configurações Dev",
   "/dev/menu-lateral": "Dev · Personalização de Menus",
-  "/dev/notificacoes": "Dev · Central de Notificações",
 };
 
 // Mapeamento de abas conhecidas para nomes formatados

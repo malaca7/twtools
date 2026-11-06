@@ -328,19 +328,21 @@ export async function fetchVerificationRequests(statusFilter?: string): Promise<
 /**
  * Busca a solicitação ativa/recente do membro logado
  */
-export async function fetchMyVerificationRequest(): Promise<VerificationRequest | null> {
-  let userId: string | null = null;
-  const { data: { user } } = await supabase.auth.getUser();
-  if (user) {
-    userId = user.id;
-  } else if (typeof window !== "undefined") {
-    try {
-      const sim = sessionStorage.getItem("tw_dev_impersonate") || localStorage.getItem("tw_dev_impersonate");
-      if (sim) {
-        const parsed = JSON.parse(sim);
-        userId = parsed.user_id || parsed.id;
-      }
-    } catch {}
+export async function fetchMyVerificationRequest(targetUserId?: string): Promise<VerificationRequest | null> {
+  let userId: string | null = targetUserId || null;
+  if (!userId) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      userId = user.id;
+    } else if (typeof window !== "undefined") {
+      try {
+        const sim = sessionStorage.getItem("tw_dev_impersonate") || localStorage.getItem("tw_dev_impersonate");
+        if (sim) {
+          const parsed = JSON.parse(sim);
+          userId = parsed.user_id || parsed.id;
+        }
+      } catch {}
+    }
   }
 
   if (!userId) return null;
@@ -374,22 +376,25 @@ export async function fetchMyVerificationRequest(): Promise<VerificationRequest 
  * Envia uma solicitação de verificação
  */
 export async function submitVerificationRequest(params: {
+  userId?: string;
   reason: string;
   document_url?: string | null;
   extra_data?: Record<string, any>;
 }): Promise<{ success: boolean; request_id: string }> {
-  let userId: string | null = null;
-  const { data: { user } } = await supabase.auth.getUser();
-  if (user) {
-    userId = user.id;
-  } else if (typeof window !== "undefined") {
-    try {
-      const sim = sessionStorage.getItem("tw_dev_impersonate") || localStorage.getItem("tw_dev_impersonate");
-      if (sim) {
-        const parsed = JSON.parse(sim);
-        userId = parsed.user_id || parsed.id;
-      }
-    } catch {}
+  let userId: string | null = params.userId || null;
+  if (!userId) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      userId = user.id;
+    } else if (typeof window !== "undefined") {
+      try {
+        const sim = sessionStorage.getItem("tw_dev_impersonate") || localStorage.getItem("tw_dev_impersonate");
+        if (sim) {
+          const parsed = JSON.parse(sim);
+          userId = parsed.user_id || parsed.id;
+        }
+      } catch {}
+    }
   }
 
   if (!userId) {
@@ -442,13 +447,20 @@ export async function submitVerificationRequest(params: {
   };
 
   try {
-    await supabase.from("verification_requests" as any).insert(requestPayload as any);
-  } catch {}
+    const { error: sbError } = await supabase.from("verification_requests" as any).insert(requestPayload as any);
+    if (sbError) {
+      console.warn("Aviso ao salvar solicitação no Supabase:", sbError.message);
+    }
+  } catch (err) {
+    console.warn("Erro ao inserir solicitação no Supabase:", err);
+  }
 
   try {
     const { rtdb } = await import("@/integrations/firebase/rtdb");
     await rtdb.set(`verification_requests/${requestId}`, requestPayload);
-  } catch {}
+  } catch (err) {
+    console.warn("Erro ao inserir solicitação no RTDB:", err);
+  }
 
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("tw_verifications_updated"));

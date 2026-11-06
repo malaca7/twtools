@@ -30,10 +30,7 @@ import { PerfilPage } from "@/routes/_authenticated/perfil";
 import { PublicProfilePage } from "@/components/profile/PublicProfilePage";
 import { ConfiguracoesPage } from "@/routes/_authenticated/configuracoes";
 import { CeoPageContent } from "@/routes/_authenticated/ceo";
-import { MemberNotificationsPage } from "@/routes/_authenticated/notificacoes";
-import { CeoNotificationsPage } from "@/routes/_authenticated/ceo.notificacoes";
 import { CeoAjustesEstoqueContent } from "@/routes/_authenticated/ceo.ajustes-estoque";
-import { DevNotificationsPage } from "@/routes/_authenticated/dev.notificacoes";
 import { DevBotPageContent } from "@/routes/_authenticated/dev.bot";
 import { DevEstoquePageContent } from "@/routes/_authenticated/dev.estoque";
 import { GestaoEstoquePage } from "@/routes/_authenticated/gestao-estoque";
@@ -97,7 +94,6 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
   atualizacoes: "view_patch_notes",
   perfil: "view_profile",
   configuracoes: "manage_platform_settings",
-  notificacoes: "view_notifications",
   life: "view_life",
 
   // Módulos CEO
@@ -108,7 +104,6 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
   "ajustes-estoque": "view_ceo_stock_adjustments",
   "ceo-ajustes-estoque": "view_ceo_stock_adjustments",
   "estoque-ajustes": "view_ceo_stock_adjustments",
-  "ceo-notificacoes": "view_ceo_notifications",
   "permissoes-tags": "view_ceo_tag_permissions",
   "ceo-permissoes-tags": "view_ceo_tag_permissions",
   tags: "view_ceo_tag_permissions",
@@ -123,7 +118,6 @@ const PAGE_PERMISSION_MAP: Record<string, Permission | null> = {
   "gerenciar-selos": "verification.manage",
 
   // Módulos DEV
-  "dev-notificacoes": "view_dev_notifications",
   "dev-tags": "view_dev_tags",
   "dev-gerenciar-tags": "view_dev_tags",
 };
@@ -180,10 +174,7 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       return <CeoAjustesEstoqueContent />;
     }
     if (sub === "notificacoes" || sub === "ceo-notificacoes") {
-      if (!hasPermission("view_ceo_notifications", mode)) {
-        return <NoAccess message="Você não possui permissão para acessar as Notificações do Emblema CEO." />;
-      }
-      return <CeoNotificationsPage />;
+      return <Navigate to="/ceo/dashboard" replace />;
     }
     if (
       sub === "tags" ||
@@ -233,7 +224,7 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       return <CeoAjustesEstoqueContent />;
     }
     if (normalizedPage === "notificacoes" || normalizedPage === "ceo-notificacoes") {
-      return <CeoNotificationsPage />;
+      return <Navigate to="/ceo/dashboard" replace />;
     }
     if (
       normalizedPage === "tags" ||
@@ -264,7 +255,7 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
       return <DevEstoquePageContent initialTab={effectiveTab} />;
     }
     if (normalizedPage === "notificacoes" || normalizedPage === "dev-notificacoes") {
-      return <DevNotificationsPage />;
+      return <Navigate to="/dev/configuracao" replace />;
     }
     if (
       normalizedPage === "xp-insignias" ||
@@ -509,7 +500,7 @@ function InnerPageResolver({ page, tab, mode }: { page: string; tab?: string; mo
     case "configuracoes":
       return <ConfiguracoesPage />;
     case "notificacoes":
-      return <MemberNotificationsPage />;
+      return <Navigate to="/dashboard" replace />;
     case "life":
       return <LifePage />;
     case "advertencias":

@@ -811,7 +811,6 @@ export function CeoGerenciarTagsPage() {
       "view_products",
       "view_profile",
       "view_chat",
-      "view_notifications",
     ].filter((p) => allPlatformPermissions.includes(p as Permission)) as Permission[];
   }, [allPlatformPermissions]);
 

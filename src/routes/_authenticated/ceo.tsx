@@ -37,7 +37,6 @@ import { useUrlTab } from "@/hooks/useUrlTab";
 import { CeoGuard } from "@/guards/CeoGuard";
 import { DevBotManageCard } from "@/components/dev/DevBotManageCard";
 import { DevWebhooksConfigCard } from "@/components/dev/DevWebhooksConfigCard";
-import { CeoNotificationsManager } from "@/components/notifications/CeoNotificationsManager";
 import {
   getCeoConfiguration,
   type CeoConfiguration,
