@@ -1,5 +1,5 @@
 {
-  "deployed_at": "2026-11-06T20:43:48.662Z",
-  "timestamp": 1793997828663,
-  "message": "fix(sync,auth): sincronizar menu lateral, unificar visualizacao dev/ceo e garantir permissoes de emblemas para membro dev"
+  "deployed_at": "2026-11-06T21:57:08.500Z",
+  "timestamp": 1794002228500,
+  "message": "feat: correcao completa do sistema de selos e remocao total de notificacoes do painel"
 }
