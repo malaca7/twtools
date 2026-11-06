@@ -1,6 +1,6 @@
 import { rtdb } from "@/integrations/firebase/rtdb";
 import { useEffect, useCallback, useMemo, useSyncExternalStore } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
 import { broadcastPermissionsRealtimeUpdate } from "@/lib/permissionsRealtimeSync";
 
 export type CeoMenuItemConfig = {
@@ -21,18 +21,26 @@ export type CeoMenuConfig = {
   deletedItemIds?: string[];
 };
 
-export const DEFAULT_CEO_CATEGORIES = ["CEO"];
+export const DEFAULT_CEO_CATEGORIES = ["CEO Tools", "CEO Access"];
+
+export const DEFAULT_CEO_CATEGORY_ICONS: Record<string, string> = {
+  "CEO Tools": "Wrench",
+  "CEO Access": "Cpu",
+};
+
+export const DEFAULT_CEO_DELETED_ITEM_IDS = [
+  "ceo-bot",
+  "ceo-webhooks",
+  "ceo-financas",
+  "ceo-notificacoes",
+];
 
 export const DEFAULT_CEO_MENU_ITEMS: CeoMenuItemConfig[] = [
-  { id: "ceo-dashboard", title: "Visão Geral & Métricas", url: "/ceo/dashboard", iconName: "LayoutDashboard", visible: true, category: "CEO", order: 0 },
-  { id: "ceo-bot", title: "Gerenciar Bot", url: "/ceo/bot", iconName: "Bot", visible: true, category: "CEO", order: 1 },
-  { id: "ceo-webhooks", title: "WebHook Discord", url: "/ceo/webhooks", iconName: "Webhook", visible: true, category: "CEO", order: 2 },
-  { id: "ceo-financas", title: "Fundo de Caixa & Finanças", url: "/ceo/financas", iconName: "Landmark", visible: false, category: "CEO", order: 3 },
-  { id: "ceo-ajustes-estoque", title: "Ajustes de Estoque", url: "/ceo/ajustes-estoque", iconName: "Sliders", visible: true, category: "CEO", order: 4 },
-  { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", iconName: "Tags", visible: true, category: "CEO", order: 5 },
-  { id: "ceo-selos", title: "Gerenciar Selos", url: "/ceo/selos", iconName: "BadgeCheck", visible: true, category: "CEO", order: 6 },
-  { id: "ceo-notificacoes", title: "Central de Notificações", url: "/ceo/notificacoes", iconName: "BellRing", visible: true, category: "CEO", order: 7 },
-  { id: "ceo-advertencias", title: "Advertências & Suspensões", url: "/ceo/advertencias", iconName: "ShieldAlert", visible: true, category: "CEO", order: 8 },
+  { id: "ceo-tags", title: "Gerenciar Tags", url: "/ceo/tags", iconName: "Tag", visible: true, category: "CEO Tools", order: 0 },
+  { id: "ceo-selos", title: "Gerenciar Selos", url: "/ceo/selos", iconName: "ShieldCheck", visible: true, category: "CEO Tools", order: 1 },
+  { id: "ceo-ajustes-estoque", title: "Ajustes de Estoque", url: "/ceo/ajustes-estoque", iconName: "PackageCheck", visible: true, category: "CEO Tools", order: 2 },
+  { id: "ceo-dashboard", title: "Visão Geral & Métricas", url: "/ceo/dashboard", iconName: "LayoutDashboard", visible: true, category: "CEO Access", order: 3 },
+  { id: "ceo-advertencias", title: "Advertências & Suspensões", url: "/ceo/advertencias", iconName: "ShieldAlert", visible: true, category: "CEO Access", order: 4 },
 ];
 
 export const CEO_SYSTEM_MODULES = [
@@ -54,6 +62,12 @@ const PERMISSION_LEVEL = "system_ceo_menu_config";
 const listeners = new Set<() => void>();
 export function emitCeoChange() {
   listeners.forEach((l) => l());
+  if (typeof window !== "undefined") {
+    try {
+      window.dispatchEvent(new CustomEvent("tw_menu_updated", { detail: { level: PERMISSION_LEVEL } }));
+      window.dispatchEvent(new Event("storage"));
+    } catch {}
+  }
 }
 
 function getSnapshot(): string {
@@ -63,7 +77,20 @@ function getSnapshot(): string {
 
 function subscribe(callback: () => void) {
   listeners.add(callback);
-  return () => listeners.delete(callback);
+  const handleEvent = () => callback();
+  if (typeof window !== "undefined") {
+    window.addEventListener("storage", handleEvent);
+    window.addEventListener("tw_menu_updated", handleEvent);
+    window.addEventListener("tw_ceo_config_updated", handleEvent);
+  }
+  return () => {
+    listeners.delete(callback);
+    if (typeof window !== "undefined") {
+      window.removeEventListener("storage", handleEvent);
+      window.removeEventListener("tw_menu_updated", handleEvent);
+      window.removeEventListener("tw_ceo_config_updated", handleEvent);
+    }
+  };
 }
 
 export function sanitizeCeoConfig(parsed: any): CeoMenuConfig {
@@ -73,13 +100,15 @@ export function sanitizeCeoConfig(parsed: any): CeoMenuConfig {
       : [];
 
   categories = Array.from(new Set(categories));
-  if (categories.length === 0) {
+  // Migra a categoria legada singular "CEO" para as categorias oficiais atuais ["CEO Tools", "CEO Access"]
+  if (categories.length === 0 || (categories.length === 1 && categories[0] === "CEO")) {
     categories = [...DEFAULT_CEO_CATEGORIES];
   }
 
-  const deletedIds = new Set<string>(
-    Array.isArray(parsed?.deletedItemIds) ? parsed.deletedItemIds : []
-  );
+  const deletedIds = new Set<string>([
+    ...(Array.isArray(parsed?.deletedItemIds) ? parsed.deletedItemIds : []),
+    ...DEFAULT_CEO_DELETED_ITEM_IDS,
+  ]);
 
   const defaultIds = new Set(DEFAULT_CEO_MENU_ITEMS.map((d) => d.id));
   const primaryCat = categories[0] || "CEO";
@@ -153,10 +182,10 @@ export function sanitizeCeoConfig(parsed: any): CeoMenuConfig {
       };
     });
 
-  const categoryIcons =
-    parsed?.categoryIcons && typeof parsed.categoryIcons === "object"
-      ? parsed.categoryIcons
-      : {};
+  const categoryIcons = {
+    ...DEFAULT_CEO_CATEGORY_ICONS,
+    ...(parsed?.categoryIcons && typeof parsed.categoryIcons === "object" ? parsed.categoryIcons : {}),
+  };
 
   return {
     categories,
@@ -169,7 +198,14 @@ export function sanitizeCeoConfig(parsed: any): CeoMenuConfig {
 export function getCeoMenuConfig(): CeoMenuConfig | null {
   try {
     const raw = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
-    if (!raw || raw === "{}" || raw === "null" || raw === "undefined") return null;
+    if (!raw || raw === "{}" || raw === "null" || raw === "undefined") {
+      return sanitizeCeoConfig({
+        categories: [...DEFAULT_CEO_CATEGORIES],
+        categoryIcons: { ...DEFAULT_CEO_CATEGORY_ICONS },
+        deletedItemIds: [...DEFAULT_CEO_DELETED_ITEM_IDS],
+        items: [...DEFAULT_CEO_MENU_ITEMS],
+      });
+    }
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object" && Array.isArray(parsed.items)) {
       return sanitizeCeoConfig(parsed);
@@ -186,18 +222,42 @@ export function getCeoMenuConfig(): CeoMenuConfig | null {
 export async function fetchRemoteCeoMenuConfig(): Promise<CeoMenuConfig | null> {
   // 1. Prioriza SEMPRE o banco de dados oficial Supabase
   try {
-    const { data } = await supabase
+    let { data, error } = await supabase
       .from("role_permissions")
       .select("permissions")
       .eq("level", PERMISSION_LEVEL)
       .maybeSingle();
 
+    // Fallback REST direto com a chave oficial caso PostgREST retorne erro de autenticação ou vazio
+    if ((error || !data || !data.permissions) && typeof fetch !== "undefined") {
+      try {
+        const url = `${SUPABASE_URL}/rest/v1/role_permissions?select=permissions&level=eq.${PERMISSION_LEVEL}`;
+        const res = await fetch(url, {
+          headers: {
+            apikey: SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+            Accept: "application/vnd.pgrst.object+json",
+          },
+        });
+        if (res.ok) {
+          const directData = await res.json();
+          if (directData && directData.permissions) {
+            data = directData;
+          }
+        }
+      } catch {}
+    }
+
     if (data && data.permissions && typeof data.permissions === "object") {
       const cfg = data.permissions as any;
       if (Array.isArray(cfg.items) && cfg.items.length > 0) {
         const sanitized = sanitizeCeoConfig(cfg);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
-        emitCeoChange();
+        const prev = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
+        const next = JSON.stringify(sanitized);
+        if (prev !== next) {
+          localStorage.setItem(STORAGE_KEY, next);
+          emitCeoChange();
+        }
         return sanitized;
       }
     }
@@ -226,14 +286,15 @@ export async function fetchRemoteCeoMenuConfig(): Promise<CeoMenuConfig | null> 
  * Salva a configuração do menu CEO localmente e persiste no Supabase
  */
 export async function saveCeoMenuConfig(config: CeoMenuConfig) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+  const sanitized = sanitizeCeoConfig(config);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
   emitCeoChange();
 
   try {
     await rtdb.set(`role_permissions/${PERMISSION_LEVEL}`, {
       level: PERMISSION_LEVEL,
       nivel: PERMISSION_LEVEL,
-      permissions: config as any,
+      permissions: sanitized as any,
       updated_at: new Date().toISOString(),
     });
   } catch (fbErr) {
@@ -245,7 +306,7 @@ export async function saveCeoMenuConfig(config: CeoMenuConfig) {
       {
         level: PERMISSION_LEVEL,
         nivel: PERMISSION_LEVEL,
-        permissions: config as any,
+        permissions: sanitized as any,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "level" }
@@ -266,6 +327,8 @@ export async function saveCeoMenuConfig(config: CeoMenuConfig) {
 export async function resetCeoMenuConfig() {
   const def: CeoMenuConfig = {
     categories: [...DEFAULT_CEO_CATEGORIES],
+    categoryIcons: { ...DEFAULT_CEO_CATEGORY_ICONS },
+    deletedItemIds: [...DEFAULT_CEO_DELETED_ITEM_IDS],
     items: [...DEFAULT_CEO_MENU_ITEMS],
   };
   await saveCeoMenuConfig(def);
@@ -288,12 +351,26 @@ export function useCeoMenuConfig() {
     } catch {}
     return {
       categories: [...DEFAULT_CEO_CATEGORIES],
+      categoryIcons: { ...DEFAULT_CEO_CATEGORY_ICONS },
+      deletedItemIds: [...DEFAULT_CEO_DELETED_ITEM_IDS],
       items: [...DEFAULT_CEO_MENU_ITEMS],
     };
   }, [raw]);
 
   useEffect(() => {
-    fetchRemoteCeoMenuConfig();
+    void fetchRemoteCeoMenuConfig();
+
+    if (typeof window !== "undefined") {
+      const handleFocus = () => void fetchRemoteCeoMenuConfig();
+      window.addEventListener("focus", handleFocus);
+      window.addEventListener("visibilitychange", handleFocus);
+      const interval = setInterval(handleFocus, 12000);
+      return () => {
+        window.removeEventListener("focus", handleFocus);
+        window.removeEventListener("visibilitychange", handleFocus);
+        clearInterval(interval);
+      };
+    }
   }, []);
 
   const save = useCallback(async (newConfig: CeoMenuConfig) => {

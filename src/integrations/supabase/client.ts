@@ -1,11 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 import { BACKUP_SEED_DATABASE } from '@/data/backupSeedData';
 
-const SUPABASE_URL =
+export const SUPABASE_URL =
   (import.meta.env?.['VITE_SUPABASE_URL'] as string) ||
   "https://efwqhqevfxlschyhbiao.supabase.co";
 
-const SUPABASE_PUBLISHABLE_KEY =
+export const SUPABASE_PUBLISHABLE_KEY =
   (import.meta.env?.['VITE_SUPABASE_PUBLISHABLE_KEY'] as string) ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVmd3FocWV2Znhsc2NoeWhiaWFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0MTA0NTksImV4cCI6MjEwNDk4NjQ1OX0.NphUbLaJbJfU7dZvq8JZYoGWBYruAtvduDD0yrULy9k";
 
@@ -2152,14 +2152,25 @@ async function handleSupabaseFallback(urlStr: string, init?: RequestInit): Promi
 
       // D) GET: Select
       let items: any[] = [];
-      const singleIdFilter = filters.find((f) => f.field === 'id' && f.op === 'eq');
+      const singleIdFilter = filters.find((f) => (f.field === 'id' || f.field === 'level') && f.op === 'eq');
       if (singleIdFilter && singleIdFilter.val && !singleIdFilter.val.includes(',')) {
-        // Busca direta de um item específico por ID (<50ms)
+        // Busca direta de um item específico por ID / level (<50ms)
         let directItem = await fastRtdbFetch(`${FIREBASE_RTDB_URL}/${table}/${singleIdFilter.val}.json`);
         if (!directItem && typeof window !== 'undefined') {
           try {
-            const raw = localStorage.getItem(`tw_rtdb_${table}/${singleIdFilter.val}`);
-            if (raw) directItem = JSON.parse(raw);
+            if (table === 'role_permissions' && singleIdFilter.val === 'system_ceo_menu_config') {
+              const localCeo = localStorage.getItem('tw_ceo_menu_config');
+              if (localCeo) directItem = { level: 'system_ceo_menu_config', nivel: 'system_ceo_menu_config', permissions: JSON.parse(localCeo) };
+            } else if (table === 'role_permissions' && singleIdFilter.val === 'system_menu_config') {
+              const localMenu = localStorage.getItem('tw_menu_config');
+              if (localMenu) directItem = { level: 'system_menu_config', nivel: 'system_menu_config', permissions: JSON.parse(localMenu) };
+            } else if (table === 'role_permissions' && singleIdFilter.val === 'system_dev_menu_config') {
+              const localDev = localStorage.getItem('tw_dev_menu_config');
+              if (localDev) directItem = { level: 'system_dev_menu_config', nivel: 'system_dev_menu_config', permissions: JSON.parse(localDev) };
+            } else {
+              const raw = localStorage.getItem(`tw_rtdb_${table}/${singleIdFilter.val}`);
+              if (raw) directItem = JSON.parse(raw);
+            }
           } catch {}
         }
         if (!directItem) {
@@ -2450,6 +2461,23 @@ export const supabase = createClient<any>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY
           clearTimeout(timeoutId);
           if (res.ok) {
             return res;
+          }
+          // Se falhou por 401 (JWT expirado ou não autorizado) em consultas de tabelas públicas como role_permissions:
+          // Retenta imediatamente usando a chave pública oficial (SUPABASE_PUBLISHABLE_KEY)
+          if (res.status === 401 && (
+            urlStr.includes('/role_permissions') ||
+            urlStr.includes('/products') ||
+            urlStr.includes('/baus') ||
+            urlStr.includes('/custom_roles') ||
+            urlStr.includes('/categories')
+          )) {
+            const retryHeaders = new Headers(init?.headers);
+            retryHeaders.set('apikey', SUPABASE_PUBLISHABLE_KEY);
+            retryHeaders.set('Authorization', `Bearer ${SUPABASE_PUBLISHABLE_KEY}`);
+            const retryRes = await fetch(input, { ...init, headers: retryHeaders });
+            if (retryRes.ok) {
+              return retryRes;
+            }
           }
         } catch {}
         return handleSupabaseFallback(urlStr, init);

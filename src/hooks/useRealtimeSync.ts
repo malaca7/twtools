@@ -809,9 +809,23 @@ export function useRealtimeSync() {
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
     };
 
+    const syncAllPlatformState = () => {
+      void fetchRemoteMenuConfig();
+      void fetchRemoteCeoMenuConfig();
+      void fetchRemoteDevMenuConfig();
+      void queryClient.invalidateQueries({ queryKey: ["role_permissions"] });
+      void queryClient.invalidateQueries({ queryKey: ["custom_roles"] });
+      void queryClient.invalidateQueries({ queryKey: ["member_tags"] });
+      void queryClient.invalidateQueries({ queryKey: ["member_tag_assignments"] });
+    };
+
+    let syncInterval: ReturnType<typeof setInterval> | null = null;
     if (typeof window !== "undefined") {
       window.addEventListener("online", handleOnline);
       window.addEventListener("offline", handleOffline);
+      window.addEventListener("focus", syncAllPlatformState);
+      window.addEventListener("visibilitychange", syncAllPlatformState);
+      syncInterval = setInterval(syncAllPlatformState, 15000);
     }
 
     // Inicializa canais WebSocket
@@ -828,7 +842,10 @@ export function useRealtimeSync() {
       if (typeof window !== "undefined") {
         window.removeEventListener("online", handleOnline);
         window.removeEventListener("offline", handleOffline);
+        window.removeEventListener("focus", syncAllPlatformState);
+        window.removeEventListener("visibilitychange", syncAllPlatformState);
       }
+      if (syncInterval) clearInterval(syncInterval);
 
       if (bc) bc.close();
       if (permBc) permBc.close();

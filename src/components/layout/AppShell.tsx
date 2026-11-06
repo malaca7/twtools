@@ -544,7 +544,7 @@ function DynamicSidebarNavigation() {
     );
     const rawCategories = menuConfig?.categories?.length
       ? menuConfig.categories
-      : ["Produções", "Gestão", "Administração"];
+      : ["Twin Wheels", "Eu", "Logística", "Moderação", "Financeiro", "Administração"];
     const categoryOrder = rawCategories.filter((c) => c !== "Operação");
 
     const masterItemsMap = new Map<string, BaseNavItem>();
@@ -643,12 +643,15 @@ function DynamicSidebarNavigation() {
     const buildCeoGroups = () => {
       const ceoValidItems = ceoMenuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
       const ceoConfigMap = new Map(ceoValidItems.map((c) => [c.id || c.url, c]));
-      const ceoCategoryOrder = ceoMenuConfig?.categories?.length
-        ? ceoMenuConfig.categories
-        : ["CEO"];
+      const rawCeoCats = ceoMenuConfig?.categories?.length
+        ? (ceoMenuConfig.categories.length === 1 && ceoMenuConfig.categories[0] === "CEO"
+            ? ["CEO Tools", "CEO Access"]
+            : ceoMenuConfig.categories)
+        : ["CEO Tools", "CEO Access"];
+      const ceoCategoryOrder = rawCeoCats;
 
       const defaultCeoIds = new Set(DEFAULT_CEO_MENU_ITEMS.map((d) => d.id));
-      const primaryCeoCat = ceoCategoryOrder[0] || "CEO";
+      const primaryCeoCat = ceoCategoryOrder[0] || "CEO Tools";
 
       const ceoDeletedIds = new Set(ceoMenuConfig?.deletedItemIds || []);
       const customizedCeo: MasterNavItem[] = DEFAULT_CEO_MENU_ITEMS
@@ -1097,8 +1100,8 @@ function DynamicSidebarNavigation() {
         // Isolamento estrito: ceoStyle e ícone CEO em categorias de CEO (mesmo quando exibidas no painel Dev se o membro tiver tag CEO)
         const isCeoCategory = !isDevCategory && (
           ceoMenuConfig?.categories?.length
-            ? ceoMenuConfig.categories.includes(category)
-            : category === "CEO"
+            ? ceoMenuConfig.categories.includes(category) || category === "CEO" || category === "CEO Tools" || category === "CEO Access"
+            : (category === "CEO" || category === "CEO Tools" || category === "CEO Access")
         );
 
         let defaultFallbackIcon = FolderTree;

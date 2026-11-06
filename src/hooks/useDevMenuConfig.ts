@@ -1,6 +1,6 @@
 import { rtdb } from "@/integrations/firebase/rtdb";
 import { useEffect, useCallback, useMemo, useSyncExternalStore } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
 import { broadcastPermissionsRealtimeUpdate } from "@/lib/permissionsRealtimeSync";
 
 export type DevMenuItemConfig = {
@@ -50,6 +50,13 @@ const PERMISSION_LEVEL = "system_dev_menu_config";
 const listeners = new Set<() => void>();
 export function emitDevChange() {
   listeners.forEach((l) => l());
+  if (typeof window !== "undefined") {
+    try {
+      window.dispatchEvent(new CustomEvent("tw_menu_updated", { detail: { level: PERMISSION_LEVEL } }));
+      window.dispatchEvent(new CustomEvent("tw_dev_config_updated"));
+      window.dispatchEvent(new Event("storage"));
+    } catch {}
+  }
 }
 
 function getSnapshot(): string {
@@ -59,7 +66,20 @@ function getSnapshot(): string {
 
 function subscribe(callback: () => void) {
   listeners.add(callback);
-  return () => listeners.delete(callback);
+  const handleEvent = () => callback();
+  if (typeof window !== "undefined") {
+    window.addEventListener("storage", handleEvent);
+    window.addEventListener("tw_menu_updated", handleEvent);
+    window.addEventListener("tw_dev_config_updated", handleEvent);
+  }
+  return () => {
+    listeners.delete(callback);
+    if (typeof window !== "undefined") {
+      window.removeEventListener("storage", handleEvent);
+      window.removeEventListener("tw_menu_updated", handleEvent);
+      window.removeEventListener("tw_dev_config_updated", handleEvent);
+    }
+  };
 }
 
 export function normalizeDevMenuConfig(cfg: DevMenuConfig): DevMenuConfig {
@@ -179,18 +199,42 @@ export function getDevMenuConfig(): DevMenuConfig | null {
 export async function fetchRemoteDevMenuConfig(): Promise<DevMenuConfig | null> {
   // 1. Prioriza SEMPRE o banco de dados oficial Supabase
   try {
-    const { data } = await supabase
+    let { data, error } = await supabase
       .from("role_permissions")
       .select("permissions")
       .eq("level", PERMISSION_LEVEL)
       .maybeSingle();
 
+    // Fallback REST direto com a chave oficial caso PostgREST retorne erro de autenticação ou vazio
+    if ((error || !data || !data.permissions) && typeof fetch !== "undefined") {
+      try {
+        const url = `${SUPABASE_URL}/rest/v1/role_permissions?select=permissions&level=eq.${PERMISSION_LEVEL}`;
+        const res = await fetch(url, {
+          headers: {
+            apikey: SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+            Accept: "application/vnd.pgrst.object+json",
+          },
+        });
+        if (res.ok) {
+          const directData = await res.json();
+          if (directData && directData.permissions) {
+            data = directData;
+          }
+        }
+      } catch {}
+    }
+
     if (data && data.permissions && typeof data.permissions === "object") {
       const cfg = data.permissions as any;
       if (Array.isArray(cfg.items)) {
         const normalized = normalizeDevMenuConfig(cfg as DevMenuConfig);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
-        emitDevChange();
+        const prev = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
+        const next = JSON.stringify(normalized);
+        if (prev !== next) {
+          localStorage.setItem(STORAGE_KEY, next);
+          emitDevChange();
+        }
         return normalized;
       }
     }
@@ -274,6 +318,18 @@ export function useDevMenuConfig() {
 
   useEffect(() => {
     void fetchRemoteDevMenuConfig();
+
+    if (typeof window !== "undefined") {
+      const handleFocus = () => void fetchRemoteDevMenuConfig();
+      window.addEventListener("focus", handleFocus);
+      window.addEventListener("visibilitychange", handleFocus);
+      const interval = setInterval(handleFocus, 12000);
+      return () => {
+        window.removeEventListener("focus", handleFocus);
+        window.removeEventListener("visibilitychange", handleFocus);
+        clearInterval(interval);
+      };
+    }
   }, []);
 
   const config: DevMenuConfig | null = useMemo(() => {

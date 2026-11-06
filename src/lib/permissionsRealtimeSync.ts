@@ -128,4 +128,13 @@ export async function broadcastPermissionsRealtimeUpdate(
   } catch (err) {
     console.warn("Realtime permissions broadcast warning:", err);
   }
+
+  try {
+    const globalCh = supabase.channel("tw_global_realtime_broadcast");
+    await globalCh.send({
+      type: "broadcast",
+      event: "table_changed",
+      payload: { ...fullPayload, keys: ["role_permissions"] },
+    });
+  } catch {}
 }

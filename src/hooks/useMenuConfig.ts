@@ -1,6 +1,6 @@
 import { rtdb } from "@/integrations/firebase/rtdb";
 import { useEffect, useCallback, useMemo, useSyncExternalStore } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
 import { broadcastPermissionsRealtimeUpdate } from "@/lib/permissionsRealtimeSync";
 
 export type MenuItemConfig = {
@@ -29,6 +29,7 @@ export function emitChange() {
   listeners.forEach((l) => l());
   if (typeof window !== "undefined") {
     try {
+      window.dispatchEvent(new CustomEvent("tw_menu_updated", { detail: { level: "system_menu_config" } }));
       window.dispatchEvent(new Event("storage"));
     } catch {}
   }
@@ -41,10 +42,45 @@ function getSnapshot(): string {
 
 function subscribe(callback: () => void) {
   listeners.add(callback);
-  return () => listeners.delete(callback);
+  const handleEvent = () => callback();
+  if (typeof window !== "undefined") {
+    window.addEventListener("storage", handleEvent);
+    window.addEventListener("tw_menu_updated", handleEvent);
+  }
+  return () => {
+    listeners.delete(callback);
+    if (typeof window !== "undefined") {
+      window.removeEventListener("storage", handleEvent);
+      window.removeEventListener("tw_menu_updated", handleEvent);
+    }
+  };
 }
 
-export const DEFAULT_MENU_CATEGORIES = ["Eu", "Twin Wheels", "Produção", "Moderação", "Administração"];
+export const DEFAULT_MENU_CATEGORIES = [
+  "Twin Wheels",
+  "Eu",
+  "Logística",
+  "Moderação",
+  "Financeiro",
+  "Administração",
+];
+
+export const DEFAULT_MENU_DELETED_ITEM_IDS = [
+  "estoque",
+  "ceo-selos",
+  "loja",
+  "metas",
+  "escalas",
+  "rankings",
+  "ceo-tags",
+  "desempenho",
+  "notificacoes",
+  "vendas",
+  "produzir",
+  "materias-primas",
+  "gestao-producao",
+  "armazem",
+];
 
 export const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
   { id: "perfil", title: "Meu Perfil", url: "/perfil", visible: true, category: "Eu", order: 0, iconName: "User" },
@@ -301,16 +337,40 @@ export function getMenuConfig(): MenuConfig {
 export async function fetchRemoteMenuConfig(): Promise<MenuConfig> {
   // 1. Prioriza SEMPRE o banco de dados oficial Supabase
   try {
-    const { data } = await supabase
+    let { data, error } = await supabase
       .from("role_permissions")
       .select("permissions")
       .eq("level", "system_menu_config")
       .maybeSingle();
 
+    // Fallback REST direto com a chave oficial caso PostgREST retorne erro de autenticação ou vazio
+    if ((error || !data || !data.permissions) && typeof fetch !== "undefined") {
+      try {
+        const url = `${SUPABASE_URL}/rest/v1/role_permissions?select=permissions&level=eq.system_menu_config`;
+        const res = await fetch(url, {
+          headers: {
+            apikey: SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+            Accept: "application/vnd.pgrst.object+json",
+          },
+        });
+        if (res.ok) {
+          const directData = await res.json();
+          if (directData && directData.permissions) {
+            data = directData;
+          }
+        }
+      } catch {}
+    }
+
     if (data && data.permissions && typeof data.permissions === "object") {
       const cfg = syncMenuConfig(data.permissions as any);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
-      emitChange();
+      const prev = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
+      const next = JSON.stringify(cfg);
+      if (prev !== next) {
+        localStorage.setItem(STORAGE_KEY, next);
+        emitChange();
+      }
       return cfg;
     }
   } catch (err) {
@@ -407,6 +467,18 @@ export function useMenuConfig() {
 
   useEffect(() => {
     void fetchRemoteMenuConfig();
+
+    if (typeof window !== "undefined") {
+      const handleFocus = () => void fetchRemoteMenuConfig();
+      window.addEventListener("focus", handleFocus);
+      window.addEventListener("visibilitychange", handleFocus);
+      const interval = setInterval(handleFocus, 12000);
+      return () => {
+        window.removeEventListener("focus", handleFocus);
+        window.removeEventListener("visibilitychange", handleFocus);
+        clearInterval(interval);
+      };
+    }
   }, []);
 
   const config: MenuConfig = useMemo(() => {
