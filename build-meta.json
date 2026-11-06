@@ -1,5 +1,5 @@
 {
-  "deployed_at": "2026-11-06T03:40:16.219Z",
-  "timestamp": 1793936416220,
-  "message": "fix(tickets): corrigir permissao view_all_tickets na fila geral e blindagem de tags CEO/Dev"
+  "deployed_at": "2026-11-06T03:52:06.305Z",
+  "timestamp": 1793937126306,
+  "message": "fix(permissions): isolar estritamente permissoes por painel (membro=cargo+tags, ceo=cargo+tags+ceo, dev=cargo+tags+ceo+dev)"
 }
