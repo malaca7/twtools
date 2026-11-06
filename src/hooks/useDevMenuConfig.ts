@@ -177,19 +177,7 @@ export function getDevMenuConfig(): DevMenuConfig | null {
  * Syncs locally and notifies all subscribers.
  */
 export async function fetchRemoteDevMenuConfig(): Promise<DevMenuConfig | null> {
-  try {
-    const rtdbData = await rtdb.get<any>(`role_permissions/${PERMISSION_LEVEL}`);
-    if (rtdbData && rtdbData.permissions && typeof rtdbData.permissions === "object") {
-      const cfg = rtdbData.permissions as any;
-      if (Array.isArray(cfg.items)) {
-        const normalized = normalizeDevMenuConfig(cfg as DevMenuConfig);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
-        emitDevChange();
-        return normalized;
-      }
-    }
-  } catch {}
-
+  // 1. Prioriza SEMPRE o banco de dados oficial Supabase
   try {
     const { data } = await supabase
       .from("role_permissions")
@@ -207,8 +195,23 @@ export async function fetchRemoteDevMenuConfig(): Promise<DevMenuConfig | null> 
       }
     }
   } catch (err) {
-    console.warn("Erro ao buscar dev_menu_config remoto do banco:", err);
+    console.warn("Erro ao buscar dev_menu_config do Supabase:", err);
   }
+
+  // 2. Fallback RTDB caso Supabase retorne vazio
+  try {
+    const rtdbData = await rtdb.get<any>(`role_permissions/${PERMISSION_LEVEL}`);
+    if (rtdbData && rtdbData.permissions && typeof rtdbData.permissions === "object") {
+      const cfg = rtdbData.permissions as any;
+      if (Array.isArray(cfg.items)) {
+        const normalized = normalizeDevMenuConfig(cfg as DevMenuConfig);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+        emitDevChange();
+        return normalized;
+      }
+    }
+  } catch {}
+
   return getDevMenuConfig();
 }
 

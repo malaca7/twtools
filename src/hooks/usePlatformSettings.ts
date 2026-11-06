@@ -252,16 +252,7 @@ export function getPlatformSettings(): PlatformSettings {
  * Fetches global platform settings configured by leadership from Supabase database.
  */
 export async function fetchRemotePlatformSettings(): Promise<PlatformSettings> {
-  try {
-    const rtdbData = await rtdb.get<any>("role_permissions/system_platform_settings");
-    if (rtdbData && rtdbData.permissions && typeof rtdbData.permissions === "object") {
-      const merged = { ...DEFAULT_PLATFORM_SETTINGS, ...(rtdbData.permissions as any) };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-      emitPlatformSettingsChange();
-      return merged;
-    }
-  } catch {}
-
+  // 1. Prioriza SEMPRE o banco de dados oficial Supabase
   try {
     const { data } = await supabase
       .from("role_permissions")
@@ -276,8 +267,20 @@ export async function fetchRemotePlatformSettings(): Promise<PlatformSettings> {
       return merged;
     }
   } catch (err) {
-    console.warn("Erro ao buscar platform_settings remotas do banco:", err);
+    console.warn("Erro ao buscar platform_settings do Supabase:", err);
   }
+
+  // 2. Fallback RTDB caso Supabase retorne vazio
+  try {
+    const rtdbData = await rtdb.get<any>("role_permissions/system_platform_settings");
+    if (rtdbData && rtdbData.permissions && typeof rtdbData.permissions === "object") {
+      const merged = { ...DEFAULT_PLATFORM_SETTINGS, ...(rtdbData.permissions as any) };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      emitPlatformSettingsChange();
+      return merged;
+    }
+  } catch {}
+
   return getPlatformSettings();
 }
 

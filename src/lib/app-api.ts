@@ -238,7 +238,7 @@ export async function getCurrentAuth(): Promise<AuthState> {
                 const { data: tagRows } = await supabase
                   .from("member_tag_assignments")
                   .select("tag_id")
-                  .eq("user_id", targetUid);
+                  .or(`user_id.eq.${targetUid},member_id.eq.${targetUid}`);
                 hasDevTag = (tagRows || []).some(t => t.tag_id === "dev" || t.tag_id === "desenvolvedor");
                 hasCeoTag = (tagRows || []).some(t => t.tag_id === "ceo");
               }
@@ -250,12 +250,12 @@ export async function getCurrentAuth(): Promise<AuthState> {
                   matchedProfile.is_developer === true ||
                   userRole?.nivel === "desenvolvedor" ||
                   hasDevTag ||
-                  (matchedProfile.is_developer === undefined && String(discordUser.id) === "722320491767136346")
+                  (matchedProfile.is_developer === undefined && (String(discordUser.id) === "722320491767136346" || String(discordUser.id) === "917826984778797087"))
                 );
             const isCeo = matchedProfile.is_ceo === false
               ? false
               : Boolean(matchedProfile.is_ceo === true || userRole?.nivel === "ceo" || (hasCeoTag && matchedProfile.is_ceo !== false));
-            const userLevel = isDev ? "desenvolvedor" : (userRole?.nivel || (isCeo ? "ceo" : "novato"));
+            const userLevel = userRole?.nivel || (isDev ? "desenvolvedor" : (isCeo ? "ceo" : "novato"));
 
             const discordAvatar = discordUser.avatar
               ? `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png?size=512`
@@ -406,16 +406,31 @@ export async function getCurrentAuth(): Promise<AuthState> {
 
     const pAny = profileRow as any;
     const candidateUids = [session.user.id, pAny?.id, pAny?.user_id, discordId].filter(Boolean).map(String);
+    let hasDevTag = false;
+    let hasCeoTag = false;
+    try {
+      const validUids = candidateUids.filter((u) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(u));
+      if (validUids.length > 0) {
+        const { data: tagRows } = await supabase
+          .from("member_tag_assignments")
+          .select("tag_id")
+          .or(validUids.map(u => `user_id.eq.${u},member_id.eq.${u}`).join(","));
+        hasDevTag = (tagRows || []).some(t => t.tag_id === "dev" || t.tag_id === "desenvolvedor");
+        hasCeoTag = (tagRows || []).some(t => t.tag_id === "ceo");
+      }
+    } catch {}
+
     let isDev = pAny?.is_developer === false
       ? false
       : Boolean(
           pAny?.is_developer === true ||
-          (pAny?.is_developer === undefined && String(discordId) === "722320491767136346") ||
-          roleRow?.nivel === "desenvolvedor"
+          roleRow?.nivel === "desenvolvedor" ||
+          hasDevTag ||
+          (pAny?.is_developer === undefined && (String(discordId) === "722320491767136346" || String(discordId) === "917826984778797087"))
         );
     let isCeo = pAny?.is_ceo === false
       ? false
-      : Boolean(pAny?.is_ceo === true || roleRow?.nivel === "ceo");
+      : Boolean(pAny?.is_ceo === true || roleRow?.nivel === "ceo" || (hasCeoTag && pAny?.is_ceo !== false));
 
     const profile: Profile | null = profileRow ? {
       id: pAny.id,

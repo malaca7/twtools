@@ -644,7 +644,7 @@ function DynamicSidebarNavigation() {
       const ceoValidItems = ceoMenuConfig?.items?.filter((c) => Boolean(c && (c.id || c.url))) || [];
       const ceoConfigMap = new Map(ceoValidItems.map((c) => [c.id || c.url, c]));
       const ceoCategoryOrder = ceoMenuConfig?.categories?.length
-        ? ceoMenuConfig.categories.map((c) => c === "CEO Tools" ? "CEO" : c)
+        ? ceoMenuConfig.categories
         : ["CEO"];
 
       const defaultCeoIds = new Set(DEFAULT_CEO_MENU_ITEMS.map((d) => d.id));
@@ -657,9 +657,7 @@ function DynamicSidebarNavigation() {
         const cfg = ceoConfigMap.get(item.id) || ceoConfigMap.get(item.url);
         let resolvedCat = cfg?.category || item.category || primaryCeoCat;
         if (!ceoCategoryOrder.includes(resolvedCat)) {
-          if (resolvedCat === "CEO" && !ceoCategoryOrder.includes("CEO")) {
-            resolvedCat = primaryCeoCat;
-          }
+          resolvedCat = primaryCeoCat;
         }
         return {
           id: item.id,
@@ -686,9 +684,7 @@ function DynamicSidebarNavigation() {
         .map((c, idx) => {
           let resolvedCat = c.category || primaryCeoCat;
           if (!ceoCategoryOrder.includes(resolvedCat)) {
-            if (resolvedCat === "CEO" && !ceoCategoryOrder.includes("CEO")) {
-              resolvedCat = primaryCeoCat;
-            }
+            resolvedCat = primaryCeoCat;
           }
           return {
             id: c.id,

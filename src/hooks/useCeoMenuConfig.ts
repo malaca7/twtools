@@ -73,7 +73,7 @@ export function sanitizeCeoConfig(parsed: any): CeoMenuConfig {
       : [];
 
   categories = Array.from(new Set(categories));
-  if (categories.length === 0 || (categories.length === 1 && categories[0] === "CEO Tools")) {
+  if (categories.length === 0) {
     categories = [...DEFAULT_CEO_CATEGORIES];
   }
 
@@ -184,18 +184,7 @@ export function getCeoMenuConfig(): CeoMenuConfig | null {
  * Carrega a configuração do menu CEO a partir do Supabase e sincroniza localmente
  */
 export async function fetchRemoteCeoMenuConfig(): Promise<CeoMenuConfig | null> {
-  try {
-    const rtdbData = await rtdb.get<any>(`role_permissions/${PERMISSION_LEVEL}`);
-    if (rtdbData && rtdbData.permissions && typeof rtdbData.permissions === "object") {
-      const cfg = rtdbData.permissions as any;
-      if (Array.isArray(cfg.items)) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
-        emitCeoChange();
-        return cfg as CeoMenuConfig;
-      }
-    }
-  } catch {}
-
+  // 1. Prioriza SEMPRE o banco de dados oficial Supabase
   try {
     const { data } = await supabase
       .from("role_permissions")
@@ -205,15 +194,31 @@ export async function fetchRemoteCeoMenuConfig(): Promise<CeoMenuConfig | null> 
 
     if (data && data.permissions && typeof data.permissions === "object") {
       const cfg = data.permissions as any;
-      if (Array.isArray(cfg.items)) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+      if (Array.isArray(cfg.items) && cfg.items.length > 0) {
+        const sanitized = sanitizeCeoConfig(cfg);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
         emitCeoChange();
-        return cfg as CeoMenuConfig;
+        return sanitized;
       }
     }
   } catch (err) {
-    console.warn("Erro ao buscar ceo_menu_config remoto do banco:", err);
+    console.warn("Erro ao buscar ceo_menu_config do Supabase:", err);
   }
+
+  // 2. Fallback RTDB caso Supabase retorne vazio
+  try {
+    const rtdbData = await rtdb.get<any>(`role_permissions/${PERMISSION_LEVEL}`);
+    if (rtdbData && rtdbData.permissions && typeof rtdbData.permissions === "object") {
+      const cfg = rtdbData.permissions as any;
+      if (Array.isArray(cfg.items)) {
+        const sanitized = sanitizeCeoConfig(cfg);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
+        emitCeoChange();
+        return sanitized;
+      }
+    }
+  } catch {}
+
   return getCeoMenuConfig();
 }
 

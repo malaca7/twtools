@@ -182,8 +182,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 }
                 if (!sim.is_ceo && typeof window !== "undefined") {
                   if (localStorage.getItem("tw_panel_mode") === "ceo") {
-                    localStorage.setItem("tw_panel_mode", "member");
-                    sessionStorage.setItem("tw_panel_mode", "member");
+                    const fallbackMode = sim.is_developer ? "dev" : "member";
+                    localStorage.setItem("tw_panel_mode", fallbackMode);
+                    sessionStorage.setItem("tw_panel_mode", fallbackMode);
                   }
                 }
               }
@@ -317,8 +318,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 }
                 if (!dev.is_ceo && typeof window !== "undefined") {
                   if (localStorage.getItem("tw_panel_mode") === "ceo") {
-                    localStorage.setItem("tw_panel_mode", "member");
-                    sessionStorage.setItem("tw_panel_mode", "member");
+                    const fallbackMode = dev.is_developer ? "dev" : "member";
+                    localStorage.setItem("tw_panel_mode", fallbackMode);
+                    sessionStorage.setItem("tw_panel_mode", fallbackMode);
                   }
                 }
               }

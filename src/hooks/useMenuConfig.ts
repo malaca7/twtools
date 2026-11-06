@@ -293,16 +293,7 @@ export function getMenuConfig(): MenuConfig {
  * Syncs locally and notifies all subscribers.
  */
 export async function fetchRemoteMenuConfig(): Promise<MenuConfig> {
-  try {
-    const rtdbData = await rtdb.get<any>("role_permissions/system_menu_config");
-    if (rtdbData && rtdbData.permissions && typeof rtdbData.permissions === "object") {
-      const cfg = syncMenuConfig(rtdbData.permissions as any);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
-      emitChange();
-      return cfg;
-    }
-  } catch {}
-
+  // 1. Prioriza SEMPRE o banco de dados oficial Supabase
   try {
     const { data } = await supabase
       .from("role_permissions")
@@ -317,8 +308,20 @@ export async function fetchRemoteMenuConfig(): Promise<MenuConfig> {
       return cfg;
     }
   } catch (err) {
-    console.warn("Erro ao buscar menu_config remoto do banco:", err);
+    console.warn("Erro ao buscar menu_config do Supabase:", err);
   }
+
+  // 2. Fallback RTDB caso Supabase retorne vazio
+  try {
+    const rtdbData = await rtdb.get<any>("role_permissions/system_menu_config");
+    if (rtdbData && rtdbData.permissions && typeof rtdbData.permissions === "object") {
+      const cfg = syncMenuConfig(rtdbData.permissions as any);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+      emitChange();
+      return cfg;
+    }
+  } catch {}
+
   return getMenuConfig();
 }
 
