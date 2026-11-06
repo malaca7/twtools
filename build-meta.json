@@ -1,5 +1,5 @@
 {
-  "deployed_at": "2026-11-06T16:05:55.262Z",
-  "timestamp": 1793981155263,
-  "message": "fix(menu): sincronizacao em tempo real de categorias e itens do menu lateral com supabase"
+  "deployed_at": "2026-11-06T17:57:41.103Z",
+  "timestamp": 1793987861103,
+  "message": "feat: cores peroladas/degrade, icones de categorias e menus plataforma, remocao tag dev e migracao para emblemas dev e ceo"
 }
