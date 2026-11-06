@@ -1,5 +1,5 @@
 {
-  "deployed_at": "2026-11-06T06:27:30.153Z",
-  "timestamp": 1793946450154,
-  "message": "fix(sync): sincronizar visualizacoes em tempo real no banco, corrigir esquema perfis e desduplicar badges"
+  "deployed_at": "2026-11-06T11:37:04.510Z",
+  "timestamp": 1793965024510,
+  "message": "fix: sincronizacao dev e ceo, menus ceo no painel dev e correcao tag/perfil membro dev"
 }
